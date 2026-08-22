@@ -27,7 +27,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}\vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -68,7 +68,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}\vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -96,7 +96,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -125,7 +125,7 @@ jobs:
     needs: [build-test-package, headless-collection, linux-boundary]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Write revision-bound hosted success attestation
         shell: pwsh
         run: >-
