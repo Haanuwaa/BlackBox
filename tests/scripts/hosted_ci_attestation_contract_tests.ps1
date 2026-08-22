@@ -39,6 +39,8 @@ foreach ($workflow in @($windowsWorkflow, $qualityWorkflow)) {
     }
 }
 foreach ($clause in @(
+    'preset: windows-vs2026-release',
+    'os: windows-2025',
     'needs: [build-test-package, headless-collection, linux-boundary]',
     '-WorkflowKey windows -OutputDirectory out/hosted-ci/windows',
     'BlackBox-hosted-ci-windows-${{ github.sha }}')) {
@@ -50,6 +52,8 @@ foreach ($clause in @(
     '- dependency-policy-sbom', '- dependency-review', '- codeql', '- msvc-static-analysis',
     '- windows-address-sanitizer', '- linux-undefined-sanitizer',
     '- linux-native-fuzz', '- linux-coverage',
+    'CC=gcc-14 CXX=g++-14', 'libc++-18-dev libc++abi-18-dev',
+    '-DCMAKE_CXX_FLAGS="-stdlib=libc++"',
     "base-ref: `${{ steps.dependency-range.outputs.base }}",
     "head-ref: `${{ steps.dependency-range.outputs.head }}",
     'Dependency review requires two distinct exact revisions.',

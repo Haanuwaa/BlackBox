@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <mutex>
 #include <optional>
@@ -63,6 +64,30 @@ namespace {
 [[nodiscard]] StorageError simple_error(const StorageErrorCode code,
                                         const std::string_view message) {
     return {code, 0, std::string{message}};
+}
+
+[[nodiscard]] std::expected<void, StorageError> validate_existing_archive_header(
+    const std::filesystem::path& path) {
+    if (!std::filesystem::exists(path)) return {};
+    if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path))) {
+        return std::unexpected{simple_error(StorageErrorCode::cannot_open,
+                                             "archive is not a regular file")};
+    }
+    if (std::filesystem::file_size(path) == 0U) return {};
+
+    constexpr std::array<char, 16U> sqlite_header{
+        'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
+        'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
+    std::array<char, sqlite_header.size()> actual{};
+    std::ifstream input{path, std::ios::binary};
+    input.read(actual.data(), static_cast<std::streamsize>(actual.size()));
+    if (input.gcount() != static_cast<std::streamsize>(actual.size()) ||
+        actual != sqlite_header) {
+        return std::unexpected{simple_error(
+            StorageErrorCode::corrupt,
+            "existing archive does not have a valid SQLite header")};
+    }
+    return {};
 }
 
 [[nodiscard]] std::optional<std::string> environment_value(const char* name) {
@@ -664,6 +689,12 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
             configuration_.path == std::filesystem::path{":memory:"}) {
             return std::unexpected{simple_error(StorageErrorCode::cannot_open,
                                                  "an in-memory archive cannot be read-only")};
+        }
+        if (configuration_.path != std::filesystem::path{":memory:"}) {
+            if (auto header = validate_existing_archive_header(configuration_.path);
+                !header) {
+                return header;
+            }
         }
         if (configuration_.open_mode == ArchiveOpenMode::read_only) {
             const auto status = std::filesystem::symlink_status(configuration_.path);

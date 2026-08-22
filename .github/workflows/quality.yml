@@ -14,7 +14,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify immutable dependency and action policy
         shell: pwsh
         run: |
@@ -41,7 +41,7 @@ jobs:
           -StatusPath out/build/windows-quality-sbom/vcpkg_installed/vcpkg/status
           -OutputPath out/quality/blackbox.cdx.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-CycloneDX-SBOM
           path: out/quality/blackbox.cdx.json
@@ -50,7 +50,7 @@ jobs:
   dependency-review:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
       - name: Resolve exact dependency comparison revisions
@@ -95,9 +95,9 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Initialize CodeQL C++ analysis
-        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           languages: c-cpp
           queries: security-extended,security-and-quality
@@ -115,14 +115,14 @@ jobs:
           cmake --preset windows-msvc-release
           cmake --build --preset windows-msvc-release --parallel
       - name: Analyze
-        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
 
   msvc-static-analysis:
     runs-on: windows-2022
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -149,7 +149,7 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       ASAN_OPTIONS: halt_on_error=1:detect_leaks=0
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -183,7 +183,7 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -195,7 +195,7 @@ jobs:
       - name: Configure UndefinedBehaviorSanitizer graph
         shell: bash
         run: >-
-          CC=clang CXX=clang++ cmake -S . -B out/build/linux-ubsan -G Ninja
+          CC=gcc-14 CXX=g++-14 cmake -S . -B out/build/linux-ubsan -G Ninja
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_UNDEFINED_SANITIZER=ON
@@ -212,7 +212,12 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Clang 18 C++ standard library
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libc++-18-dev libc++abi-18-dev
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -230,6 +235,7 @@ jobs:
           -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
           -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_BUILD_TESTS=ON
           -DBLACKBOX_BUILD_FUZZERS=ON -DBLACKBOX_ENABLE_ADDRESS_SANITIZER=ON
+          -DCMAKE_CXX_FLAGS="-stdlib=libc++"
       - name: Build and smoke the seed corpus
         shell: bash
         run: |
@@ -247,7 +253,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -277,7 +283,7 @@ jobs:
             --xml-pretty --xml out/quality/coverage.xml --print-summary \
             --fail-under-line 60 --fail-under-branch 45
       - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-coverage
           path: |
@@ -299,14 +305,14 @@ jobs:
       - linux-coverage
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Write revision-bound hosted success attestation
         shell: pwsh
         run: >-
           ./scripts/write-hosted-ci-attestation.ps1
           -WorkflowKey quality -OutputDirectory out/hosted-ci/quality
       - name: Upload hosted success attestation
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-hosted-ci-quality-${{ github.sha }}
           path: out/hosted-ci/quality

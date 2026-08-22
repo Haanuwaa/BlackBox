@@ -93,23 +93,7 @@ namespace {
 template <typename Value>
 void write_recorded(std::ostream& output, const core::RecordedValue<Value>& value) {
     output << status_name(value.status) << '\t';
-    if (value.status == core::RecordedValueStatus::available) output << value.value;
-}
-
-void write_recorded(std::ostream& output,
-                    const core::RecordedValue<std::uint8_t>& value) {
-    output << status_name(value.status) << '\t';
-    if (value.status == core::RecordedValueStatus::available) {
-        output << static_cast<unsigned>(value.value);
-    }
-}
-
-void write_recorded(std::ostream& output,
-                    const core::RecordedValue<bool>& value) {
-    output << status_name(value.status) << '\t';
-    if (value.status == core::RecordedValueStatus::available) {
-        output << (value.value ? 1 : 0);
-    }
+    if (value.status == core::RecordedValueStatus::available) output << +value.value;
 }
 
 template <typename Value>

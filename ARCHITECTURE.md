@@ -164,6 +164,21 @@ from package-manager and CMake-version naming differences. Hosted workflows boot
 ephemeral checkout-sibling directory, outside the checkout, so dependency setup cannot dirty the
 source tree or invalidate the revision embedded in release binaries.
 
+Existing nonempty archive files are inspected read-only for the exact SQLite header before SQLite
+receives the path. This prevents platform-specific SQLite handling of tiny malformed files from
+turning rejected input into a newly initialized database. Direct-v1 schema validation still follows
+for every structurally valid SQLite file; malformed input is rejected without byte modification.
+
+The hosted Windows matrix maps runner toolchains explicitly: Windows Server 2022 exercises the
+Visual Studio 2022 presets and Windows Server 2025 exercises the Visual Studio 2026 preset. Runner
+labels do not imply that an older Visual Studio generator remains installed.
+
+Hosted Linux instrumentation also names its C++23 library/toolchain pairing explicitly. UBSan uses
+the installed GCC 14 compiler and libFuzzer uses Clang 18 with libc++ 18; Clang 18's default
+libstdc++ pairing does not expose `std::expected` and is not a supported build combination. Workflow
+actions remain immutable full-SHA dependencies and track Node 24-compatible checkout, artifact, and
+CodeQL releases.
+
 ## V0.0.2 implementation note
 
 The telemetry target depends only on core. UI and future storage dependency lookup can be disabled independently, and a headless Release build is part of milestone validation. `SystemTelemetryNormalizer` stores one scalar prior observation; scalar helpers are `noexcept` and use no dynamic storage. The first cumulative observation establishes a baseline. Non-monotonic timestamps, decreasing counters, zero total deltas, and invalid gauges return `temporarily_unavailable`; counter wrap is never inferred without a proven counter width. A non-monotonic observation does not replace the last valid baseline.

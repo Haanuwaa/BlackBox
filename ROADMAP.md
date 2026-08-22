@@ -1735,6 +1735,28 @@ the `runner` expression context to job-level environment declarations. That inva
 receives no credit; the corrected checkout-sibling path uses the job-valid `github.workspace`
 context while remaining outside the Git worktree.
 
+The first Linux coverage execution also found that SQLite may interpret a tiny malformed file as an
+empty database on Linux and initialize it, violating the rejection-without-mutation contract even
+though Windows rejected the same deterministic corpus. Archive open now preflights every existing
+nonempty file's exact SQLite header read-only before passing its path to SQLite; the deterministic
+128-input corruption property therefore has platform-independent semantics.
+The same hosted compiler pass identified two uninstantiated numeric TSV helper overloads; one
+arithmetic template now performs integral promotion directly, eliminating the GCC/Clang unused-code
+warnings without suppressing them. A contributor fixture likewise binds its initializer-list pairs
+by const reference instead of copying each identity/name pair.
+
+The first Windows Server 2025 matrix execution confirmed that its current runner image has no
+Visual Studio 2022 instance. That leg now uses the repository's existing Visual Studio 2026 Release
+preset, while Windows Server 2022 retains the VS2022 Debug/Release legs; the mapping is contract
+tested instead of inferred from runner labels.
+
+The same diagnostic run showed that hosted Clang 18 paired with its default libstdc++ does not
+expose the C++23 `std::expected` API. UBSan now runs under the image's GCC 14 toolchain, while the
+Clang 18 libFuzzer leg installs and explicitly selects libc++ 18. The contract test locks both
+pairings. Checkout, artifact upload, and CodeQL actions were also advanced to their immutable
+Node 24-compatible release SHAs, preserving the full-SHA supply-chain policy while removing the
+runner's Node 20 deprecation path.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate

@@ -37,7 +37,7 @@ enum class ContributorMetric { cpu, memory, disk };
     constexpr core::IncidentProcessIdentity follower{30U, 300U};
     constexpr core::IncidentProcessIdentity ambiguous{40U, 400U};
     std::vector<core::IncidentProcessInfo> metadata;
-    for (const auto [identity, name] : {
+    for (const auto& [identity, name] : {
              std::pair{normal, "normal.exe"}, std::pair{intended, "intended.exe"},
              std::pair{follower, "follower.exe"},
              std::pair{ambiguous, "ambiguous.exe"}}) {
