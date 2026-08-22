@@ -41,7 +41,7 @@ jobs:
           -StatusPath out/build/windows-quality-sbom/vcpkg_installed/vcpkg/status
           -OutputPath out/quality/blackbox.cdx.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-CycloneDX-SBOM
           path: out/quality/blackbox.cdx.json
@@ -277,7 +277,7 @@ jobs:
             --xml-pretty --xml out/quality/coverage.xml --print-summary \
             --fail-under-line 60 --fail-under-branch 45
       - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-coverage
           path: |
@@ -306,7 +306,7 @@ jobs:
           ./scripts/write-hosted-ci-attestation.ps1
           -WorkflowKey quality -OutputDirectory out/hosted-ci/quality
       - name: Upload hosted success attestation
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-hosted-ci-quality-${{ github.sha }}
           path: out/hosted-ci/quality
