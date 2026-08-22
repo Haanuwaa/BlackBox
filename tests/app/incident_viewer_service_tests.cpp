@@ -293,6 +293,28 @@ public:
     mutable std::uint64_t calls{};
 };
 
+class PausedStatisticalAnalyzer final : public analysis::IIncidentAnalyzer {
+public:
+    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError> analyze(
+        const core::IncidentSnapshot& incident) const noexcept override {
+        entered.store(true, std::memory_order_release);
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (!may_continue.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(1ms);
+        }
+        return implementation.analyze(incident);
+    }
+
+    void resume() noexcept {
+        may_continue.store(true, std::memory_order_release);
+    }
+
+    analysis::StatisticalIncidentAnalyzer implementation{};
+    mutable std::atomic<bool> entered{};
+    mutable std::atomic<bool> may_continue{};
+};
+
 class ContributorAnalyzer final : public analysis::IIncidentAnalyzer {
 public:
     std::expected<analysis::IncidentAnalysis, analysis::AnalysisError> analyze(
@@ -778,23 +800,32 @@ TEST_CASE("collector continues while a large incident is statistically analyzed"
     telemetry::TelemetryCollector collector{provider, clock, *configuration};
     ViewerRepository repository;
     repository.incident_value = storage::test::scaled_incident(500U, 150U, false);
-    analysis::StatisticalIncidentAnalyzer analyzer;
+    PausedStatisticalAnalyzer analyzer;
     app::IncidentViewerService viewer{repository, &analyzer};
     collector.start();
     viewer.start();
     REQUIRE(wait_until([&] { return collector.diagnostics().collection_count >= 5U; }));
     const auto before = collector.diagnostics().collection_count;
     viewer.request_detail(1);
+    const auto entered = wait_until(
+        [&] { return analyzer.entered.load(std::memory_order_acquire); });
+    if (!entered) analyzer.resume();
+    REQUIRE(entered);
+    const auto progressed = wait_until([&] {
+        return collector.diagnostics().collection_count >= before + 10U;
+    });
+    const auto during = collector.diagnostics().collection_count;
+    analyzer.resume();
+    REQUIRE(progressed);
     REQUIRE(wait_until([&] {
         const auto state = viewer.snapshot();
         return state->detail.has_value() &&
                state->detail->analysis.state == ui::IncidentAnalysisViewState::ready;
     }));
-    const auto after = collector.diagnostics().collection_count;
     viewer.stop();
     collector.stop();
 
-    CHECK(after >= before + 10U);
+    CHECK(during >= before + 10U);
     CHECK(collector.diagnostics().failed_samples == 0U);
     REQUIRE_FALSE(viewer.snapshot()->detail->analysis.resources.empty());
     CHECK(viewer.snapshot()->detail->analysis.resources.front().score == 0.0);

@@ -1808,6 +1808,21 @@ floors while treating the impossible negative count conservatively instead of ab
 generation. A workflow contract locks that narrow exception. The two superseded run records were
 permanently deleted; final same-revision hosted evidence remains open.
 
+The next hosted Windows diagnostic also failed closed and receives no release credit. Both Release
+matrix legs passed 311 of 312 tests but exposed the same final compiler-speed assumption: the viewer
+concurrency test expected a large real statistical analysis to remain busy for at least ten requested
+1 ms collection intervals, while the hosted VS 2026 and VS 2022 runners completed it after only two
+and one additional samples. The test now pauses the real statistical analyzer at an explicit bounded
+handoff, proves ten collector samples arrive while the viewer worker is occupied, resumes analysis,
+and still verifies the completed statistical result. This preserves the production threading path
+without treating workload size or timer cadence as elapsed-time synchronization. The repair passes
+100 consecutive Release repetitions, 50 consecutive Windows AddressSanitizer repetitions, the
+complete 312/312 local Release graph, and the complete 312/312 local AddressSanitizer graph. The
+parallel quality diagnostic independently passed Windows ASan, MSVC static analysis, dependency
+review, dependency policy/SBOM, Linux coverage, UBSan, and native fuzzing before the superseded run
+was cancelled during CodeQL. Both obsolete run histories were then permanently deleted; final
+same-revision hosted evidence remains open.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
