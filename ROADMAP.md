@@ -1839,9 +1839,24 @@ counters; the runner and standalone verifier require all four to be zero and rej
 mismatch. A new 20-second end-to-end smoke at
 `out/soaks/settings-provenance-smoke-v1-20260822/` passed and independently re-verified ten process
 checkpoints, two scheduled captures, matching `local-uncommitted` provenance, and zero automatic
-detection/trigger/capture/event requests. The complete current local Release graph passes 312/312
-tests. A fresh clean-revision overnight is still required; this development smoke receives no
+detection/trigger/capture/event requests. A fresh clean-revision overnight is still required; this development smoke receives no
 release credit.
+
+The replacement hosted Windows run on revision
+`fb9165b53950e59ff721dbc797d71134787776b1` then exposed a real crash-evidence publication race:
+all three bounded probe launches exited abnormally on the Debug Windows 2022 leg, but a transient
+file-sharing/access conflict prevented the flushed `.dmp.partial` artifact from being renamed to a
+completed `.dmp`. Production publication now retries only access, sharing, and lock conflicts for a
+bounded 500 milliseconds without allocating on the crash path; permanent failure remains visibly
+incomplete as `.partial`. A deterministic handle-contention integration test proves delayed release
+publishes exactly one completed dump, while the real crash probe now reports retained partial counts
+and bytes on failure. The real probe passed 50 consecutive Release and 50 consecutive Debug
+repetitions after the repair. The complete local Release and Debug graphs both pass 313/313 tests;
+the first Debug pass's sole launch-at-login failure was reproduced as the restricted test sandbox
+denying creation of a missing HKCU Run key, and the same test passed 20 consecutive runs plus the
+complete graph with normal current-user registry access. The failed Windows run receives no release
+credit, its parallel quality run was cancelled as revision-obsolete, and replacement same-revision
+hosted evidence remains required before restarting the overnight campaign.
 
 The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. It identifies
 preview UX simplification, characterization-led decomposition of the largest app/storage/UI files,
@@ -1858,9 +1873,9 @@ value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **clean-revision qualification recovery**: land the settings/provenance hardening and
-security-focused CodeQL workflow, rebuild and pass the complete Release graph on the resulting clean
-revision, obtain its hosted CI result, and then repeat the overnight campaign. Continue preview UX,
+Proceed to **clean-revision qualification recovery**: land the bounded crash-dump publication
+hardening, rebuild and pass the complete Release graph on the resulting clean revision, obtain its
+hosted CI result, and then repeat the overnight campaign. Continue preview UX,
 maintainability, Linux-provider, and offline ML-evaluation work only as separately measured parallel
 tracks. The signed package, 72-hour physical actions, independently reviewed UI/client matrix,
 consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;

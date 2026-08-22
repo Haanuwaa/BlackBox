@@ -1,4 +1,5 @@
 #include "platform/windows/windows_crash_diagnostics.hpp"
+#include "platform/windows/crash_dump_publication.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -12,6 +13,29 @@
 #include <utility>
 
 namespace blackbox::platform::windows {
+
+bool detail::publish_completed_dump(const wchar_t* const pending_path,
+                                    const wchar_t* const completed_path) noexcept {
+    if (pending_path == nullptr || completed_path == nullptr ||
+        *pending_path == L'\0' || *completed_path == L'\0') {
+        return false;
+    }
+
+    constexpr unsigned maximum_attempts = 51U;
+    constexpr DWORD retry_delay_milliseconds = 10U;
+    for (unsigned attempt = 0U; attempt < maximum_attempts; ++attempt) {
+        if (MoveFileExW(pending_path, completed_path, MOVEFILE_WRITE_THROUGH)) {
+            return true;
+        }
+        const auto error = GetLastError();
+        const auto transient = error == ERROR_ACCESS_DENIED ||
+                               error == ERROR_SHARING_VIOLATION ||
+                               error == ERROR_LOCK_VIOLATION;
+        if (!transient || attempt + 1U == maximum_attempts) return false;
+        Sleep(retry_delay_milliseconds);
+    }
+    return false;
+}
 
 struct WindowsCrashDiagnostics::Impl final {
     explicit Impl(std::filesystem::path output_directory)
@@ -37,9 +61,8 @@ struct WindowsCrashDiagnostics::Impl final {
         static_cast<void>(CloseHandle(state->dump_file));
         state->dump_file = INVALID_HANDLE_VALUE;
         if (wrote) {
-            static_cast<void>(MoveFileExW(state->pending_path.c_str(),
-                                         state->completed_path.c_str(),
-                                         MOVEFILE_WRITE_THROUGH));
+            static_cast<void>(detail::publish_completed_dump(
+                state->pending_path.c_str(), state->completed_path.c_str()));
         } else {
             static_cast<void>(DeleteFileW(state->pending_path.c_str()));
         }
