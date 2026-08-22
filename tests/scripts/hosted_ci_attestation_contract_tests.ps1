@@ -56,6 +56,7 @@ foreach ($clause in @(
     '-DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L"',
     'cmake --build out/build/windows-address-sanitizer --config RelWithDebInfo',
     'mkdir -p out/quality',
+    '--gcov-ignore-parse-errors=negative_hits.warn_once_per_file',
     "base-ref: `${{ steps.dependency-range.outputs.base }}",
     "head-ref: `${{ steps.dependency-range.outputs.head }}",
     'Dependency review requires two distinct exact revisions.',

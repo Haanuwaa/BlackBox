@@ -277,6 +277,7 @@ jobs:
           python3 -m gcovr --root . --filter 'src/' --exclude 'src/platform/windows/' \
             --exclude 'src/telemetry/windows/' --html-details out/quality/coverage.html \
             --xml-pretty --xml out/quality/coverage.xml --print-summary \
+            --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
             --fail-under-line 60 --fail-under-branch 45
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

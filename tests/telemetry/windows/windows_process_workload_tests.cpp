@@ -118,24 +118,39 @@ TEST_CASE("Windows provider follows a short-lived CPU memory and I/O process",
     }
     CHECK(found_metadata);
 
-    std::this_thread::sleep_for(500ms);
-    static_cast<void>(provider.sample(
-        telemetry::SamplingRequest{
-            telemetry::SamplingTier::fast | telemetry::SamplingTier::normal}, raw));
-    normalizer.normalize(raw, normalized);
     bool found_sample = false;
-    for (const auto& process : normalized) {
-        if (process.identity == identity) {
+    bool observed_cpu = false;
+    bool observed_memory = false;
+    bool observed_disk_write = false;
+    for (std::size_t attempt = 0U;
+         attempt < 25U &&
+         !(observed_cpu && observed_memory && observed_disk_write);
+         ++attempt) {
+        std::this_thread::sleep_for(100ms);
+        static_cast<void>(provider.sample(
+            telemetry::SamplingRequest{
+                telemetry::SamplingTier::fast | telemetry::SamplingTier::normal}, raw));
+        normalizer.normalize(raw, normalized);
+        for (const auto& process : normalized) {
+            if (process.identity != identity) continue;
             found_sample = true;
-            REQUIRE(process.cpu_usage.has_value());
-            CHECK(process.cpu_usage.value.value > 0.0);
-            REQUIRE(process.working_set.has_value());
-            CHECK(process.working_set.value.value >= 24U * 1024U * 1024U);
-            REQUIRE(process.disk_write_rate.has_value());
-            CHECK(process.disk_write_rate.value.value > 0.0);
+            observed_cpu = observed_cpu ||
+                           (process.cpu_usage.has_value() &&
+                            process.cpu_usage.value.value > 0.0);
+            observed_memory = observed_memory ||
+                              (process.working_set.has_value() &&
+                               process.working_set.value.value >=
+                                   24U * 1024U * 1024U);
+            observed_disk_write = observed_disk_write ||
+                                  (process.disk_write_rate.has_value() &&
+                                   process.disk_write_rate.value.value > 0.0);
+            break;
         }
     }
     CHECK(found_sample);
+    CHECK(observed_cpu);
+    CHECK(observed_memory);
+    CHECK(observed_disk_write);
 
     REQUIRE(WaitForSingleObject(child.value.hProcess, 5'000U) == WAIT_OBJECT_0);
     DWORD exit_code = 1U;

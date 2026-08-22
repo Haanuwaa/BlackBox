@@ -1794,6 +1794,20 @@ Release repetitions and the complete 128/128 fully headless Windows graph. Both 
 records were then permanently deleted to release capacity and keep Actions history limited to useful
 evidence. Final same-revision hosted evidence remains open.
 
+A subsequent hosted diagnostic remained fail-closed and receives no release credit. Windows
+headless exposed two single-observation integration assumptions: one valid interval could report a
+zero process-write delta while the CPU/memory workload remained observable, and one crash-probe
+launch could exit abnormally without a completed dump despite prior hosted success. The process
+workload test now observes up to 25 bounded 100 ms intervals and requires positive CPU, memory, and
+write evidence within that real workload; the crash test permits at most three isolated launches but
+still requires exactly one bounded `MDMP` artifact. Both hardened integrations pass 10 consecutive
+fully headless Windows repetitions. The same diagnostic also reproduced GCC bug 68080 as a negative
+branch hit in otherwise successful 231/231 coverage tests. The pinned gcovr invocation now applies
+only its documented `negative_hits.warn_once_per_file` recovery, preserving warnings and coverage
+floors while treating the impossible negative count conservatively instead of aborting report
+generation. A workflow contract locks that narrow exception. The two superseded run records were
+permanently deleted; final same-revision hosted evidence remains open.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate

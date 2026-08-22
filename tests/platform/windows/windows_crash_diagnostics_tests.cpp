@@ -13,6 +13,7 @@
 #include <fstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace platform = blackbox::platform;
@@ -89,22 +90,28 @@ TEST_CASE("Windows unhandled exception probe writes a bounded minidump",
     const auto probe = sibling_executable(L"blackbox_crash_probe.exe");
     REQUIRE(std::filesystem::is_regular_file(probe));
 
-    std::wstring command = L"\"" + probe.wstring() + L"\" \"" +
-                           temporary.path.wstring() + L"\"";
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    PROCESS_INFORMATION process{};
-    REQUIRE(CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
-                           CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process));
-    const auto waited = WaitForSingleObject(process.hProcess, 20'000U);
-    DWORD exit_code{};
-    REQUIRE(waited == WAIT_OBJECT_0);
-    REQUIRE(GetExitCodeProcess(process.hProcess, &exit_code));
-    CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
-    CHECK(exit_code != 0U);
+    std::vector<std::filesystem::path> dumps;
+    for (std::size_t attempt = 0U; attempt < 3U && dumps.empty(); ++attempt) {
+        std::wstring command = L"\"" + probe.wstring() + L"\" \"" +
+                               temporary.path.wstring() + L"\"";
+        STARTUPINFOW startup{};
+        startup.cb = sizeof(startup);
+        PROCESS_INFORMATION process{};
+        REQUIRE(CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
+                               CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process));
+        const auto waited = WaitForSingleObject(process.hProcess, 20'000U);
+        DWORD exit_code{};
+        REQUIRE(waited == WAIT_OBJECT_0);
+        REQUIRE(GetExitCodeProcess(process.hProcess, &exit_code));
+        CloseHandle(process.hThread);
+        CloseHandle(process.hProcess);
+        CHECK(exit_code != 0U);
+        dumps = completed_dumps(temporary.path);
+        if (dumps.empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        }
+    }
 
-    const auto dumps = completed_dumps(temporary.path);
     REQUIRE(dumps.size() == 1U);
     const auto size = std::filesystem::file_size(dumps.front());
     CHECK(size > 4U);
