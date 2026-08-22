@@ -1,0 +1,35 @@
+#include <winver.h>
+
+1 VERSIONINFO
+ FILEVERSION @BLACKBOX_RESOURCE_VERSION_COMMA@
+ PRODUCTVERSION @BLACKBOX_RESOURCE_VERSION_COMMA@
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "BlackBox\0"
+            VALUE "Comments", "source_revision=@BLACKBOX_RESOURCE_SOURCE_REVISION@\0"
+            VALUE "FileDescription", "@BLACKBOX_RESOURCE_DESCRIPTION@\0"
+            VALUE "FileVersion", "@BLACKBOX_RESOURCE_VERSION_STRING@\0"
+            VALUE "InternalName", "@BLACKBOX_RESOURCE_INTERNAL_NAME@\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 BlackBox\0"
+            VALUE "OriginalFilename", "@BLACKBOX_RESOURCE_ORIGINAL_FILENAME@\0"
+            VALUE "ProductName", "BlackBox Computer Flight Recorder\0"
+            VALUE "ProductVersion", "@BLACKBOX_RESOURCE_VERSION_STRING@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

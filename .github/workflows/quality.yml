@@ -1,0 +1,313 @@
+name: Quality and security
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-policy-sbom:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Verify immutable dependency and action policy
+        shell: pwsh
+        run: |
+          ./scripts/verify-dependency-policy.ps1
+          ./scripts/verify-quality-gates.ps1
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Resolve pinned dependency graph
+        shell: pwsh
+        run: >-
+          cmake -S . -B out/build/windows-quality-sbom -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_BUILD_TESTS=OFF
+      - name: Generate and validate CycloneDX SBOM
+        shell: pwsh
+        run: >-
+          ./scripts/generate-sbom.ps1
+          -StatusPath out/build/windows-quality-sbom/vcpkg_installed/vcpkg/status
+          -OutputPath out/quality/blackbox.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: BlackBox-CycloneDX-SBOM
+          path: out/quality/blackbox.cdx.json
+          if-no-files-found: error
+
+  dependency-review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 2
+      - name: Resolve exact dependency comparison revisions
+        id: dependency-range
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            $base = $env:PR_BASE_SHA
+          } elseif ($env:EVENT_NAME -eq 'push' -and
+                    $env:EVENT_BEFORE -match '^[0-9a-f]{40}$' -and
+                    $env:EVENT_BEFORE -ne ('0' * 40)) {
+            $base = $env:EVENT_BEFORE
+          } else {
+            $base = (git rev-parse "$($env:SOURCE_SHA)^1").Trim()
+          }
+          if ($base -notmatch '^[0-9a-f]{40}$' -or
+              $env:SOURCE_SHA -notmatch '^[0-9a-f]{40}$' -or
+              $base -eq $env:SOURCE_SHA) {
+            throw 'Dependency review requires two distinct exact revisions.'
+          }
+          "base=$base" >> $env:GITHUB_OUTPUT
+          "head=$($env:SOURCE_SHA)" >> $env:GITHUB_OUTPUT
+      - name: Reject newly introduced vulnerable dependencies
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: never
+          base-ref: ${{ steps.dependency-range.outputs.base }}
+          head-ref: ${{ steps.dependency-range.outputs.head }}
+
+  codeql:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Initialize CodeQL C++ analysis
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        with:
+          languages: c-cpp
+          queries: security-extended,security-and-quality
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure and build observed graph
+        shell: pwsh
+        run: |
+          cmake --preset windows-msvc-release
+          cmake --build --preset windows-msvc-release --parallel
+      - name: Analyze
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+
+  msvc-static-analysis:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure MSVC native analysis
+        shell: pwsh
+        run: >-
+          cmake -S . -B out/build/windows-static-analysis -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_ENABLE_MSVC_CODE_ANALYSIS=ON -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Analyze all product and test translation units
+        shell: pwsh
+        run: >-
+          cmake --build out/build/windows-static-analysis --config Release
+          --target blackbox blackbox_tests --parallel
+
+  windows-address-sanitizer:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+      ASAN_OPTIONS: halt_on_error=1:detect_leaks=0
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure AddressSanitizer graph
+        shell: pwsh
+        run: >-
+          cmake -S . -B out/build/windows-address-sanitizer -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_OVERLAY_TRIPLETS="${{ github.workspace }}/cmake/triplets"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-blackbox-asan
+          -DBLACKBOX_ENABLE_ADDRESS_SANITIZER=ON
+      - name: Build instrumented product and tests
+        shell: pwsh
+        run: >-
+          cmake --build out/build/windows-address-sanitizer --config RelWithDebInfo
+          --target blackbox blackbox_tests --parallel
+      - name: Run instrumented suite
+        shell: pwsh
+        run: >-
+          ctest --test-dir out/build/windows-address-sanitizer -C RelWithDebInfo
+          --output-on-failure -E "Windows unhandled exception probe"
+
+  linux-undefined-sanitizer:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure UndefinedBehaviorSanitizer graph
+        shell: bash
+        run: >-
+          CC=clang CXX=clang++ cmake -S . -B out/build/linux-ubsan -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_UNDEFINED_SANITIZER=ON
+          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build and run instrumented suite
+        shell: bash
+        run: |
+          cmake --build out/build/linux-ubsan --parallel
+          ctest --test-dir out/build/linux-ubsan --output-on-failure
+
+  linux-native-fuzz:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure Clang libFuzzer graph
+        shell: bash
+        run: >-
+          CC=clang CXX=clang++ cmake -S . -B out/build/linux-fuzz -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
+          -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_BUILD_TESTS=ON
+          -DBLACKBOX_BUILD_FUZZERS=ON -DBLACKBOX_ENABLE_ADDRESS_SANITIZER=ON
+      - name: Build and smoke the seed corpus
+        shell: bash
+        run: |
+          cmake --build out/build/linux-fuzz --target blackbox_settings_fuzzer --parallel
+          ctest --test-dir out/build/linux-fuzz --output-on-failure -L fuzz
+      - name: Run bounded native fuzz campaign
+        shell: bash
+        run: >-
+          out/build/linux-fuzz/tests/blackbox_settings_fuzzer
+          -max_total_time=60 -max_len=20000 -timeout=5 -rss_limit_mb=1024
+          out/build/linux-fuzz/tests/fuzz-corpus
+
+  linux-coverage:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure coverage graph
+        shell: bash
+        run: >-
+          CC=gcc CXX=g++ cmake -S . -B out/build/linux-coverage -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_COVERAGE=ON
+      - name: Build and run coverage suite
+        shell: bash
+        run: |
+          cmake --build out/build/linux-coverage --parallel
+          ctest --test-dir out/build/linux-coverage --output-on-failure
+      - name: Generate bounded coverage report
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check gcovr==8.6
+          python3 -m gcovr --root . --filter 'src/' --exclude 'src/platform/windows/' \
+            --exclude 'src/telemetry/windows/' --html-details out/quality/coverage.html \
+            --xml-pretty --xml out/quality/coverage.xml --print-summary \
+            --fail-under-line 60 --fail-under-branch 45
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: BlackBox-coverage
+          path: |
+            out/quality/coverage.html
+            out/quality/coverage*.html
+            out/quality/coverage.xml
+          if-no-files-found: error
+
+  hosted-evidence:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs:
+      - dependency-policy-sbom
+      - dependency-review
+      - codeql
+      - msvc-static-analysis
+      - windows-address-sanitizer
+      - linux-undefined-sanitizer
+      - linux-native-fuzz
+      - linux-coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Write revision-bound hosted success attestation
+        shell: pwsh
+        run: >-
+          ./scripts/write-hosted-ci-attestation.ps1
+          -WorkflowKey quality -OutputDirectory out/hosted-ci/quality
+      - name: Upload hosted success attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: BlackBox-hosted-ci-quality-${{ github.sha }}
+          path: out/hosted-ci/quality
+          if-no-files-found: error

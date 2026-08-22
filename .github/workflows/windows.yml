@@ -1,0 +1,139 @@
+name: Windows validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+            preset: windows-msvc-debug
+            os: windows-2022
+          - configuration: Release
+            preset: windows-msvc-release
+            os: windows-2022
+          - configuration: Release
+            preset: windows-msvc-release
+            os: windows-2025
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure
+        shell: pwsh
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        shell: pwsh
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Test
+        shell: pwsh
+        run: ctest --preset ${{ matrix.preset }}
+      - name: Package
+        if: matrix.configuration == 'Release' && matrix.os == 'windows-2022'
+        shell: pwsh
+        run: |
+          cpack --preset windows-msvc-release
+          $package = Get-ChildItem out/build/windows-msvc-release/BlackBox-*.zip |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          ./scripts/write-release-checksum.ps1 -PackagePath $package.FullName
+          ./scripts/verify-release.ps1 -PackagePath $package.FullName
+      - name: Upload release package
+        if: matrix.configuration == 'Release' && matrix.os == 'windows-2022'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: BlackBox-windows-x64
+          path: |
+            out/build/windows-msvc-release/BlackBox-*.zip
+            out/build/windows-msvc-release/BlackBox-*.zip.sha256
+
+  headless-collection:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Configure core collection graph
+        shell: pwsh
+        run: >-
+          cmake -S . -B out/build/windows-headless -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
+          -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_ENABLE_AUTOMATIC_DETECTION=OFF
+          -DBLACKBOX_BUILD_TESTS=ON
+      - name: Build and test core collection graph
+        shell: pwsh
+        run: |
+          cmake --build out/build/windows-headless --config Release
+          ctest --test-dir out/build/windows-headless -C Release --output-on-failure
+
+  linux-boundary:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure portable headless graph
+        shell: bash
+        run: >-
+          cmake -S . -B out/build/linux-headless -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
+          -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_ENABLE_AUTOMATIC_DETECTION=OFF
+          -DBLACKBOX_BUILD_TESTS=ON -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build and test portable headless graph
+        shell: bash
+        run: |
+          cmake --build out/build/linux-headless --parallel
+          ctest --test-dir out/build/linux-headless --output-on-failure
+
+  hosted-evidence:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [build-test-package, headless-collection, linux-boundary]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Write revision-bound hosted success attestation
+        shell: pwsh
+        run: >-
+          ./scripts/write-hosted-ci-attestation.ps1
+          -WorkflowKey windows -OutputDirectory out/hosted-ci/windows
+      - name: Upload hosted success attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: BlackBox-hosted-ci-windows-${{ github.sha }}
+          path: out/hosted-ci/windows
+          if-no-files-found: error

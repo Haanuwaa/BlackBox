@@ -1,0 +1,41 @@
+* text=auto
+
+.gitattributes text eol=lf
+.gitignore text eol=lf
+CMakeLists.txt text eol=lf
+*.cmake text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.in text eol=lf
+*.manifest text eol=lf
+*.ps1 text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.ini text eol=lf
+*.tsv text eol=lf
+*.html text eol=lf
+*.sha256 text eol=lf
+*.gitkeep text eol=lf
+
+*.bmp -text
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.ttf -text
+*.otf -text
+*.zip -text
+*.7z -text
+*.exe -text
+*.dll -text
+*.lib -text
+*.pdb -text
+*.obj -text
+*.dmp -text
+*.db -text
+*.sqlite -text
+*.sqlite3 -text

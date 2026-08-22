@@ -1,0 +1,14 @@
+/build/
+/out/
+/_CPack_Packages/
+/vcpkg_installed/
+/.vs/
+/.idea/
+/.vscode/
+/imgui.ini
+/BlackBox-*.zip
+/BlackBox-*.zip.sha256
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
