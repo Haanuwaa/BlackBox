@@ -147,6 +147,15 @@ endif()
 
 if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
     find_package(SQLite3 REQUIRED)
+    if(TARGET SQLite3::SQLite3)
+        set(BLACKBOX_SQLITE_TARGET SQLite3::SQLite3)
+    elseif(TARGET SQLite::SQLite3)
+        set(BLACKBOX_SQLITE_TARGET SQLite::SQLite3)
+    else()
+        message(FATAL_ERROR
+            "FindSQLite3 succeeded without a supported imported target")
+    endif()
+    message(STATUS "BlackBox SQLite target: ${BLACKBOX_SQLITE_TARGET}")
 endif()
 
 add_subdirectory(src)

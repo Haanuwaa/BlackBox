@@ -1720,6 +1720,17 @@ under PowerShell 7, and each valid-bundle path is additionally invoked through W
 rebuild after the full test graph passes; the overnight, 72-hour, physical-client, hosted, signing,
 and diagnostic-quality gates remain open.
 
+The first public hosted-CI execution on revision `6e288e6131048d3d076c2bd0231f36998d158bc8`
+failed closed and receives no release credit. It exposed two portability defects: CMake's
+`FindSQLite3` imported target is named `SQLite::SQLite3` on the hosted CMake generation but
+`SQLite3::SQLite3` locally, and GCC correctly rejected two Windows-only `getenv_s` size variables
+as unused. The workflows also bootstrapped vcpkg inside the checkout, which would have embedded
+`local-uncommitted` even after a successful build. The replacement resolves either supported
+SQLite target behind `BlackBox::StorageDependencies`, scopes the variables to Windows, and moves
+all hosted vcpkg work beneath `runner.temp`; a contract now rejects regression to an in-checkout
+dependency bootstrap. Hosted evidence remains open until replacement Windows and quality runs
+complete successfully on the same clean revision and their attestations verify independently.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate

@@ -156,7 +156,8 @@ endif()
 if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
     add_library(blackbox_storage_dependencies INTERFACE)
     add_library(BlackBox::StorageDependencies ALIAS blackbox_storage_dependencies)
-    target_link_libraries(blackbox_storage_dependencies INTERFACE SQLite3::SQLite3)
+    target_link_libraries(blackbox_storage_dependencies
+        INTERFACE ${BLACKBOX_SQLITE_TARGET})
 
     add_library(blackbox_storage STATIC
         storage/incident_dataset.cpp

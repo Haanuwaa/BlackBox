@@ -26,6 +26,18 @@ foreach ($script in @($writer, $verifier)) {
 
 $windowsWorkflow = [IO.File]::ReadAllText((Join-Path $SourceRoot '.github\workflows\windows.yml'))
 $qualityWorkflow = [IO.File]::ReadAllText((Join-Path $SourceRoot '.github\workflows\quality.yml'))
+
+foreach ($workflow in @($windowsWorkflow, $qualityWorkflow)) {
+    if ($workflow -match '(?m)^\s*VCPKG_ROOT:\s*\$\{\{\s*github\.workspace\s*\}\}') {
+        throw 'Hosted workflows must not bootstrap vcpkg inside the source checkout.'
+    }
+    $declaredRoots = [regex]::Matches($workflow, '(?m)^\s*VCPKG_ROOT:\s*.+$').Count
+    $temporaryRoots = [regex]::Matches(
+        $workflow, '(?m)^\s*VCPKG_ROOT:\s*\$\{\{\s*runner\.temp\s*\}\}[/\\]vcpkg\s*$').Count
+    if ($declaredRoots -eq 0 -or $temporaryRoots -ne $declaredRoots) {
+        throw 'Hosted workflows must bootstrap mutable dependencies beneath runner.temp.'
+    }
+}
 foreach ($clause in @(
     'needs: [build-test-package, headless-collection, linux-boundary]',
     '-WorkflowKey windows -OutputDirectory out/hosted-ci/windows',

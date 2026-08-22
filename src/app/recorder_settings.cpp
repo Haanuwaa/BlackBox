@@ -16,8 +16,8 @@ namespace blackbox::app {
 namespace {
 
 [[nodiscard]] std::optional<std::string> environment_value(const char* name) {
-    std::size_t required{};
 #if defined(_WIN32)
+    std::size_t required{};
     if (getenv_s(&required, nullptr, 0U, name) != 0 || required == 0U) return std::nullopt;
     std::string value(required - 1U, '\0');
     if (getenv_s(&required, value.data(), required, name) != 0) return std::nullopt;

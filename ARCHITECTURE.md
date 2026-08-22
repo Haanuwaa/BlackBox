@@ -157,6 +157,13 @@ Cause candidates must use probabilistic language. Temporal correlation and anoma
 
 The bootstrap links SDL3's renderer, the matching Dear ImGui backends, and ImPlot. This is the smallest cross-platform native rendering path and avoids a custom graphics backend. SQLite is resolved behind a storage dependency target but deliberately has no runtime storage code yet. Logging is a small replaceable sink in `core`; a heavier logging framework is not justified at this stage.
 
+`FindSQLite3` changed its canonical imported-target spelling across supported CMake generations.
+The root build resolves either `SQLite3::SQLite3` or `SQLite::SQLite3` once and exposes only
+`BlackBox::StorageDependencies` downstream. Platform and storage code therefore remain insulated
+from package-manager and CMake-version naming differences. Hosted workflows bootstrap vcpkg under
+the runner's temporary directory, outside the checkout, so dependency setup cannot dirty the source
+tree or invalidate the revision embedded in release binaries.
+
 ## V0.0.2 implementation note
 
 The telemetry target depends only on core. UI and future storage dependency lookup can be disabled independently, and a headless Release build is part of milestone validation. `SystemTelemetryNormalizer` stores one scalar prior observation; scalar helpers are `noexcept` and use no dynamic storage. The first cumulative observation establishes a baseline. Non-monotonic timestamps, decreasing counters, zero total deltas, and invalid gauges return `temporarily_unavailable`; counter wrap is never inferred without a proven counter width. A non-monotonic observation does not replace the last valid baseline.
