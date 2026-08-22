@@ -71,11 +71,13 @@ multi-machine evidence collection and one-shot held-out result are not.
 
 ## Validation completed
 
-- Full Release: the current graph passed 311/311 tests with its scoped Windows process and
-  current-user registry integrations enabled. This includes both shell concurrency/efficiency
-  regressions, wall-clock semantic tamper rejection, repository hygiene, all five executable version
-  resources, and the architecture/direct-V1/release-evidence contracts. The rebuilt application is
-  SHA-256 `57ac61b36dd10e8d7e5741a006135c50e8df5d5fd8c0b3b5b8959d63d1d79d69`.
+- Full Release: clean revision `f5b93840564ac9cb5ed7f7d2c113557ae365a56a` passed 312/312
+  tests in 39.21 seconds with its scoped Windows process and current-user registry integrations
+  enabled. This includes both shell concurrency/efficiency regressions, wall-clock semantic tamper
+  rejection, repository hygiene, the source-revision validator, all five executable version
+  resources, and the architecture/direct-V1/release-evidence contracts. All three shipped binaries
+  independently passed the `0.15.0` plus embedded-revision preflight. The application SHA-256 is
+  `d21df9baa991114021323f45fd218ba845a36967ef5fab1a3423acbb3de0d0a9`.
 - Full Debug: 310/311 tests passed in the restricted environment and the sole HKCU launch-at-login
   integration passed 1/1 with current-user registry access, completing the effective 311/311 graph.
 - The ninth-symptom alignment passed its focused evaluation/acquisition/direct-V1 set 14/14. Its

@@ -1541,11 +1541,11 @@ alone can never self-qualify. Current Release and Debug pass 290/290 tests, head
   dependency/action and quality policy verification remains clean. The hosted execution, physical
   matrix, signed package, and final same-revision aggregate remain open because their real external
   evidence does not yet exist.
-- A local Git repository now exists on branch `main`. Generated build/output trees, CPack staging,
-  local ZIP/checksum artifacts, and ImGui state are explicitly ignored and were verified through
-  Git's ignore matcher. There is deliberately no invented author identity, initial commit, remote,
-  push, or hosted run; those external/repository-owner actions remain required before hosted CI can
-  produce release evidence.
+- A local Git repository now exists on branch `main` with the owner-supplied local author identity
+  and an audited initial source commit. Generated build/output trees, CPack staging, local ZIP/
+  checksum artifacts, and ImGui state are explicitly ignored and were verified through Git's ignore
+  matcher. No remote, push, or hosted run exists because no repository URL has been created; hosted
+  CI remains an external gate and is not inferred from the authored workflows.
 - Repository attributes now pin LF for every source/workflow/script/document/direct-text format and
   explicitly protect packages, PE/DLL/library files, databases, dumps, fonts, and rasters as binary.
   A platform-independent CTest pins both those rules and the generated-artifact ignore set, preventing
@@ -1625,9 +1625,9 @@ embeds an exact 40-character HEAD only for a clean Git worktree and otherwise em
 requires clean exact-HEAD source before binary inspection or certificate access. Binary/package and
 both final composition verifiers require the embedded revision to match their evidence SHA.
 Contracts exercise clean source plus wrong-HEAD, tracked-dirty, untracked, renamed-binary, direct
-binary-revision, and ZIP-revision rejection. This does not create a commit or claim hosted evidence;
-the repository still needs an owner-supplied author identity, initial commit, and remote. The focused
-provenance/resource/documentation set passes 9/9; the complete Debug graph passes 308/309 inside the
+binary-revision, and ZIP-revision rejection. The owner-supplied author identity and initial commits
+now exist locally, but no remote or hosted evidence does. The focused provenance/resource/
+documentation set passes 9/9; the complete Debug graph passes 308/309 inside the
 restricted environment and its sole HKCU launch-at-login integration passes 1/1 with registry access,
 completing the effective 309/309 regression graph.
 
@@ -1701,6 +1701,15 @@ A subsequent 15-second hardened smoke at
 zero gaps, 16 collections, two required captures/writes/archive rows, and zero failed/dropped/
 deadline-missed samples; its manifest SHA-256 is
 `c9bcc6cd982637079d783087f8fd0dff820149d994aa3c7d23f235ae12e7e72a`.
+The first clean-revision build audit exposed that CMake's regex dialect did not implement the
+`{40}` repetition used by the source-identity checks: a real commit SHA was rejected and automatic
+resolution could never promote a clean tree from `local-uncommitted`. Source validation now uses an
+explicit 40-character length plus lowercase-hex check shared by configured input and detected HEAD,
+with a platform-independent malformed-value contract. Clean revision
+`f5b93840564ac9cb5ed7f7d2c113557ae365a56a` then rebuilt all Release targets, passed the independent
+three-binary `0.15.0`/revision preflight, and passed 312/312 tests in 39.21 seconds. The application
+SHA-256 for that revision is
+`d21df9baa991114021323f45fd218ba845a36967ef5fab1a3423acbb3de0d0a9`.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 

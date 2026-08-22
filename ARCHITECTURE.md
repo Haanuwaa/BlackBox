@@ -861,6 +861,10 @@ signing independently requires an exact clean HEAD and requires all three shippe
 that revision. Package, V0.17, and V1 verification compare the signed executable field to the same
 evidence revision. This is build/release metadata only and creates no runtime, telemetry, storage,
 analysis, or persisted-format dependency.
+The configure-time validator checks commit identity as exactly 40 lowercase hexadecimal characters
+using an explicit length plus character-set contract, and a platform-independent CTest exercises
+valid and malformed values so CMake-regex dialect differences cannot silently downgrade a clean
+release build to `local-uncommitted`.
 
 Exact archive-layout verification remains a storage/open boundary. It derives a canonical manifest
 by executing the one compiled direct-V1 schema in an isolated in-memory SQLite connection and
