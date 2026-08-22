@@ -100,7 +100,12 @@ jobs:
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           languages: c-cpp
-          queries: security-extended,security-and-quality
+          # Security findings belong in the repository Security tab. Code quality is
+          # enforced separately by warnings-as-errors, MSVC /analyze, sanitizers,
+          # coverage, property tests, and fuzzing below. Including the broad
+          # security-and-quality suite here uploads test-registration and vendored
+          # header style notes as security alerts.
+          queries: security-extended
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |

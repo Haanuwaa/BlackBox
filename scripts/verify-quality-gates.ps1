@@ -12,6 +12,12 @@ function Require-Text([string]$Text, [string]$Pattern, [string]$Description) {
     }
 }
 
+function Reject-Text([string]$Text, [string]$Pattern, [string]$Description) {
+    if ($Text -match $Pattern) {
+        throw "Quality gate contract failed: found $Description"
+    }
+}
+
 $root = (Resolve-Path -LiteralPath $SourceRoot).Path
 $cmake = Get-Content -LiteralPath (Join-Path $root 'CMakeLists.txt') -Raw
 $tests = Get-Content -LiteralPath (Join-Path $root 'tests/CMakeLists.txt') -Raw
@@ -53,7 +59,9 @@ Require-Text $workflow 'BLACKBOX_ENABLE_COVERAGE=ON' 'coverage activation'
 Require-Text $workflow '-max_total_time=60' 'bounded 60-second native fuzz campaign'
 Require-Text $workflow '--fail-under-line 60' 'line coverage floor'
 Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
-Require-Text $workflow 'security-extended,security-and-quality' 'extended CodeQL query suites'
+Require-Text $workflow 'queries: security-extended' 'extended CodeQL security query suite'
+Reject-Text $workflow 'queries:\s*[^\r\n]*security-and-quality' `
+    'broad CodeQL quality suite in security alert output'
 Require-Text $workflow 'fail-on-severity: moderate' 'dependency vulnerability floor'
 Require-Text $workflow '-E "Windows unhandled exception probe"' 'sanitizer crash-probe exclusion'
 Require-Text $workflow 'VCPKG_TARGET_TRIPLET=x64-windows-blackbox-asan' 'instrumented Windows dependency triplet'
