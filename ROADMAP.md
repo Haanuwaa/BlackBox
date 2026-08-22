@@ -1727,9 +1727,13 @@ failed closed and receives no release credit. It exposed two portability defects
 as unused. The workflows also bootstrapped vcpkg inside the checkout, which would have embedded
 `local-uncommitted` even after a successful build. The replacement resolves either supported
 SQLite target behind `BlackBox::StorageDependencies`, scopes the variables to Windows, and moves
-all hosted vcpkg work beneath `runner.temp`; a contract now rejects regression to an in-checkout
+all hosted vcpkg work to an ephemeral checkout sibling; a contract now rejects regression to an in-checkout
 dependency bootstrap. Hosted evidence remains open until replacement Windows and quality runs
 complete successfully on the same clean revision and their attestations verify independently.
+The first replacement push also failed closed before scheduling jobs because GitHub does not expose
+the `runner` expression context to job-level environment declarations. That invalid configuration
+receives no credit; the corrected checkout-sibling path uses the job-valid `github.workspace`
+context while remaining outside the Git worktree.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 

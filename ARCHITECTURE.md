@@ -160,9 +160,9 @@ The bootstrap links SDL3's renderer, the matching Dear ImGui backends, and ImPlo
 `FindSQLite3` changed its canonical imported-target spelling across supported CMake generations.
 The root build resolves either `SQLite3::SQLite3` or `SQLite::SQLite3` once and exposes only
 `BlackBox::StorageDependencies` downstream. Platform and storage code therefore remain insulated
-from package-manager and CMake-version naming differences. Hosted workflows bootstrap vcpkg under
-the runner's temporary directory, outside the checkout, so dependency setup cannot dirty the source
-tree or invalidate the revision embedded in release binaries.
+from package-manager and CMake-version naming differences. Hosted workflows bootstrap vcpkg in an
+ephemeral checkout-sibling directory, outside the checkout, so dependency setup cannot dirty the
+source tree or invalidate the revision embedded in release binaries.
 
 ## V0.0.2 implementation note
 
