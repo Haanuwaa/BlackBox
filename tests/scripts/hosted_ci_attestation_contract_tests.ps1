@@ -54,6 +54,7 @@ foreach ($clause in @(
     '- linux-native-fuzz', '- linux-coverage',
     'CC=gcc-14 CXX=g++-14', 'CC=clang-18 CXX=clang++-18',
     '-DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L"',
+    'cmake --build out/build/windows-address-sanitizer --config RelWithDebInfo',
     'mkdir -p out/quality',
     "base-ref: `${{ steps.dependency-range.outputs.base }}",
     "head-ref: `${{ steps.dependency-range.outputs.head }}",
@@ -63,6 +64,14 @@ foreach ($clause in @(
     if (-not $qualityWorkflow.Contains($clause)) {
         throw "Quality workflow lacks its hosted evidence contract: $clause"
     }
+}
+$asanJob = [regex]::Match(
+    $qualityWorkflow,
+    '(?ms)^  windows-address-sanitizer:\r?\n.*?(?=^  [a-z0-9-]+:\r?$)'
+).Value
+if ([string]::IsNullOrWhiteSpace($asanJob) -or
+    $asanJob.Contains('--target blackbox blackbox_tests')) {
+    throw 'Hosted ASan must build the complete graph required by its registered tests.'
 }
 
 $names = @(

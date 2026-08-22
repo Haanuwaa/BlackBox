@@ -170,7 +170,7 @@ jobs:
         shell: pwsh
         run: >-
           cmake --build out/build/windows-address-sanitizer --config RelWithDebInfo
-          --target blackbox blackbox_tests --parallel
+          --parallel
       - name: Run instrumented suite
         shell: pwsh
         run: >-

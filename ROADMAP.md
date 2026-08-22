@@ -1769,6 +1769,19 @@ initializer-list vector assignment for a one-element invalid-ordinal test fixtur
 uses `push_back`, preserving the exact invalid input while keeping warnings fatal and avoiding any
 compiler-warning suppression.
 
+The first complete hosted Windows ASan execution then failed closed and receives no release credit.
+It exposed three Windows-host assumptions: the ASan workflow built only the app and unit-test target
+even though registered release/privacy/version tests require all companion executables; a viewer
+concurrency assertion treated a requested 1 ms cadence as a guaranteed Windows timer resolution; and
+the accelerated collector soak left a reader that ignored `jthread` stop requests, so assertion
+unwinding could wait until CTest's 25-minute timeout. The ASan leg now builds the complete graph, the
+viewer test requires observable collection progress rather than a host-specific sample count, and
+the soak performs 25 complete ring wraps with a stop-aware adversarial reader. Hosted contracts reject
+regression to the target-limited ASan build. The complete local Release graph passes 312/312; the
+complete local ASan graph passes 310/311 inside the restricted environment and its sole HKCU
+launch-at-login integration passes 1/1 with registry access, completing the effective 311/311
+sanitizer graph. Replacement same-revision hosted evidence remains open.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
