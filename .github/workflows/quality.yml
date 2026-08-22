@@ -213,11 +213,6 @@ jobs:
       ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Clang 18 C++ standard library
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libc++-18-dev libc++abi-18-dev
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -229,13 +224,13 @@ jobs:
       - name: Configure Clang libFuzzer graph
         shell: bash
         run: >-
-          CC=clang CXX=clang++ cmake -S . -B out/build/linux-fuzz -G Ninja
+          CC=clang-18 CXX=clang++-18 cmake -S . -B out/build/linux-fuzz -G Ninja
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
           -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_BUILD_TESTS=ON
           -DBLACKBOX_BUILD_FUZZERS=ON -DBLACKBOX_ENABLE_ADDRESS_SANITIZER=ON
-          -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+          -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L"
       - name: Build and smoke the seed corpus
         shell: bash
         run: |
@@ -277,6 +272,7 @@ jobs:
       - name: Generate bounded coverage report
         shell: bash
         run: |
+          mkdir -p out/quality
           python3 -m pip install --disable-pip-version-check gcovr==8.6
           python3 -m gcovr --root . --filter 'src/' --exclude 'src/platform/windows/' \
             --exclude 'src/telemetry/windows/' --html-details out/quality/coverage.html \

@@ -174,10 +174,11 @@ Visual Studio 2022 presets and Windows Server 2025 exercises the Visual Studio 2
 labels do not imply that an older Visual Studio generator remains installed.
 
 Hosted Linux instrumentation also names its C++23 library/toolchain pairing explicitly. UBSan uses
-the installed GCC 14 compiler and libFuzzer uses Clang 18 with libc++ 18; Clang 18's default
-libstdc++ pairing does not expose `std::expected` and is not a supported build combination. Workflow
-actions remain immutable full-SHA dependencies and track Node 24-compatible checkout, artifact, and
-CodeQL releases.
+the installed GCC 14 compiler and libFuzzer uses Clang 18 with the runner's libstdc++. The fuzz-only
+configuration supplies the C++20 concepts feature-test value required by that libstdc++ release to
+expose `std::expected`; selecting libc++ 18 is not valid because that library lacks the product's
+`jthread` and `stop_token` surface. Workflow actions remain immutable full-SHA dependencies and
+track Node 24-compatible checkout, artifact, and CodeQL releases.
 
 ## V0.0.2 implementation note
 

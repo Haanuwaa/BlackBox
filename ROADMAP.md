@@ -1752,10 +1752,22 @@ tested instead of inferred from runner labels.
 
 The same diagnostic run showed that hosted Clang 18 paired with its default libstdc++ does not
 expose the C++23 `std::expected` API. UBSan now runs under the image's GCC 14 toolchain, while the
-Clang 18 libFuzzer leg installs and explicitly selects libc++ 18. The contract test locks both
-pairings. Checkout, artifact upload, and CodeQL actions were also advanced to their immutable
-Node 24-compatible release SHAs, preserving the full-SHA supply-chain policy while removing the
-runner's Node 20 deprecation path.
+Clang 18 libFuzzer leg remains on libstdc++ and supplies its required C++20 concepts feature-test
+value. The rejected libc++ 18 pairing was also diagnosed: it lacks `jthread` and `stop_token`, so it
+cannot compile the recorder. The contract test locks the supported compiler/library pairing.
+Checkout, artifact upload, and CodeQL actions were also advanced to their immutable Node
+24-compatible release SHAs, preserving the full-SHA supply-chain policy while removing the runner's
+Node 20 deprecation path.
+
+The first corrected Linux coverage execution passed all 231 applicable tests, including the
+cross-platform corrupt-archive property, then found that the report step assumed its output
+directory already existed. The workflow now creates `out/quality` explicitly before invoking
+`gcovr`, and the hosted workflow contract locks that prerequisite.
+
+GCC 14's optimized UBSan build also diagnosed an `array-bounds` false positive inside libstdc++'s
+initializer-list vector assignment for a one-element invalid-ordinal test fixture. The fixture now
+uses `push_back`, preserving the exact invalid input while keeping warnings fatal and avoiding any
+compiler-warning suppression.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 

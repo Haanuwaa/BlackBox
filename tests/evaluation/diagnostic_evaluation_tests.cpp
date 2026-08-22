@@ -191,7 +191,7 @@ TEST_CASE("evaluator rejects unfrozen duplicate and unpaired predictions",
     REQUIRE_FALSE(unpaired.has_value());
 
     prediction.incident_key = input.incidents.front().incident_key;
-    prediction.contributor_ordinals = {8'192U};
+    prediction.contributor_ordinals.push_back(8'192U);
     CHECK_FALSE(evaluation::evaluate_diagnostics(input, {prediction}).has_value());
     prediction.contributor_ordinals.clear();
     prediction.recurrence_cluster = "invalid\tcluster";
