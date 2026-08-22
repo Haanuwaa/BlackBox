@@ -225,7 +225,10 @@ private:
 void render_fixture(const std::shared_ptr<const blackbox::core::IncidentSnapshot>& incident,
                     const std::string_view fixture_name) {
     auto dashboard = std::make_unique<ui::DashboardState>();
+    dashboard->recorder_status = "Recording";
     dashboard->incident_capture_enabled = true;
+    dashboard->incident_capture_status = "Ready";
+    dashboard->hotkey_status = "Ctrl+Shift+F12";
     dashboard->storage_status = "Ready";
     auto content = std::make_shared<ui::IncidentViewerContent>();
     content->state = ui::IncidentViewerLoadState::ready;

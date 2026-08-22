@@ -23,6 +23,14 @@ struct AccessibilityPalette {
                                      const AccessibilityPalette&) = default;
 };
 
+enum class IncidentArchivePresentation : std::uint8_t {
+    loading,
+    empty,
+    no_matches,
+    results,
+    unavailable,
+};
+
 [[nodiscard]] constexpr ProductPage page_for_keyboard_shortcut(
     ProductPage current, bool control, unsigned digit) noexcept {
     return control && digit >= 1U && digit <= 6U
@@ -35,6 +43,9 @@ struct AccessibilityPalette {
     const DisplayWorkArea* displays, std::size_t display_count) noexcept;
 [[nodiscard]] AccessibilityPalette accessibility_palette(bool high_contrast,
                                                           bool dark_theme) noexcept;
+[[nodiscard]] IncidentArchivePresentation incident_archive_presentation(
+    IncidentViewerLoadState state, std::uint64_t total_matching,
+    bool search_active) noexcept;
 void apply_accessibility_style(bool high_contrast) noexcept;
 [[nodiscard]] bool update_accessibility_style(bool& current_high_contrast,
                                               bool requested_high_contrast) noexcept;

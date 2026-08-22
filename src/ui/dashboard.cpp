@@ -1,4 +1,5 @@
 #include "ui/dashboard.hpp"
+#include "ui/product_ui_model.hpp"
 
 #include "core/version.hpp"
 
@@ -195,6 +196,47 @@ void render_incident_viewer(IncidentViewerState& state, DashboardCommand& comman
                         content.last_build_milliseconds,
                         content.last_analysis_milliseconds);
 
+    const auto presentation = incident_archive_presentation(
+        content.state, content.total_matching, state.search.front() != '\0');
+    if (presentation != IncidentArchivePresentation::results) {
+        ImGui::Spacing();
+        switch (presentation) {
+        case IncidentArchivePresentation::loading:
+            ImGui::TextUnformatted("Loading saved incidents...");
+            ImGui::TextDisabled("The recorder continues while the archive view is prepared.");
+            break;
+        case IncidentArchivePresentation::empty:
+            ImGui::TextUnformatted("No incidents saved yet");
+            ImGui::TextWrapped(
+                "BlackBox is still recording its bounded history. After a slowdown, use the configured hotkey or the Live page capture button to save what just happened.");
+            if (ImGui::Button("Go to Live capture")) product.page = ProductPage::live;
+            break;
+        case IncidentArchivePresentation::no_matches:
+            ImGui::TextUnformatted("No incidents match this search");
+            ImGui::TextWrapped(
+                "Saved evidence has not been removed. Clear the search to return to the complete local archive.");
+            if (ImGui::Button("Clear search")) {
+                state.search.fill('\0');
+                request_page(command, state, 0U);
+            }
+            break;
+        case IncidentArchivePresentation::unavailable:
+            ImGui::TextUnformatted("Incident archive unavailable");
+            ImGui::TextWrapped(
+                "Recording can continue in memory, but saved incidents cannot be listed right now. Check Settings for archive health and guided recovery.");
+            ImGui::TextDisabled("%s", content.status.c_str());
+            if (ImGui::Button("Open archive recovery")) {
+                product.page = ProductPage::settings;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Retry archive view")) request_page(command, state, 0U);
+            break;
+        case IncidentArchivePresentation::results:
+            break;
+        }
+        return;
+    }
+
     if (ImGui::BeginTable("Archived incidents", 5,
                           ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
                               ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY,
@@ -350,6 +392,17 @@ void render_incident_viewer(IncidentViewerState& state, DashboardCommand& comman
         ImGui::TextWrapped("LIKELY CONTRIBUTOR: Not enough evidence to rank reliably");
         ImGui::TextWrapped("UNCERTAINTY: High - inspect the timelines and availability notes below");
     }
+    if (!headline_analysis.contributors.empty()) {
+        ImGui::Spacing();
+        ImGui::TextUnformatted("What stood out");
+        const auto visible = std::min<std::size_t>(3U,
+                                                   headline_analysis.contributors.size());
+        for (std::size_t index = 0U; index < visible; ++index) {
+            const auto& contributor = headline_analysis.contributors[index];
+            ImGui::BulletText("%s - %s", contributor.name.c_str(),
+                              contributor.assessment.c_str());
+        }
+    }
     ImGui::Text("Captured %s | requested %.2f to %.2f s | actual %.2f to %.2f s | triggers %u",
                 detail.created_utc.c_str(), detail.requested_start_seconds,
                 detail.requested_end_seconds, detail.actual_start_seconds,
@@ -434,6 +487,10 @@ void render_incident_viewer(IncidentViewerState& state, DashboardCommand& comman
         }
     }
 
+    ImGui::Spacing();
+    if (!ImGui::CollapsingHeader("Inspect timelines, factors, and raw evidence")) {
+        return;
+    }
     ImGui::SeparatorText("Potential contributors");
     const auto& analysis = detail.analysis;
     if (analysis.state == IncidentAnalysisViewState::disabled) {
@@ -1188,13 +1245,24 @@ DashboardCommand render_dashboard(const DashboardState& state,
         if (product.onboarding_open) ImGui::OpenPopup("Welcome to BlackBox");
         if (ImGui::BeginPopupModal("Welcome to BlackBox", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 500.0F);
+            ImGui::TextUnformatted("Record first. Explain after the slowdown.");
+            ImGui::Separator();
             ImGui::TextWrapped(
-                "BlackBox keeps a bounded rolling history in memory. Press the configured hotkey when a slowdown happens; only then is an immutable before/after incident saved locally.");
+                "1. BlackBox keeps a short, bounded history in memory while your computer runs.");
             ImGui::TextWrapped(
-                "Automatic detection is conservative and configurable. Diagnoses describe likely contributors and uncertainty from recorded correlation - never proof of cause.");
+                "2. When something feels wrong, press the configured hotkey to save the moments before and after it.");
             ImGui::TextWrapped(
-                "Unavailable means Windows could not provide a metric. Warming up means a counter needs an earlier observation. Neither state is silently treated as zero.");
-            if (ImGui::Button("Start recording")) {
+                "3. Review the saved incident locally. BlackBox shows evidence, likely contributors, and what remains uncertain.");
+            ImGui::Spacing();
+            ImGui::TextWrapped(
+                "Incidents stay on this computer unless you explicitly export them. Analysis never blocks recording and correlation is never presented as proof of cause.");
+            if (ImGui::CollapsingHeader("What do 'warming up' and 'unavailable' mean?")) {
+                ImGui::TextWrapped(
+                    "Warming up means a counter needs an earlier observation. Unavailable means Windows did not provide a reliable value. BlackBox keeps those states explicit instead of silently treating them as zero.");
+            }
+            ImGui::PopTextWrapPos();
+            if (ImGui::Button("Start BlackBox")) {
                 product.onboarding_open = false;
                 command.action = DashboardAction::complete_onboarding;
                 ImGui::CloseCurrentPopup();
@@ -1203,6 +1271,33 @@ DashboardCommand render_dashboard(const DashboardState& state,
         }
 
         if (product.page == ProductPage::live) {
+        ImGui::SeparatorText("Recorder");
+        const bool recording = state.recorder_status == "Recording";
+        if (recording && state.incident_capture_enabled) {
+            ImGui::TextColored(ImVec4{0.35F, 0.90F, 0.55F, 1.0F},
+                               "Recording and ready to capture what just happened");
+        } else if (recording) {
+            ImGui::TextColored(ImVec4{1.0F, 0.65F, 0.25F, 1.0F},
+                               "Recording; incident capture is temporarily unavailable");
+        } else {
+            ImGui::TextColored(ImVec4{1.0F, 0.65F, 0.25F, 1.0F},
+                               "Recorder is stopped");
+        }
+        ImGui::TextWrapped("Recorder: %s | Hotkey: %s",
+                           state.recorder_status.c_str(), state.hotkey_status.c_str());
+        if (!state.incident_capture_enabled) ImGui::BeginDisabled();
+        if (ImGui::Button("Capture what just happened")) {
+            command.action = DashboardAction::capture_incident;
+        }
+        if (!state.incident_capture_enabled) ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::TextUnformatted(state.incident_capture_status.c_str());
+        ImGui::Text("%llu saved incident%s | Archive: %s",
+                    static_cast<unsigned long long>(state.stored_incident_count),
+                    state.stored_incident_count == 1U ? "" : "s",
+                    state.storage_status.c_str());
+
+        if (ImGui::CollapsingHeader("Technical status and capture details")) {
         if (ImGui::BeginTable("Status", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp)) {
             ImGui::TableSetupColumn("Item", ImGuiTableColumnFlags_WidthFixed, 180.0F);
             ImGui::TableSetupColumn("Status", ImGuiTableColumnFlags_WidthStretch, 1.0F);
@@ -1236,22 +1331,6 @@ DashboardCommand render_dashboard(const DashboardState& state,
         }
         ImGui::TextWrapped(
             "Unavailable metrics retain their reason (unsupported, inaccessible, or temporary). Cold-start values require a previous counter observation. Analysis is post-capture and correlation never establishes causation.");
-        }
-
-        if (product.page == ProductPage::live) {
-        ImGui::Spacing();
-        ImGui::SeparatorText("Manual incident capture");
-        if (!state.incident_capture_enabled) {
-            ImGui::BeginDisabled();
-        }
-        if (ImGui::Button("Capture incident (configured hotkey)")) {
-            command.action = DashboardAction::capture_incident;
-        }
-        if (!state.incident_capture_enabled) {
-            ImGui::EndDisabled();
-        }
-        ImGui::SameLine();
-        ImGui::TextUnformatted(state.incident_capture_status.data());
         ImGui::Text("Window: %.0f s before / %.0f s after",
                     state.incident_pre_window_seconds,
                     state.incident_post_window_seconds);
@@ -1276,6 +1355,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
                             state.automatic_frame_capture_status.c_str());
         ImGui::TextDisabled("Audio glitch capture: %s",
                             state.automatic_audio_capture_status.c_str());
+        }
         }
 
         if (product.page == ProductPage::incidents ||
@@ -1355,6 +1435,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
                             state.network_transmit_mib_per_second);
             ImGui::EndTable();
         }
+        if (ImGui::CollapsingHeader("Forensic telemetry details")) {
         ImGui::TextWrapped(
             "Physical storage quality is separate from process I/O. Network quality is passive host-wide transport/connectivity evidence; no RTT probe or application payload is inspected.");
         if (ImGui::BeginTable("Live forensic quality", 2,
@@ -1429,10 +1510,11 @@ DashboardCommand render_dashboard(const DashboardState& state,
             static_cast<unsigned long long>(
                 state.process_lifecycle_events_recorded));
         }
+        }
 
         if (product.page == ProductPage::live) {
         ImGui::Spacing();
-        ImGui::SeparatorText("Rolling five-minute history");
+        if (ImGui::CollapsingHeader("Rolling history")) {
         if (state.history_size == 0U) {
             ImGui::TextDisabled("Waiting for recorder samples");
         } else if (ImPlot::BeginPlot("##system-history", ImVec2{-1.0F, 220.0F},
@@ -1516,9 +1598,10 @@ DashboardCommand render_dashboard(const DashboardState& state,
         } else {
             ImGui::TextDisabled("Network throughput history is warming up");
         }
+        }
 
         ImGui::Spacing();
-        ImGui::SeparatorText("Active processes (highest CPU first)");
+        if (ImGui::CollapsingHeader("Active processes (highest CPU first)")) {
         if (state.process_count == 0U) {
             ImGui::TextDisabled("Process telemetry is warming up");
         } else if (ImGui::BeginTable(
@@ -1562,6 +1645,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
                     : render_metric_unavailable(process.disk_write_status);
             }
             ImGui::EndTable();
+        }
         }
         }
 

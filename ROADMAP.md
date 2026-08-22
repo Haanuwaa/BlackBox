@@ -853,6 +853,8 @@ V0.11 completion evidence (2026-08-20):
 - [x] Expose validated hotkey, capture-window, detector, cooldown, notification, archive, and privacy settings
 - [x] Show archive health/capacity and guided retry, backup, restore, retention, export, and purge actions
 - [x] Add first-run onboarding and explanations for unavailable/cold-start/correlation states
+- [x] Make first run and Live glanceable while retaining technical status behind progressive disclosure
+- [x] Add explicit loading, empty, no-match, and archive-unavailable incident presentations
 - [x] Add automated interaction, screenshot, keyboard, DPI, multi-monitor, and high-contrast tests
 
 V0.12 completion evidence (2026-08-20):
@@ -877,6 +879,15 @@ V0.12 completion evidence (2026-08-20):
   deterministic keyboard, DPI, multi-monitor, palette, settings, recovery, and interaction tests cover
   the workflow. The screenshot smoke renders all six real pages in normal and scaled high-contrast
   modes and fingerprints the resulting ImGui draw data.
+- The preview simplification pass turns onboarding into a three-action recorder/capture/review path,
+  leads Live with recorder readiness and one plain-language capture action, and moves platform,
+  capture internals, forensic counters, rolling graphs, active-process tables, and detailed incident
+  evidence behind named disclosure controls. Detail retains its symptom/contributor/uncertainty
+  headline and previews at most three standout contributors before raw factors and timelines.
+  Incidents now distinguishes loading, a genuinely empty archive, an empty search result, and an
+  unavailable archive with direct navigation to the appropriate next action. Pure presentation
+  classification plus rendered onboarding/empty-state and full two-scale raster tests protect the
+  flow without moving archive, analysis, or collection work into rendering.
 - Version `0.12.0` passed 175/175 Debug tests, 175/175 Release tests, 135/135 full-app
   analysis-disabled Release tests, and 76/76 UI/storage/analysis/detection-disabled headless Release
   tests. Architecture boundary checks passed in every graph, and the assembled Release application

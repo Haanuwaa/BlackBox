@@ -6,8 +6,8 @@ only after a manual or automatic capture; ordinary recording does not stream tel
 ## Start and capture
 
 1. Start `blackbox.exe` as an ordinary desktop user. Administrator rights are not required.
-   First-run onboarding explains RAM-only rolling recording, incident capture, and the difference
-   between correlated evidence and proof.
+   First-run onboarding follows three steps: keep a short bounded history in RAM, capture after a
+   slowdown, then review the saved local evidence. It also makes clear that correlation is not proof.
 2. Leave BlackBox running while reproducing or waiting for a short performance problem.
 3. At the problem, press the configured hotkey (**Ctrl+Shift+F12** by default) or select
    **Capture incident** in Live.
@@ -42,12 +42,15 @@ coalesce to the newest lifecycle state instead of stacking stale or empty balloo
 
 ## Product pages
 
-- **Live** shows recording/capture status, current CPU/memory/throughput, physical-disk quality,
-  passive network quality, GPU/memory, DPC/ISR responsiveness, CPU frequency/thermal limit,
-  battery/power state, rolling histories, foreground application (when enabled), and active processes.
-- **Incidents** searches, sorts, and pages immutable saved captures.
+- **Live** leads with recorder readiness, the configured hotkey, one **Capture what just happened**
+  action, saved-incident count, and archive state. Current CPU/memory/throughput remains visible;
+  platform/capture internals, forensic signals, rolling histories, and active processes remain
+  available through named disclosure controls.
+- **Incidents** searches, sorts, and pages immutable saved captures. Loading, a genuinely empty
+  archive, no search matches, and archive failure are separate states with direct next actions.
 - **Detail** leads with symptom, likely contributor, uncertainty, plain-language evidence, and the
-  correlation caveat before deeper analysis. GPU and responsiveness/power plots, foreground
+  correlation caveat plus at most three standout contributors before deeper evidence is expanded.
+  GPU and responsiveness/power plots, foreground
   transitions, and privacy-normalized Windows events share the incident-relative timeline. Pan or
   wheel-zoom one plot to update every plot. Hover any plot to place one sticky cyan inspection
   cursor at the same marker-relative second across all timelines; clear it separately from the

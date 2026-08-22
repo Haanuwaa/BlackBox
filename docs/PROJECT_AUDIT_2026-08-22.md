@@ -18,9 +18,9 @@ development machine from gates that require outside hardware, participants, or s
 | Linux | Architecture/test host only | Portable headless code is compiled and tested on Linux CI, but `telemetry/linux` and `platform/linux` contain no production backend. |
 | macOS | Reserved boundary only | There is no provider or native shell implementation and no product-support claim. |
 | Security/dependencies | Hardened, cleanup in progress | The security-focused CodeQL graph passes, no open high/critical path alert remains after review, and Dependabot reports no open vulnerability alert. Historical broad quality-query alerts still need administrative closure after the narrowed workflow is merged. |
-| UI | Complete but dense | The six-page native UI exposes extensive evidence and settings, but its compact text-heavy presentation is closer to an engineering console than the simple, glanceable original product concept. |
+| UI | Preview simplification implemented; physical review pending | First run is a three-action recorder/capture/review path. Live and Detail lead with glanceable status and conclusions while technical counters, histories, process tables, and raw factors remain available through progressive disclosure. Explicit archive loading/empty/no-match/unavailable states are tested. Physical keyboard, display, and accessibility review remains open. |
 
-The roadmap contains 303 completed and 21 open checklist items (93.5% mechanically complete), but
+The roadmap contains 305 completed and 21 open checklist items (93.6% mechanically complete), but
 that percentage is not release readiness. Several open items are the highest-value acceptance gates:
 diagnostic accuracy on new natural evidence, 72-hour reliability, physical usability, trusted
 signing, and final evidence composition.
@@ -48,11 +48,11 @@ honestly flip to `1.0.0` under the current release contract.
    binding, and automatic-capture counters; obtain a clean same-revision build/CI result; then repeat
    the overnight campaign. Treat the interrupted partial campaign as a retained diagnostic failure,
    not evidence.
-2. **Create a preview-quality UX pass.** Keep all evidence accessible, but make Live and Incident
-   Detail lead with status, the incident marker, one plain-language conclusion, uncertainty, and the
-   top few contributors. Move raw counters, calibration internals, and advanced capture controls
-   behind progressive disclosure. Add first-run/empty/archive-unavailable states and keyboard focus
-   walkthrough tests before visual restyling.
+2. **Physically review the preview-quality UX pass.** Live and Incident Detail now lead with status,
+   one plain-language conclusion, uncertainty, and the top few contributors; raw counters and
+   detailed factors remain behind progressive disclosure. First-run and archive empty/failure states
+   have automated render coverage. Complete the keyboard-focus and real-display walkthrough before
+   visual restyling or a public preview claim.
 3. **Reduce maintenance hotspots without changing boundaries.** Split the 169 KiB SQLite archive,
    93 KiB dashboard, 87 KiB application composition, and 85 KiB viewer service by existing domain
    responsibilities. Characterization tests and performance measurements must precede each split;

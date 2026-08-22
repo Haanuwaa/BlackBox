@@ -65,6 +65,75 @@ TEST_CASE("product pages support deterministic keyboard navigation",
     CHECK(ui::page_for_keyboard_shortcut(ui::ProductPage::detail, true, 0U) == ui::ProductPage::detail);
 }
 
+TEST_CASE("incident archive presentation distinguishes empty search and failure states",
+          "[ui][interaction][empty-state]") {
+    using Archive = ui::IncidentArchivePresentation;
+    using Load = ui::IncidentViewerLoadState;
+
+    CHECK(ui::incident_archive_presentation(Load::idle, 0U, false) == Archive::loading);
+    CHECK(ui::incident_archive_presentation(Load::loading, 0U, false) == Archive::loading);
+    CHECK(ui::incident_archive_presentation(Load::ready, 0U, false) == Archive::empty);
+    CHECK(ui::incident_archive_presentation(Load::ready, 0U, true) == Archive::no_matches);
+    CHECK(ui::incident_archive_presentation(Load::ready, 3U, false) == Archive::results);
+    CHECK(ui::incident_archive_presentation(Load::disabled, 0U, false) == Archive::unavailable);
+    CHECK(ui::incident_archive_presentation(Load::error, 0U, true) == Archive::unavailable);
+}
+
+TEST_CASE("first-run onboarding renders as a blocking guided start",
+          "[ui][interaction][onboarding][render]") {
+    const ScopedImGuiContext context;
+    auto& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2{1'100.0F, 700.0F};
+    io.DeltaTime = 1.0F / 60.0F;
+    io.Fonts->AddFontDefault();
+    unsigned char* font_pixels{};
+    int font_width{};
+    int font_height{};
+    io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+    REQUIRE(font_pixels != nullptr);
+
+    ui::DashboardState dashboard{};
+    ui::IncidentViewerState viewer{};
+    ui::ProductUiState product{};
+    ImGui::NewFrame();
+    const auto command = ui::render_dashboard(dashboard, viewer, product);
+    CHECK(ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId));
+    CHECK(product.onboarding_open);
+    CHECK(command.action == ui::DashboardAction::none);
+    ImGui::Render();
+    CHECK(ImGui::GetDrawData()->TotalVtxCount > 0);
+}
+
+TEST_CASE("rendered empty incident archive remains navigable",
+          "[ui][interaction][empty-state][render]") {
+    const ScopedImGuiContext context;
+    auto& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2{1'100.0F, 700.0F};
+    io.DeltaTime = 1.0F / 60.0F;
+    io.Fonts->AddFontDefault();
+    unsigned char* font_pixels{};
+    int font_width{};
+    int font_height{};
+    io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+    REQUIRE(font_pixels != nullptr);
+
+    auto content = std::make_shared<ui::IncidentViewerContent>();
+    content->state = ui::IncidentViewerLoadState::ready;
+    content->status = "No saved incidents";
+    ui::IncidentViewerState viewer{};
+    viewer.content = std::move(content);
+    ui::DashboardState dashboard{};
+    ui::ProductUiState product{};
+    product.onboarding_open = false;
+    product.page = ui::ProductPage::incidents;
+    ImGui::NewFrame();
+    const auto command = ui::render_dashboard(dashboard, viewer, product);
+    CHECK(product.page == ui::ProductPage::incidents);
+    CHECK(command.action == ui::DashboardAction::none);
+    ImGui::Render();
+    CHECK(ImGui::GetDrawData()->TotalVtxCount > 0);
+}
+
 TEST_CASE("rendered product navigation accepts the documented Ctrl digit shortcuts",
           "[ui][interaction][keyboard][navigation][render]") {
     const ScopedImGuiContext context;

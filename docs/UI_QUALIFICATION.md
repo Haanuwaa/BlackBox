@@ -59,6 +59,9 @@ the bundle; do not edit generated evidence. Verify:
 - the six navigation targets remain visible and the active page is distinguishable;
 - every Live status value, including the complete product version, remains visible rather than
   collapsing to a one-character column;
+- Live leads with an unambiguous recording/capture state and its single primary capture action;
+  technical status, forensic telemetry, rolling history, and active-process disclosure controls
+  remain visible and keyboard reachable without making their dense contents the default view;
 - text, controls, tables, plot regions, the incident marker, and timeline sections are not clipped
   or overlapped at the top, left, or right edges;
 - the cyan synchronized cursor remains distinct from the orange incident marker at both scales,
@@ -76,8 +79,13 @@ the bundle; do not edit generated evidence. Verify:
   is Basic Latin, so the UI source is intentionally ASCII-only and a regression test enforces that
   boundary;
 - incident symptom, contributor, uncertainty, capture provenance, feedback controls, and evidence
-  caveats remain readable in Detail;
+  caveats remain readable in Detail; the collapsed evidence control follows the headline and at
+  most three contributor previews without implying that hidden raw evidence was discarded;
 - Settings and Diagnostics expose recovery/status information without hidden or ambiguous actions.
+
+The physical walkthrough must additionally exercise first-run completion and the Incidents loading,
+empty, no-match, and archive-unavailable presentations. Each state must name a safe next action,
+preserve keyboard focus visibility, and avoid claiming that unsaved or filtered evidence was deleted.
 
 Raster hashes are expected to change when rendering, fonts, layout, or fixture content changes.
 Review the new images and retain a new complete bundle instead of blessing individual changed hashes.

@@ -52,6 +52,24 @@ AccessibilityPalette accessibility_palette(const bool high_contrast,
             {0.05F, 0.35F, 0.75F, 1.0F}, {0.70F, 0.30F, 0.0F, 1.0F}};
 }
 
+IncidentArchivePresentation incident_archive_presentation(
+    const IncidentViewerLoadState state, const std::uint64_t total_matching,
+    const bool search_active) noexcept {
+    switch (state) {
+    case IncidentViewerLoadState::disabled:
+    case IncidentViewerLoadState::error:
+        return IncidentArchivePresentation::unavailable;
+    case IncidentViewerLoadState::idle:
+    case IncidentViewerLoadState::loading:
+        return IncidentArchivePresentation::loading;
+    case IncidentViewerLoadState::ready:
+        if (total_matching != 0U) return IncidentArchivePresentation::results;
+        return search_active ? IncidentArchivePresentation::no_matches
+                             : IncidentArchivePresentation::empty;
+    }
+    return IncidentArchivePresentation::unavailable;
+}
+
 void apply_accessibility_style(const bool high_contrast) noexcept {
     ImGui::StyleColorsDark();
     if (!high_contrast) return;
