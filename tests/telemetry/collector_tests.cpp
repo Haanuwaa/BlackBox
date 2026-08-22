@@ -429,16 +429,19 @@ TEST_CASE("collector schedules slow metadata independently from normal counters"
           "[telemetry][collector][process][tiers]") {
     core::SystemMonotonicClock clock;
     TierRecordingProvider provider{clock};
-    auto values = telemetry::RecorderConfiguration{1ms, 30ms, 10ms};
-    values.metadata_interval = 5ms;
+    // Keep both cadences above coarse hosted-Windows timer resolution. The
+    // contract is that normal samples occur between independently scheduled
+    // slow metadata samples, not that a 1 ms timer produces a fixed count.
+    auto values = telemetry::RecorderConfiguration{20ms, 1s, 10ms};
+    values.metadata_interval = 250ms;
     const auto configured = telemetry::validate_recorder_configuration(values);
     REQUIRE(configured.has_value());
     telemetry::TelemetryCollector collector{provider, clock, *configured};
     collector.start();
-    REQUIRE(wait_until([&] { return provider.samples.load() >= 16U; }));
+    REQUIRE(wait_until([&] { return provider.slow_samples.load() >= 2U; }));
     collector.stop();
 
-    CHECK(provider.slow_samples.load() >= 3U);
+    CHECK(provider.slow_samples.load() >= 2U);
     CHECK(provider.slow_samples.load() < provider.samples.load());
     CHECK(collector.active_process_snapshot().metadata.size() == 1U);
 }

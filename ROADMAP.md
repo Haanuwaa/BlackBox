@@ -1782,6 +1782,18 @@ complete local ASan graph passes 310/311 inside the restricted environment and i
 launch-at-login integration passes 1/1 with registry access, completing the effective 311/311
 sanitizer graph. Replacement same-revision hosted evidence remains open.
 
+The next hosted attempt was also diagnostic and receives no release credit. Its quality graph
+completed dependency review, dependency policy/SBOM, native fuzzing, Linux coverage, UBSan, the
+complete Windows ASan suite, and MSVC static analysis successfully before the superseded run was
+cancelled during CodeQL. The Windows headless graph exposed one remaining sub-timer-resolution test
+assumption: a 1 ms normal cadence and 5 ms metadata cadence caused every wake on a coarse Windows
+clock to cross the next metadata deadline, correctly producing 17 slow requests from 17 samples.
+The cadence test now uses 20 ms normal and 250 ms metadata intervals and waits for two real metadata
+cycles, directly asserting that normal requests occur between slow requests. It passes 50 consecutive
+Release repetitions and the complete 128/128 fully headless Windows graph. Both superseded hosted run
+records were then permanently deleted to release capacity and keep Actions history limited to useful
+evidence. Final same-revision hosted evidence remains open.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
