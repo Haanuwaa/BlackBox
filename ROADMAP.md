@@ -1866,8 +1866,16 @@ repetitions after the repair. The complete local Release and Debug graphs both p
 the first Debug pass's sole launch-at-login failure was reproduced as the restricted test sandbox
 denying creation of a missing HKCU Run key, and the same test passed 20 consecutive runs plus the
 complete graph with normal current-user registry access. The failed Windows run receives no release
-credit, its parallel quality run was cancelled as revision-obsolete, and replacement same-revision
-hosted evidence remains required before restarting the overnight campaign.
+credit and its parallel quality run was cancelled as revision-obsolete. Replacement revision
+`949e919b014beff5062c3cc1caa54e1bd45ef26d` then passed the complete Windows validation and quality/
+security workflows. Their downloaded direct-v1 attestations independently verify against the local
+writer at `out/hosted-ci/949e919b014beff5062c3cc1caa54e1bd45ef26d/{windows,quality}`.
+
+A fresh exact-revision overnight campaign started from that frozen Release executable at
+`out/soaks/overnight-v1-949e919-20260822.partial`. Its 1,020-second checkpoint retained 17 process
+samples with zero sampling gaps and no stderr output. This is active evidence, not a pass: the
+directory must remain `.partial` until all 28,800 seconds, coverage/resource gates, manifest hashes,
+and independent verification complete.
 
 The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. It identifies
 preview UX simplification, characterization-led decomposition of the largest app/storage/UI files,
@@ -1884,10 +1892,10 @@ value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **clean-revision qualification recovery**: land the bounded crash-dump publication
-hardening, rebuild and pass the complete Release graph on the resulting clean revision, obtain its
-hosted CI result, and then repeat the overnight campaign. Continue preview UX,
-maintainability, Linux-provider, and offline ML-evaluation work only as separately measured parallel
-tracks. The signed package, 72-hour physical actions, independently reviewed UI/client matrix,
+Proceed to **qualification and maintainability in isolation**: allow the frozen revision's overnight
+campaign to complete without mutating its executable or scripts; independently verify the result,
+then schedule the operator-assisted 72-hour campaign. Continue characterization-led maintainability,
+Linux-provider, and offline ML-evaluation work in separate branches/builds only. The signed package,
+72-hour physical actions, independently reviewed UI/client matrix,
 consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
 local rehearsals or additional schema machinery cannot satisfy them.

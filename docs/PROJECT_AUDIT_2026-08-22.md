@@ -14,7 +14,7 @@ development machine from gates that require outside hardware, participants, or s
 | Incident product workflow | Implemented | Tray recording, capture, incident archive, detail timelines, feedback, recurrence, settings, diagnostics, recovery, and support bundles exist. |
 | Statistical intelligence | Implemented | Robust baselines, personalized executable history, automatic detection, context recognition, recurrence, evidence-linked contributor ranking, uncertainty, and conservative local feedback are native and optional. |
 | Native ML | Not adopted | No model or ML runtime ships. The representative held-out dataset needed to prove a material improvement over the statistical baseline does not exist yet. |
-| Windows release quality | Strong locally, externally incomplete | The current local Release and Debug graphs pass 313/313 tests, including deterministic crash-dump publication contention. Long wall-clock, physical-client, signed-package, and multi-hardware diagnostic gates remain open. |
+| Windows release quality | Strong locally and hosted, externally incomplete | Exact revision `949e919...` passes 313/313 local Release and Debug tests plus both hosted Windows and quality/security workflows with locally verified attestations. The successor UI branch passes 316/316 Release tests. The overnight campaign is active; 72-hour, physical-client, signed-package, and multi-hardware diagnostic gates remain open. |
 | Linux | Architecture/test host only | Portable headless code is compiled and tested on Linux CI, but `telemetry/linux` and `platform/linux` contain no production backend. |
 | macOS | Reserved boundary only | There is no provider or native shell implementation and no product-support claim. |
 | Security/dependencies | Hardened, cleanup in progress | The security-focused CodeQL graph passes, no open high/critical path alert remains after review, and Dependabot reports no open vulnerability alert. Historical broad quality-query alerts still need administrative closure after the narrowed workflow is merged. |
@@ -44,10 +44,11 @@ honestly flip to `1.0.0` under the current release contract.
 
 ## Recommended work that can proceed now
 
-1. **Close qualification correctness first.** Land the settings-parser preflight, compiled revision
-   binding, and automatic-capture counters; obtain a clean same-revision build/CI result; then repeat
-   the overnight campaign. Treat the interrupted partial campaign as a retained diagnostic failure,
-   not evidence.
+1. **Finish the active qualification clock.** Settings preflight, compiled revision binding,
+   automatic-capture counters, crash publication contention, and same-revision hosted CI are green.
+   Preserve the frozen executable and scripts until the active overnight campaign either publishes
+   verified evidence or retains a diagnostic `.partial` failure; then schedule the operator-assisted
+   72-hour run.
 2. **Physically review the preview-quality UX pass.** Live and Incident Detail now lead with status,
    one plain-language conclusion, uncertainty, and the top few contributors; raw counters and
    detailed factors remain behind progressive disclosure. First-run and archive empty/failure states
