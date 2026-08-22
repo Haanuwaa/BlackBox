@@ -427,6 +427,15 @@ set_tests_properties(repository_hygiene_contract
     PROPERTIES LABELS "architecture;hosted-ci;release;repository")
 
 add_test(
+    NAME source_revision_contract
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_source_revision_contract.cmake
+)
+set_tests_properties(source_revision_contract
+    PROPERTIES LABELS "architecture;hosted-ci;release;repository;version")
+
+add_test(
     NAME prediction_free_dogfood_cli_contract
     COMMAND ${CMAKE_COMMAND}
         -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}

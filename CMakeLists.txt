@@ -9,6 +9,7 @@ project(
 
 include(CTest)
 include(GNUInstallDirs)
+include(cmake/BlackBoxSourceRevision.cmake)
 
 option(BLACKBOX_BUILD_APP "Build the BlackBox desktop application" ON)
 option(BLACKBOX_BUILD_TESTS "Build BlackBox unit tests" ${BUILD_TESTING})
@@ -24,7 +25,8 @@ option(BLACKBOX_BUILD_FUZZERS "Build bounded libFuzzer entry points" OFF)
 set(BLACKBOX_SOURCE_REVISION "auto" CACHE STRING
     "Source identity embedded in Windows executables: auto, local-uncommitted, or 40 lowercase hex")
 
-if(NOT BLACKBOX_SOURCE_REVISION MATCHES "^(auto|local-uncommitted|[0-9a-f]{40})$")
+blackbox_is_source_revision("${BLACKBOX_SOURCE_REVISION}" blackbox_source_revision_valid)
+if(NOT blackbox_source_revision_valid)
     message(FATAL_ERROR
         "BLACKBOX_SOURCE_REVISION must be auto, local-uncommitted, or 40 lowercase hex")
 endif()
@@ -51,9 +53,10 @@ if(BLACKBOX_SOURCE_REVISION STREQUAL "auto")
             OUTPUT_VARIABLE blackbox_git_status
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_QUIET)
+        blackbox_is_commit_revision("${blackbox_git_head}" blackbox_git_head_valid)
         if(blackbox_git_head_result EQUAL 0 AND
            blackbox_git_status_result EQUAL 0 AND
-           blackbox_git_head MATCHES "^[0-9a-f]{40}$" AND
+           blackbox_git_head_valid AND
            blackbox_git_status STREQUAL "")
             set(BLACKBOX_EFFECTIVE_SOURCE_REVISION "${blackbox_git_head}")
         endif()
