@@ -48,6 +48,7 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
             destination.filename().empty() || destination.extension() != ".ini" ||
             !safe_identifier(report.application_version) ||
             !safe_identifier(report.platform) ||
+            !safe_identifier(report.source_revision) ||
             report.requested_runtime_seconds == 0U ||
             report.requested_runtime_seconds > 7U * 24U * 60U * 60U ||
             report.capture_interval_seconds > 24U * 60U * 60U) {
@@ -73,6 +74,7 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "format", wall_clock_report_format_version);
         append(output, "application_version", report.application_version);
         append(output, "platform", report.platform);
+        append(output, "source_revision", report.source_revision);
         append(output, "completed", report.completed);
         append(output, "requested_runtime_seconds", report.requested_runtime_seconds);
         append(output, "capture_interval_seconds", report.capture_interval_seconds);
@@ -106,6 +108,13 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "capture_queue_rejections", report.capture_queue_rejections);
         append(output, "snapshot_failures", report.snapshot_failures);
         append(output, "captures_cancelled", report.captures_cancelled);
+        append(output, "automatic_detection_enabled",
+               report.automatic_detection_enabled);
+        append(output, "automatic_detector_triggers",
+               report.automatic_detector_triggers);
+        append(output, "automatic_captures_started",
+               report.automatic_captures_started);
+        append(output, "automatic_event_requests", report.automatic_event_requests);
         append(output, "event_polls", report.event_polls);
         append(output, "system_events_recorded", report.system_events_recorded);
         append(output, "power_events_recorded", report.power_events_recorded);

@@ -32,6 +32,12 @@ Bundle paths are normalized only after proving that their full paths remain bene
 root; no newer `.NET` `Path.GetRelativePath` API is required. Contract tests verify an accepted
 bundle through Windows PowerShell 5.1 when it is installed.
 
+Before launching timed work, the runner invokes the assembled executable's
+`--validate-settings-only` mode against both generated direct-v1 settings files. This uses the same
+production parsers as startup and fails before elapsed work if a required field is absent, unknown,
+or invalid. The mode cannot be combined with background/runtime arguments and does not construct the
+application, collector, shell, archive, analysis, or UI.
+
 Only smoke mode accepts a shortened `-DurationSeconds`. Overnight is fixed at 28,800 seconds and
 72-hour is fixed at 259,200 seconds so release evidence cannot silently substitute a shorter run.
 Their cadences are fixed too: overnight captures every 900 seconds with a 60-second process
@@ -90,7 +96,8 @@ not retain identifiers or claim which physical device produced a transition.
 A passed directory contains:
 
 - `app-report.ini`: path-free direct-v1 collector, capture, event, writer, archive, shell, and crash
-  counters emitted after orderly drain;
+  counters emitted after orderly drain, including the compiled source revision and effective
+  automatic-detection/trigger/capture/event-request counters;
 - `process-samples.tsv`: UTC/elapsed resource checkpoints;
 - `operator-events.tsv`: bounded operator and automatic fault events;
 - `summary.ini`: duration, fixed cadence, coverage minimums, logical-processor count, independently
@@ -100,7 +107,9 @@ A passed directory contains:
 
 The runner requires completed duration, a healthy schema-v1 archive, sample coverage, internally
 consistent capture/writer/archive counts, no collector/event worker failures, no sample drops or
-deadline misses, and no unexpected writer failures. Long modes also enforce an 80 MiB maximum
+deadline misses, no unexpected writer failures, and proof that automatic detection, detector
+triggers, automatic captures, and event-driven capture requests all remained disabled. Long modes
+also enforce an 80 MiB maximum
 working set, 1% average total-machine CPU, and bounded first-to-last ten-checkpoint growth of 16 MiB
 working set, 16 MiB private memory, and 32 handles. Every recorded event must be accounted for by
 one of the ten bounded source counters. The 72-hour mode additionally requires all operator events,
@@ -121,8 +130,9 @@ or interrupted directory by hand.
 
 The final direct-v1 manifest binds the archive, settings, journals, completed checkpoint, report,
 and summary. Campaign/summary provenance also binds the application, runner, verifier, optional
-fault probe, and caller-supplied source revision; the runner rehashes every executable input before
-publication and fails if one changed during elapsed time. `local-uncommitted` is permitted for
+fault probe, and caller-supplied source revision; the application report must declare that same
+compiled revision, and the runner rehashes every executable input before publication and fails if
+one changed during elapsed time. `local-uncommitted` is permitted for
 pre-release harness work but cannot identify a release revision. The runner invokes
 `verify-wall-clock-soak.ps1` against staged evidence before atomic
 publication. Re-run the verifier on retained evidence before using it in a release decision:

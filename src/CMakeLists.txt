@@ -48,6 +48,7 @@ target_include_directories(blackbox_core PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_compile_features(blackbox_core PUBLIC cxx_std_23)
 target_compile_definitions(blackbox_core PUBLIC
     BLACKBOX_VERSION="${PROJECT_VERSION}"
+    BLACKBOX_SOURCE_REVISION="${BLACKBOX_EFFECTIVE_SOURCE_REVISION}"
 )
 blackbox_set_project_warnings(blackbox_core)
 

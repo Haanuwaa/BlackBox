@@ -232,12 +232,18 @@ if(WIN32)
                 -SourceRoot ${PROJECT_SOURCE_DIR})
         set_tests_properties(client_qualification_script_contracts
             PROPERTIES LABELS "release;script")
+        set(BLACKBOX_WALL_CLOCK_SOAK_CONTRACT_COMMAND
+            ${BLACKBOX_POWERSHELL_EXECUTABLE}
+            -NoProfile -NonInteractive -ExecutionPolicy Bypass
+            -File ${CMAKE_CURRENT_SOURCE_DIR}/scripts/wall_clock_soak_contract_tests.ps1
+            -SourceRoot ${PROJECT_SOURCE_DIR})
+        if(TARGET blackbox)
+            list(APPEND BLACKBOX_WALL_CLOCK_SOAK_CONTRACT_COMMAND
+                -ApplicationPath $<TARGET_FILE:blackbox>)
+        endif()
         add_test(
             NAME wall_clock_soak_script_contracts
-            COMMAND ${BLACKBOX_POWERSHELL_EXECUTABLE}
-                -NoProfile -NonInteractive -ExecutionPolicy Bypass
-                -File ${CMAKE_CURRENT_SOURCE_DIR}/scripts/wall_clock_soak_contract_tests.ps1
-                -SourceRoot ${PROJECT_SOURCE_DIR})
+            COMMAND ${BLACKBOX_WALL_CLOCK_SOAK_CONTRACT_COMMAND})
         set_tests_properties(wall_clock_soak_script_contracts
             PROPERTIES LABELS "release;script;soak")
         add_test(

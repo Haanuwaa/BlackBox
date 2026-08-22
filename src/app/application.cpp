@@ -1709,6 +1709,7 @@ void Application::write_diagnostic_report() noexcept {
     WallClockReport report{};
     report.application_version = std::string{core::version};
     report.platform = BLACKBOX_PLATFORM_NAME;
+    report.source_revision = std::string{core::source_revision};
     report.completed = diagnostic_completed_;
     report.requested_runtime_seconds = static_cast<std::uint64_t>(
         diagnostic_options_.runtime.count());
@@ -1753,6 +1754,10 @@ void Application::write_diagnostic_report() noexcept {
         report.capture_queue_rejections = values.incident_capture.queue_rejections;
         report.snapshot_failures = values.incident_capture.snapshot_failures;
         report.captures_cancelled = values.incident_capture.captures_cancelled;
+        report.automatic_detection_enabled = values.automatic_detection_enabled;
+        report.automatic_detector_triggers =
+            values.automatic_detector.triggers_emitted;
+        report.automatic_captures_started = values.automatic_captures_started;
     }
     if (system_event_collector_ != nullptr) {
         const auto values = system_event_collector_->diagnostics();
@@ -1777,6 +1782,7 @@ void Application::write_diagnostic_report() noexcept {
         report.event_provider_failures = values.provider_failures;
         report.event_provider_recoveries = values.provider_recoveries;
         report.event_worker_failures = values.worker_failures;
+        report.automatic_event_requests = values.automatic_event_requests;
     }
 #if BLACKBOX_STORAGE_ENABLED
     if (incident_writer_ != nullptr) {

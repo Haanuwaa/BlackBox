@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$SourceRoot
+    [string]$SourceRoot,
+
+    [string]$ApplicationPath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -32,6 +34,27 @@ function Expect-FailureMessage([scriptblock]$Action, [string]$Pattern, [string]$
 
 function Write-Text([string]$Path, [string]$Text) {
     [IO.File]::WriteAllText($Path, $Text, [Text.UTF8Encoding]::new($false))
+}
+
+function Get-HereStringTemplate([string]$Path, [string]$VariableName) {
+    $lines = [IO.File]::ReadAllLines($Path)
+    $marker = '$' + $VariableName + ' = @"'
+    $start = [Array]::IndexOf($lines, $marker)
+    if ($start -lt 0) { throw "Runner template is missing: $VariableName" }
+    $contents = [Collections.Generic.List[string]]::new()
+    for ($index = $start + 1; $index -lt $lines.Count; ++$index) {
+        if ($lines[$index] -ceq '"@') {
+            return (($contents -join "`n") + "`n")
+        }
+        $contents.Add($lines[$index])
+    }
+    throw "Runner template is unterminated: $VariableName"
+}
+
+function Invoke-Application([string]$Path, [string[]]$Arguments) {
+    $process = Start-Process -FilePath $Path -ArgumentList $Arguments `
+                             -WindowStyle Hidden -Wait -PassThru
+    return $process.ExitCode
 }
 
 function Set-Field([string]$Path, [string]$Name, [string]$Value) {
@@ -127,6 +150,7 @@ steady_state_handle_growth=0
 "@
     Write-Text (Join-Path $Directory 'app-report.ini') @"
 format=1
+source_revision=local-uncommitted
 completed=1
 requested_runtime_seconds=10
 capture_interval_seconds=5
@@ -140,6 +164,10 @@ capture_queue_rejections=0
 event_worker_failures=0
 native_events_dropped=0
 writer_cancelled=0
+automatic_detection_enabled=0
+automatic_detector_triggers=0
+automatic_captures_started=0
+automatic_event_requests=0
 archive_healthy=1
 archive_schema_version=1
 power_events_recorded=0
@@ -230,6 +258,54 @@ try {
         if ($errors.Count -ne 0) { throw "PowerShell parser rejected $script" }
     }
 
+    if (-not [string]::IsNullOrWhiteSpace($ApplicationPath)) {
+        $application = (Resolve-Path -LiteralPath $ApplicationPath -ErrorAction Stop).Path
+        $settingsDirectory = Join-Path $root 'settings-preflight'
+        [IO.Directory]::CreateDirectory($settingsDirectory) | Out-Null
+        $productPath = Join-Path $settingsDirectory 'product-settings.ini'
+        $recorderPath = Join-Path $settingsDirectory 'recorder-settings.ini'
+        $archiveField = (Join-Path $settingsDirectory 'incidents.sqlite3').Replace('\', '/')
+        $productTemplate = Get-HereStringTemplate $run 'productText'
+        $recorderTemplate = Get-HereStringTemplate $run 'recorderText'
+        $validProduct = $productTemplate.Replace('$archiveField', $archiveField)
+        Write-Text $productPath $validProduct
+        Write-Text $recorderPath $recorderTemplate
+        $oldProduct = [Environment]::GetEnvironmentVariable(
+            'BLACKBOX_PRODUCT_SETTINGS_PATH', 'Process')
+        $oldRecorder = [Environment]::GetEnvironmentVariable(
+            'BLACKBOX_SETTINGS_PATH', 'Process')
+        try {
+            [Environment]::SetEnvironmentVariable(
+                'BLACKBOX_PRODUCT_SETTINGS_PATH', $productPath, 'Process')
+            [Environment]::SetEnvironmentVariable(
+                'BLACKBOX_SETTINGS_PATH', $recorderPath, 'Process')
+            if ((Invoke-Application $application @('--validate-settings-only')) -ne 0) {
+                throw 'The assembled app rejected the runner settings templates.'
+            }
+
+            $missingLifecycle = $validProduct.Replace(
+                "record_process_lifecycle=0`n", '')
+            if ($missingLifecycle -ceq $validProduct) {
+                throw 'The runner template does not pin process lifecycle collection.'
+            }
+            Write-Text $productPath $missingLifecycle
+            if ((Invoke-Application $application @('--validate-settings-only')) -eq 0) {
+                throw 'The assembled app accepted an incomplete product settings template.'
+            }
+
+            Write-Text $productPath $validProduct
+            if ((Invoke-Application $application @(
+                    '--validate-settings-only', '--background')) -eq 0) {
+                throw 'Settings-only validation accepted an unrelated app argument.'
+            }
+        } finally {
+            [Environment]::SetEnvironmentVariable(
+                'BLACKBOX_PRODUCT_SETTINGS_PATH', $oldProduct, 'Process')
+            [Environment]::SetEnvironmentVariable(
+                'BLACKBOX_SETTINGS_PATH', $oldRecorder, 'Process')
+        }
+    }
+
     $valid = Join-Path $root 'valid'
     New-SoakFixture $valid
     & $verify -CampaignDirectory $valid | Out-Null
@@ -291,6 +367,14 @@ try {
     Write-Manifest $staleVerifier
     Expect-Failure { & $verify -CampaignDirectory $staleVerifier | Out-Null } `
         'hash-consistent stale verifier identity'
+
+    $wrongAppRevision = Join-Path $root 'wrong-app-revision'
+    Copy-Item -LiteralPath $valid -Destination $wrongAppRevision -Recurse
+    Set-Field (Join-Path $wrongAppRevision 'app-report.ini') `
+        'source_revision' $('b' * 40)
+    Write-Manifest $wrongAppRevision
+    Expect-Failure { & $verify -CampaignDirectory $wrongAppRevision | Out-Null } `
+        'hash-consistent app source revision mismatch'
 
     $falseMaximum = Join-Path $root 'false-maximum'
     Copy-Item -LiteralPath $valid -Destination $falseMaximum -Recurse
@@ -366,6 +450,14 @@ try {
     Expect-Failure { & $verify -CampaignDirectory $insufficientCaptures | Out-Null } `
         'hash-consistent insufficient scheduled captures'
 
+    $unexpectedAutomatic = Join-Path $root 'unexpected-automatic'
+    Copy-Item -LiteralPath $valid -Destination $unexpectedAutomatic -Recurse
+    Set-Field (Join-Path $unexpectedAutomatic 'app-report.ini') `
+        'automatic_detection_enabled' '1'
+    Write-Manifest $unexpectedAutomatic
+    Expect-Failure { & $verify -CampaignDirectory $unexpectedAutomatic | Out-Null } `
+        'hash-consistent automatic detection in isolated soak'
+
     $extra = Join-Path $root 'extra'
     Copy-Item -LiteralPath $valid -Destination $extra -Recurse
     Write-Text (Join-Path $extra 'unexpected.txt') 'unexpected'
@@ -402,7 +494,11 @@ try {
                             'hotkey_alt=1', 'application_sha256',
                             'runner_sha256', 'verifier_sha256',
                             'minimum_scheduled_captures', 'minimum_process_samples',
-                            'logical_processor_count')) {
+                            'logical_processor_count', 'record_process_lifecycle=0',
+                            '--validate-settings-only',
+                            'automatic_detection_enabled',
+                            'automatic_detector_triggers',
+                            'automatic_captures_started', 'automatic_event_requests')) {
         if (-not $runText.Contains($required)) {
             throw "The runner is missing its required contract: $required"
         }

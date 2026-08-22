@@ -196,6 +196,7 @@ detect_network=1
 detector_cooldown_seconds=120
 notifications=0
 record_foreground_application=0
+record_process_lifecycle=0
 record_power_and_device_events=1
 record_audio_device_events=1
 record_windows_event_log_evidence=0
@@ -245,6 +246,12 @@ $lastSteadySamples = [Collections.Generic.Queue[object]]::new()
 try {
     [Environment]::SetEnvironmentVariable('BLACKBOX_PRODUCT_SETTINGS_PATH', $productSettings, 'Process')
     [Environment]::SetEnvironmentVariable('BLACKBOX_SETTINGS_PATH', $recorderSettings, 'Process')
+    $settingsProbe = Start-Process -FilePath $application `
+                                   -ArgumentList @('--validate-settings-only') `
+                                   -WindowStyle Hidden -Wait -PassThru
+    if ($settingsProbe.ExitCode -ne 0) {
+        throw 'The assembled application rejected the generated direct-v1 settings.'
+    }
     $arguments = @(
         "--background-diagnostic-seconds=$DurationSeconds",
         ('"--diagnostic-report={0}"' -f $report),
@@ -326,6 +333,7 @@ try {
 
     $fields = Read-DirectV1 $report
     if ($fields['completed'] -ne '1' -or
+        $fields['source_revision'] -cne $SourceRevision -or
         [uint64]$fields['requested_runtime_seconds'] -ne [uint64]$DurationSeconds -or
         [uint64]$fields['capture_interval_seconds'] -ne [uint64]$CaptureIntervalSeconds) {
         throw 'Application report does not match the completed campaign.'
@@ -339,7 +347,11 @@ try {
     Require-Zero $fields @('failed_samples', 'dropped_samples', 'deadline_misses',
                             'collector_worker_failures', 'snapshot_failures',
                             'capture_queue_rejections', 'event_worker_failures',
-                            'native_events_dropped', 'writer_cancelled')
+                            'native_events_dropped', 'writer_cancelled',
+                            'automatic_detection_enabled',
+                            'automatic_detector_triggers',
+                            'automatic_captures_started',
+                            'automatic_event_requests')
     if (-not $faultRequired) {
         Require-Zero $fields @('writer_retry_exhausted', 'writer_failed')
     }

@@ -1823,6 +1823,33 @@ review, dependency policy/SBOM, Linux coverage, UBSan, and native fuzzing before
 was cancelled during CodeQL. Both obsolete run histories were then permanently deleted; final
 same-revision hosted evidence remains open.
 
+The first attempted overnight campaign on clean revision
+`b8930033412e1b6c5ef76491bf2ba5c03b1e0764` was stopped after 6,242 elapsed seconds and 104
+checkpoints, with zero sampling gaps, because its generated product settings omitted the required
+direct-v1 `record_process_lifecycle` field. The production parser correctly rejected the entire
+file, startup correctly fell back to defaults, and automatic Windows network evidence consequently
+created 16 unintended captures in addition to six scheduled captures. Average total-machine CPU was
+1.57%, also above the 1% long-mode gate. The retained `.partial` directory is diagnostic evidence
+only; the queued 72-hour handoff was cancelled and no process remains active.
+
+The harness now validates both generated settings files through the assembled application's
+production parsers before launching timed work. Its app report binds the compiled source revision and
+publishes effective automatic-detection, detector-trigger, automatic-capture, and event-request
+counters; the runner and standalone verifier require all four to be zero and reject a revision
+mismatch. A new 20-second end-to-end smoke at
+`out/soaks/settings-provenance-smoke-v1-20260822/` passed and independently re-verified ten process
+checkpoints, two scheduled captures, matching `local-uncommitted` provenance, and zero automatic
+detection/trigger/capture/event requests. The complete current local Release graph passes 312/312
+tests. A fresh clean-revision overnight is still required; this development smoke receives no
+release credit.
+
+The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. It identifies
+preview UX simplification, characterization-led decomposition of the largest app/storage/UI files,
+a Linux telemetry-provider MVP, and an offline ML comparison interface as useful parallel work while
+physical-client, multi-hardware corpus, and signing gates lack resources. Those tracks do not weaken
+the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without held-out
+value, or satisfy any external V1 evidence gate.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -1831,8 +1858,10 @@ same-revision hosted evidence remains open.
 
 ## Exact next milestone
 
-Proceed to **V1.0 release qualification evidence acquisition**. Complete the signed-package,
-same-revision wall-clock, hosted-CI, independently reviewed UI, physical client-matrix, consented
-multi-hardware corpus, and one-shot held-out gates, then publish the final V1 composition ledger.
-These are evidence-execution gates; local rehearsals and additional schema machinery cannot satisfy
-them.
+Proceed to **clean-revision qualification recovery**: land the settings/provenance hardening and
+security-focused CodeQL workflow, rebuild and pass the complete Release graph on the resulting clean
+revision, obtain its hosted CI result, and then repeat the overnight campaign. Continue preview UX,
+maintainability, Linux-provider, and offline ML-evaluation work only as separately measured parallel
+tracks. The signed package, 72-hour physical actions, independently reviewed UI/client matrix,
+consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
+local rehearsals or additional schema machinery cannot satisfy them.

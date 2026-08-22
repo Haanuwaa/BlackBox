@@ -134,3 +134,7 @@ single-host profiles, independent bundle verification, and aggregate clean-clien
 The same-revision hosted/UI/client/soak/signing composition contract is documented in
 [docs/V017_RELEASE_EVIDENCE.md](docs/V017_RELEASE_EVIDENCE.md); it cannot replace the separate
 diagnostic-quality gate.
+
+The dated [project audit](docs/PROJECT_AUDIT_2026-08-22.md) summarizes current product maturity,
+resource-blocked release gates, UI/maintenance priorities, and safe parallel paths for Linux and
+offline ML research.

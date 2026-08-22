@@ -197,6 +197,9 @@ $sourceRevision = Require-Field $campaignFields 'source_revision'
 if ($sourceRevision -notmatch '^(local-uncommitted|[0-9a-f]{40}|[0-9a-f]{64})$') {
     throw 'The campaign source revision is malformed.'
 }
+if ((Require-Field $report 'source_revision') -cne $sourceRevision) {
+    throw 'The app report source revision does not match the campaign.'
+}
 $applicationHash = Require-Field $campaignFields 'application_sha256'
 if ($applicationHash -notmatch '^[0-9a-f]{64}$' -or
     (Require-Field $summary 'application_sha256') -cne $applicationHash) {
@@ -385,9 +388,13 @@ if ((Require-Field $report 'archive_healthy') -cne '1' -or
     throw 'The app report does not prove a healthy direct-v1 archive.'
 }
 Require-Zero $report @('failed_samples', 'dropped_samples', 'deadline_misses',
-                       'collector_worker_failures', 'snapshot_failures',
-                       'capture_queue_rejections', 'event_worker_failures',
-                       'native_events_dropped', 'writer_cancelled')
+                        'collector_worker_failures', 'snapshot_failures',
+                        'capture_queue_rejections', 'event_worker_failures',
+                        'native_events_dropped', 'writer_cancelled',
+                        'automatic_detection_enabled',
+                        'automatic_detector_triggers',
+                        'automatic_captures_started',
+                        'automatic_event_requests')
 $eventCount = (Read-UInt $report 'power_events_recorded') +
               (Read-UInt $report 'device_events_recorded') +
               (Read-UInt $report 'audio_events_recorded') +

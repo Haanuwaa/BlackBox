@@ -22,6 +22,7 @@ namespace {
     app::WallClockReport report{};
     report.application_version = "0.15.0";
     report.platform = "Windows";
+    report.source_revision = "local-uncommitted";
     report.completed = true;
     report.requested_runtime_seconds = 30U;
     report.capture_interval_seconds = 10U;
@@ -60,11 +61,17 @@ TEST_CASE("wall-clock report publishes a path-free direct-v1 artifact atomically
 
     std::ifstream input{destination, std::ios::binary};
     const std::string contents{std::istreambuf_iterator<char>{input}, {}};
-    CHECK(contents.starts_with("format=1\napplication_version=0.15.0\nplatform=Windows\n"));
+    CHECK(contents.starts_with(
+        "format=1\napplication_version=0.15.0\nplatform=Windows\n"
+        "source_revision=local-uncommitted\n"));
     CHECK(contents.find("completed=1\n") != std::string::npos);
     CHECK(contents.find("collections=30\n") != std::string::npos);
     CHECK(contents.find("ring_overwritten_samples=20\n") != std::string::npos);
     CHECK(contents.find("writer_succeeded=2\n") != std::string::npos);
+    CHECK(contents.find("automatic_detection_enabled=0\n") != std::string::npos);
+    CHECK(contents.find("automatic_detector_triggers=0\n") != std::string::npos);
+    CHECK(contents.find("automatic_captures_started=0\n") != std::string::npos);
+    CHECK(contents.find("automatic_event_requests=0\n") != std::string::npos);
     CHECK(contents.find("device_events_recorded=1\n") != std::string::npos);
     CHECK(contents.find("network_events_recorded=2\n") != std::string::npos);
     CHECK(contents.find("graphics_events_recorded=3\n") != std::string::npos);

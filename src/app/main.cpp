@@ -1,4 +1,6 @@
 #include "app/application.hpp"
+#include "app/product_settings.hpp"
+#include "app/recorder_settings.hpp"
 #include "core/logger.hpp"
 
 #include <SDL3/SDL_main.h>
@@ -19,6 +21,8 @@ int main(const int argc, char** argv) {
         bool runtime_seen = false;
         bool report_seen = false;
         bool capture_interval_seen = false;
+        bool validate_settings_only = false;
+        std::uint32_t argument_count = 0U;
         constexpr std::string_view diagnostic_prefix{
             "--background-diagnostic-seconds="};
         constexpr std::string_view report_prefix{"--diagnostic-report="};
@@ -32,9 +36,16 @@ int main(const int argc, char** argv) {
             if (argv[index] == nullptr) {
                 continue;
             }
+            ++argument_count;
             const std::string_view argument{argv[index]};
             if (argument == "--background") {
                 start_hidden = true;
+            } else if (argument == "--validate-settings-only") {
+                if (validate_settings_only) {
+                    return invalid_argument(
+                        "Settings validation may be supplied only once");
+                }
+                validate_settings_only = true;
             } else if (argument.starts_with(diagnostic_prefix)) {
                 if (runtime_seen) {
                     return invalid_argument("Diagnostic duration may be supplied only once");
@@ -87,6 +98,23 @@ int main(const int argc, char** argv) {
             } else {
                 return invalid_argument("Unknown BlackBox command-line argument");
             }
+        }
+        if (validate_settings_only) {
+            if (argument_count != 1U) {
+                return invalid_argument(
+                    "Settings validation cannot be combined with other arguments");
+            }
+            const auto product = blackbox::app::load_product_settings(
+                blackbox::app::default_product_settings_path());
+            if (!product) {
+                return invalid_argument("Product settings validation failed");
+            }
+            const auto recorder = blackbox::app::load_recorder_settings(
+                blackbox::app::default_recorder_settings_path());
+            if (!recorder) {
+                return invalid_argument("Recorder settings validation failed");
+            }
+            return 0;
         }
         if ((report_seen || capture_interval_seen) && !runtime_seen) {
             return invalid_argument(

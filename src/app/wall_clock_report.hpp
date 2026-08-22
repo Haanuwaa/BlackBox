@@ -26,6 +26,7 @@ struct WallClockReportError {
 struct WallClockReport {
     std::string application_version{};
     std::string platform{};
+    std::string source_revision{};
     bool completed{};
     std::uint64_t requested_runtime_seconds{};
     std::uint64_t capture_interval_seconds{};
@@ -62,6 +63,10 @@ struct WallClockReport {
     std::uint64_t capture_queue_rejections{};
     std::uint64_t snapshot_failures{};
     std::uint64_t captures_cancelled{};
+    bool automatic_detection_enabled{};
+    std::uint64_t automatic_detector_triggers{};
+    std::uint64_t automatic_captures_started{};
+    std::uint64_t automatic_event_requests{};
 
     std::uint64_t event_polls{};
     std::uint64_t system_events_recorded{};
