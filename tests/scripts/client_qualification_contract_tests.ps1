@@ -295,6 +295,14 @@ try {
         $bundles += $bundle
     }
     & $verifyEvidence -CampaignDirectory $bundles[0] -RequireInteractive | Out-Null
+    $windowsPowerShell = Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if ($null -ne $windowsPowerShell) {
+        & $windowsPowerShell.Source -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File $verifyEvidence -CampaignDirectory $bundles[0] -RequireInteractive | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The client evidence verifier failed under Windows PowerShell 5.1.'
+        }
+    }
 
     $smokeEvidence = Join-Path $root 'bundle-smoke'
     Copy-Item -LiteralPath $bundles[0] -Destination $smokeEvidence -Recurse

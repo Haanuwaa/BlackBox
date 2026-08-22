@@ -1710,6 +1710,15 @@ with a platform-independent malformed-value contract. Clean revision
 three-binary `0.15.0`/revision preflight, and passed 312/312 tests in 39.21 seconds. The application
 SHA-256 for that revision is
 `d21df9baa991114021323f45fd218ba845a36967ef5fab1a3423acbb3de0d0a9`.
+The first smoke launched from that clean-revision workflow also failed closed before publication:
+the standalone verifier used a newer `.NET` relative-path API absent from inbox Windows PowerShell
+5.1, which is the shell the campaign invokes. That attempt remains `.partial` and receives no
+release credit. Wall-clock and clean-client verifiers now normalize only full paths proven beneath
+their evidence root using a cross-shell bounded prefix routine. Their complete contract suites pass
+under PowerShell 7, and each valid-bundle path is additionally invoked through Windows PowerShell
+5.1 when available. Replacement evidence is accepted only from a subsequent clean revision and
+rebuild after the full test graph passes; the overnight, 72-hour, physical-client, hosted, signing,
+and diagnostic-quality gates remain open.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 

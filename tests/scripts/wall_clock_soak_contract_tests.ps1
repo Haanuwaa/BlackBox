@@ -233,6 +233,14 @@ try {
     $valid = Join-Path $root 'valid'
     New-SoakFixture $valid
     & $verify -CampaignDirectory $valid | Out-Null
+    $windowsPowerShell = Get-Command powershell.exe -ErrorAction SilentlyContinue
+    if ($null -ne $windowsPowerShell) {
+        & $windowsPowerShell.Source -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File $verify -CampaignDirectory $valid | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The soak verifier failed under Windows PowerShell 5.1.'
+        }
+    }
 
     $validOvernight = Join-Path $root 'valid-overnight'
     New-OvernightFixture $validOvernight

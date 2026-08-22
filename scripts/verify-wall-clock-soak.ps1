@@ -71,6 +71,25 @@ function Require-Zero($Fields, [string[]]$Names) {
     }
 }
 
+function Get-BundleRelativePath([string]$Root, [string]$Path) {
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    $prefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+    $comparison = if ([IO.Path]::DirectorySeparatorChar -eq '\') {
+        [StringComparison]::OrdinalIgnoreCase
+    } else {
+        [StringComparison]::Ordinal
+    }
+    if (-not $pathFull.StartsWith($prefix, $comparison)) {
+        throw 'A soak bundle path resolved outside the campaign root.'
+    }
+    $relative = $pathFull.Substring($prefix.Length).Replace('\', '/')
+    if ([string]::IsNullOrEmpty($relative) -or [IO.Path]::IsPathRooted($relative)) {
+        throw 'A soak bundle path could not be normalized safely.'
+    }
+    return $relative
+}
+
 function Get-AverageMetric([object[]]$Samples, [string]$Name) {
     if ($Samples.Count -eq 0) { return 0.0 }
     $sum = 0.0
@@ -116,7 +135,7 @@ foreach ($file in $actualFiles) {
     if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw "Soak bundle files cannot be links: $($file.FullName)"
     }
-    $relative = [IO.Path]::GetRelativePath($campaign, $file.FullName).Replace('\', '/')
+    $relative = Get-BundleRelativePath $campaign $file.FullName
     $actualRelative += $relative
     $limit = switch ($relative) {
         'data/incidents.sqlite3' { 1GB }
@@ -137,7 +156,7 @@ foreach ($directory in $directories) {
     if (($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'Soak bundle directories cannot be links or reparse points.'
     }
-    $directoryRelative += [IO.Path]::GetRelativePath($campaign, $directory.FullName).Replace('\', '/')
+    $directoryRelative += Get-BundleRelativePath $campaign $directory.FullName
 }
 if (Compare-Object @('data', 'data/crashes') ($directoryRelative | Sort-Object)) {
     throw 'The soak bundle must contain only its data and empty crash-staging directories.'

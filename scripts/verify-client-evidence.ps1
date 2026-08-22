@@ -44,6 +44,25 @@ function Read-UInt($Fields, [string]$Name) {
     return $value
 }
 
+function Get-BundleRelativePath([string]$Root, [string]$Path) {
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    $prefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+    $comparison = if ([IO.Path]::DirectorySeparatorChar -eq '\') {
+        [StringComparison]::OrdinalIgnoreCase
+    } else {
+        [StringComparison]::Ordinal
+    }
+    if (-not $pathFull.StartsWith($prefix, $comparison)) {
+        throw 'A client evidence path resolved outside the campaign root.'
+    }
+    $relative = $pathFull.Substring($prefix.Length).Replace('\', '/')
+    if ([string]::IsNullOrEmpty($relative) -or [IO.Path]::IsPathRooted($relative)) {
+        throw 'A client evidence path could not be normalized safely.'
+    }
+    return $relative
+}
+
 function Get-SignatureFacts([string]$Path) {
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     return @{
@@ -104,7 +123,7 @@ foreach ($file in $actualFiles) {
     if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'Client evidence files cannot be links or reparse points.'
     }
-    $relative = [IO.Path]::GetRelativePath($directory, $file.FullName).Replace('\', '/')
+    $relative = Get-BundleRelativePath $directory $file.FullName
     $actualRelative += $relative
     $limit = switch ($relative) {
         $packageName { 512MB }
@@ -125,7 +144,7 @@ $directoryRelative = @($directories | ForEach-Object {
     if (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'Client evidence directories cannot be links or reparse points.'
     }
-    [IO.Path]::GetRelativePath($directory, $_.FullName).Replace('\', '/')
+    Get-BundleRelativePath $directory $_.FullName
 } | Sort-Object)
 if (Compare-Object @('data', 'data/crashes') $directoryRelative -CaseSensitive -SyncWindow 0 -ErrorAction Stop) {
     throw 'Client evidence must contain only data and empty crash directories.'

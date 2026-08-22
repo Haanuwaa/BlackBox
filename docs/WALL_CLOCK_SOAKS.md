@@ -27,6 +27,11 @@ Run from the repository root in a normal interactive Windows session:
   -OutputDirectory ./out/soaks/72-hour-20260821
 ```
 
+The runner and standalone verifier support both inbox Windows PowerShell 5.1 and current PowerShell.
+Bundle paths are normalized only after proving that their full paths remain beneath the campaign
+root; no newer `.NET` `Path.GetRelativePath` API is required. Contract tests verify an accepted
+bundle through Windows PowerShell 5.1 when it is installed.
+
 Only smoke mode accepts a shortened `-DurationSeconds`. Overnight is fixed at 28,800 seconds and
 72-hour is fixed at 259,200 seconds so release evidence cannot silently substitute a shorter run.
 Their cadences are fixed too: overnight captures every 900 seconds with a 60-second process

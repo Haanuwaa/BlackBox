@@ -784,6 +784,10 @@ process, collection, and scheduled-capture coverage. The standalone verifier req
 runner/verifier identities to match the current source tree and recomputes journal ordering, gaps,
 CPU, resource maxima, and first/last steady-state growth before accepting the summary. Interrupted or
 failed campaigns remain visibly partial and cannot become release evidence.
+Evidence-tree normalization uses a bounded same-root prefix operation available in both Windows
+PowerShell 5.1 and current PowerShell; it does not depend on newer `.NET` relative-path APIs. The
+same cross-shell rule protects clean-client evidence enumeration, and both accepted-bundle contracts
+invoke the Windows PowerShell verifier when that host shell is available.
 The Windows background shell registers its message-only window for current-session WTS changes and
 retains only lock/unlock counts plus capability state. Separately, the portable event collector
 counts its already-normalized events by the ten `SystemEventSource` families. The app flattens
