@@ -7,6 +7,6 @@ Comment=Keep a bounded local history for incident capture
 Exec=blackbox
 Icon=io.github.Haanuwaa.BlackBox
 Terminal=false
-Categories=System;Utility;
+Categories=System;
 Keywords=telemetry;incident;diagnostics;performance;
 StartupNotify=false

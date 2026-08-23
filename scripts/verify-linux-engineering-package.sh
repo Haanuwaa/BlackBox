@@ -34,9 +34,14 @@ icon="$extract/usr/share/icons/hicolor/scalable/apps/io.github.Haanuwaa.BlackBox
 test -x "$executable"
 test -s "$desktop"
 test -s "$icon"
-desktop-file-validate "$desktop"
-readelf -d "$executable" | grep -Fq '$ORIGIN/../lib/blackbox'
-if readelf -d "$executable" | grep -Fq "$GITHUB_WORKSPACE"; then
+desktop-file-validate "$desktop" >&2
+dynamic_section="$(readelf -d "$executable")"
+if ! grep -Fq '$ORIGIN/../lib/blackbox' <<<"$dynamic_section"; then
+  echo "Native package executable is missing its private-library RPATH" >&2
+  exit 1
+fi
+if [ -n "${GITHUB_WORKSPACE:-}" ] &&
+    grep -Fq "$GITHUB_WORKSPACE" <<<"$dynamic_section"; then
   echo "Native package retains a build-workspace runtime path" >&2
   exit 1
 fi
