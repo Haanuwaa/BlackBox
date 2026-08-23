@@ -1,11 +1,11 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace blackbox::app {
 
@@ -48,10 +48,7 @@ struct WallClockReport {
     std::uint64_t dropped_samples{};
     std::uint64_t late_samples{};
     std::uint64_t deadline_misses{};
-    std::array<WallClockSchedulingDropEvent,
-               wall_clock_scheduling_drop_event_capacity>
-        scheduling_drop_events{};
-    std::size_t scheduling_drop_event_count{};
+    std::vector<WallClockSchedulingDropEvent> scheduling_drop_events{};
     std::uint64_t scheduling_drop_event_overflow{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};

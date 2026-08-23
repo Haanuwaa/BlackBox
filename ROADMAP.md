@@ -1958,6 +1958,21 @@ collection index, deadline overrun duration, dropped-tick count, and explicit ov
 verifier tests reject missing, unordered, malformed, or aggregate-inconsistent detail while the
 zero-drop gate remains unchanged.
 
+A 60-second local scheduling stress rehearsal then overlapped six consecutive five-second all-core
+CPU-starvation workloads with the ordinary packaged diagnostic path. It independently re-verified 61
+collections, six scheduled captures, zero dropped ticks, zero deadline misses, zero event-buffer
+overflow, and 26.9651 ms maximum bounded scheduling jitter at
+`out/soaks/scheduling-stress-rehearsal/`. This development rehearsal receives no overnight release
+credit, but it proves the hardened evidence path and zero-drop gate under deliberate host pressure.
+
+The first hosted quality attempt correctly failed closed when MSVC analysis found that copying both
+the collector event array and the flattened report array could place 18.7 KiB on the shutdown stack;
+collector integration tests similarly crossed the analyzer threshold. The collector now owns its
+fixed 256-event storage through one construction-time allocation, ordinary 4 Hz diagnostics remain
+small, and only the stopped collector's explicit bounded snapshot allocates downstream. The report
+uses a strictly capped vector, and allocation failure becomes explicit overflow rather than crossing
+the `noexcept` boundary. The complete local MSVC `/analyze` product/test target then passed.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate

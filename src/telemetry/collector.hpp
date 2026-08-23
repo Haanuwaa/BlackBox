@@ -12,15 +12,17 @@
 #include "telemetry/process_normalizer.hpp"
 #include "telemetry/provider.hpp"
 
-#include <chrono>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 namespace blackbox::telemetry {
 
@@ -82,6 +84,11 @@ struct SchedulingDropEvent {
 
 inline constexpr std::size_t scheduling_drop_event_capacity = 256U;
 
+struct SchedulingDropSnapshot {
+    std::vector<SchedulingDropEvent> events{};
+    std::uint64_t overflow{};
+};
+
 [[nodiscard]] ScheduleAdvance advance_schedule(
     core::MonotonicTimePoint scheduled_start,
     core::MonotonicTimePoint collection_finished,
@@ -110,10 +117,6 @@ struct CollectorDiagnostics {
     std::uint64_t dropped_samples{};
     std::uint64_t late_samples{};
     std::uint64_t deadline_misses{};
-    std::array<SchedulingDropEvent, scheduling_drop_event_capacity>
-        scheduling_drop_events{};
-    std::size_t scheduling_drop_event_count{};
-    std::uint64_t scheduling_drop_event_overflow{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};
     std::chrono::nanoseconds last_resume_gap{};
@@ -175,6 +178,7 @@ public:
     [[nodiscard]] core::RecorderSnapshot<SystemSample> snapshot(
         std::size_t maximum_samples) const;
     [[nodiscard]] CollectorDiagnostics diagnostics() const noexcept;
+    [[nodiscard]] SchedulingDropSnapshot scheduling_drop_snapshot() const noexcept;
     [[nodiscard]] ActiveProcessSnapshot active_process_snapshot() const;
     [[nodiscard]] core::RecorderSnapshot<ProcessFrame> process_snapshot(
         std::size_t maximum_frames) const;
@@ -220,6 +224,13 @@ private:
 
     mutable std::mutex diagnostics_mutex_{};
     CollectorDiagnostics diagnostics_{};
+    std::unique_ptr<std::array<SchedulingDropEvent,
+                               scheduling_drop_event_capacity>>
+        scheduling_drop_events_{
+            std::make_unique<std::array<SchedulingDropEvent,
+                                        scheduling_drop_event_capacity>>()};
+    std::size_t scheduling_drop_event_count_{};
+    std::uint64_t scheduling_drop_event_overflow_{};
     bool has_logged_status_{};
     ProviderSampleStatus logged_status_{ProviderSampleStatus::complete};
 

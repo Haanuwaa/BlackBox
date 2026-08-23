@@ -254,6 +254,9 @@ void TelemetryCollector::reconfigure(
         diagnostics_.configuration = configuration.values;
         diagnostics_.ring = recorder_.statistics();
         diagnostics_.automatic_detection_enabled = automatic_detection_enabled_.load();
+        *scheduling_drop_events_ = {};
+        scheduling_drop_event_count_ = 0U;
+        scheduling_drop_event_overflow_ = 0U;
     }
 
     if (restart) {
@@ -304,6 +307,25 @@ CollectorDiagnostics TelemetryCollector::diagnostics() const noexcept {
         result.process_metadata_evictions = process_metadata_cache_.evictions();
     }
     return result;
+}
+
+SchedulingDropSnapshot TelemetryCollector::scheduling_drop_snapshot() const noexcept {
+    const std::scoped_lock lock{diagnostics_mutex_};
+    SchedulingDropSnapshot snapshot{};
+    try {
+        snapshot.events.reserve(scheduling_drop_event_count_);
+        snapshot.events.insert(snapshot.events.end(), scheduling_drop_events_->begin(),
+                               scheduling_drop_events_->begin() +
+                                   static_cast<std::ptrdiff_t>(
+                                       scheduling_drop_event_count_));
+        snapshot.overflow = scheduling_drop_event_overflow_;
+    } catch (...) {
+        snapshot.events.clear();
+        snapshot.overflow = scheduling_drop_event_overflow_ +
+                            static_cast<std::uint64_t>(
+                                scheduling_drop_event_count_);
+    }
+    return snapshot;
 }
 
 ActiveProcessSnapshot TelemetryCollector::active_process_snapshot() const {
@@ -552,15 +574,14 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
             diagnostics_.provider_status = status;
             diagnostics_.dropped_samples += schedule.dropped_ticks;
             if (schedule.dropped_ticks != 0U) {
-                if (diagnostics_.scheduling_drop_event_count <
-                    diagnostics_.scheduling_drop_events.size()) {
-                    diagnostics_.scheduling_drop_events[
-                        diagnostics_.scheduling_drop_event_count++] =
+                if (scheduling_drop_event_count_ <
+                    scheduling_drop_events_->size()) {
+                    (*scheduling_drop_events_)[scheduling_drop_event_count_++] =
                         SchedulingDropEvent{finished, schedule.deadline_overrun,
                                             diagnostics_.collection_count,
                                             schedule.dropped_ticks};
                 } else {
-                    ++diagnostics_.scheduling_drop_event_overflow;
+                    ++scheduling_drop_event_overflow_;
                 }
             }
             if (status == ProviderSampleStatus::partial) {

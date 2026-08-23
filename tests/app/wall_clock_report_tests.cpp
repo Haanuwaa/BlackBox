@@ -112,11 +112,9 @@ TEST_CASE("wall-clock report rejects unsafe identity duration and destination",
     CHECK(unbounded.error().code == app::WallClockReportErrorCode::invalid_report);
 
     report = valid_report();
-    report.scheduling_drop_event_count = 2U;
-    report.scheduling_drop_events[0] = {10U, 1'700'000'000'000'000'000U,
-                                        200'000'000U, 1U};
-    report.scheduling_drop_events[1] = {15U, 1'700'000'005'000'000'000U,
-                                        1'200'000'000U, 2U};
+    report.scheduling_drop_events = {
+        {10U, 1'700'000'000'000'000'000U, 200'000'000U, 1U},
+        {15U, 1'700'000'005'000'000'000U, 1'200'000'000U, 2U}};
     const auto event_destination = directory / "events.ini";
     REQUIRE(app::write_wall_clock_report(event_destination, report).has_value());
     std::ifstream events{event_destination, std::ios::binary};

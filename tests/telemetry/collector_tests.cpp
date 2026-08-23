@@ -427,11 +427,12 @@ TEST_CASE("cooperative shutdown joins a collection already in progress",
     CHECK(elapsed < 1s);
     const auto diagnostics = collector.diagnostics();
     CHECK(diagnostics.collection_count == 1U);
-    REQUIRE(diagnostics.scheduling_drop_event_count == 1U);
-    CHECK(diagnostics.scheduling_drop_event_overflow == 0U);
-    CHECK(diagnostics.scheduling_drop_events[0].collection_index == 1U);
-    CHECK(diagnostics.scheduling_drop_events[0].dropped_ticks >= 1U);
-    CHECK(diagnostics.scheduling_drop_events[0].deadline_overrun >= 19ms);
+    const auto scheduling = collector.scheduling_drop_snapshot();
+    REQUIRE(scheduling.events.size() == 1U);
+    CHECK(scheduling.overflow == 0U);
+    CHECK(scheduling.events[0].collection_index == 1U);
+    CHECK(scheduling.events[0].dropped_ticks >= 1U);
+    CHECK(scheduling.events[0].deadline_overrun >= 19ms);
 }
 
 TEST_CASE("collector schedules slow metadata independently from normal counters",

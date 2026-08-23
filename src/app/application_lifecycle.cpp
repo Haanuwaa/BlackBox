@@ -122,22 +122,24 @@ void Application::write_diagnostic_report() noexcept {
     report.dropped_samples = values.dropped_samples;
     report.late_samples = values.late_samples;
     report.deadline_misses = values.deadline_misses;
-    report.scheduling_drop_event_count =
-        std::min(values.scheduling_drop_event_count,
-                 report.scheduling_drop_events.size());
+    const auto scheduling = collector_->scheduling_drop_snapshot();
+    const auto scheduling_event_count = std::min(
+        scheduling.events.size(),
+        wall_clock_scheduling_drop_event_capacity);
+    report.scheduling_drop_events.reserve(scheduling_event_count);
     report.scheduling_drop_event_overflow =
-        values.scheduling_drop_event_overflow;
+        scheduling.overflow;
     for (std::size_t index = 0U;
-         index < report.scheduling_drop_event_count; ++index) {
-      const auto& source = values.scheduling_drop_events[index];
+         index < scheduling_event_count; ++index) {
+      const auto& source = scheduling.events[index];
       const auto utc = diagnostic_utc_anchor_ +
                        (source.observed_at - diagnostic_monotonic_anchor_);
       const auto utc_nanoseconds = std::chrono::duration_cast<
           std::chrono::nanoseconds>(utc.time_since_epoch()).count();
-      report.scheduling_drop_events[index] = WallClockSchedulingDropEvent{
+      report.scheduling_drop_events.push_back(WallClockSchedulingDropEvent{
           source.collection_index,
           utc_nanoseconds > 0 ? static_cast<std::uint64_t>(utc_nanoseconds) : 0U,
-          nanoseconds(source.deadline_overrun), source.dropped_ticks};
+          nanoseconds(source.deadline_overrun), source.dropped_ticks});
     }
     report.resume_events = values.resume_events;
     report.resume_skipped_samples = values.resume_skipped_samples;

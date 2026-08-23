@@ -35,14 +35,14 @@ void append(std::ostringstream& output, const std::string_view name,
 
 [[nodiscard]] bool valid_scheduling_drop_events(
     const WallClockReport& report) noexcept {
-    if (report.scheduling_drop_event_count >
-        report.scheduling_drop_events.size()) {
+    if (report.scheduling_drop_events.size() >
+        wall_clock_scheduling_drop_event_capacity) {
         return false;
     }
     std::uint64_t previous_collection{};
     std::uint64_t previous_timestamp{};
     for (std::size_t index = 0U;
-         index < report.scheduling_drop_event_count; ++index) {
+         index < report.scheduling_drop_events.size(); ++index) {
         const auto& event = report.scheduling_drop_events[index];
         if (event.collection_index == 0U || event.utc_unix_nanoseconds == 0U ||
             event.dropped_ticks == 0U ||
@@ -111,15 +111,15 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "late_samples", report.late_samples);
         append(output, "deadline_misses", report.deadline_misses);
         append(output, "scheduling_drop_event_count",
-               report.scheduling_drop_event_count);
+               report.scheduling_drop_events.size());
         append(output, "scheduling_drop_event_overflow",
                report.scheduling_drop_event_overflow);
         output << "scheduling_drop_events=";
-        if (report.scheduling_drop_event_count == 0U) {
+        if (report.scheduling_drop_events.empty()) {
             output << "none";
         } else {
             for (std::size_t index = 0U;
-                 index < report.scheduling_drop_event_count; ++index) {
+                 index < report.scheduling_drop_events.size(); ++index) {
                 if (index != 0U) output << ';';
                 const auto& event = report.scheduling_drop_events[index];
                 output << event.collection_index << ':'
