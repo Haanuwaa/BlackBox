@@ -54,6 +54,11 @@ public:
 
 class SlowProvider final : public telemetry::ITelemetryProvider {
 public:
+    [[nodiscard]] bool prepare_sampling_thread() noexcept override {
+        ++prepare_calls;
+        return true;
+    }
+
     telemetry::ProviderSampleResult sample(
         telemetry::SamplingRequest,
         telemetry::RawTelemetrySnapshot& destination) override {
@@ -69,6 +74,7 @@ public:
     }
 
     std::atomic<bool> entered{};
+    std::atomic<std::uint64_t> prepare_calls{};
 };
 
 class TierRecordingProvider final : public telemetry::ITelemetryProvider {
@@ -427,6 +433,8 @@ TEST_CASE("cooperative shutdown joins a collection already in progress",
     CHECK(elapsed < 1s);
     const auto diagnostics = collector.diagnostics();
     CHECK(diagnostics.collection_count == 1U);
+    CHECK(diagnostics.sampling_thread_prepared);
+    CHECK(provider.prepare_calls.load() == 1U);
     const auto scheduling = collector.scheduling_drop_snapshot();
     REQUIRE(scheduling.events.size() == 1U);
     CHECK(scheduling.overflow == 0U);

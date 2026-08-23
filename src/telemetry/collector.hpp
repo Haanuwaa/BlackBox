@@ -110,6 +110,7 @@ struct ResumeGapDecision {
 
 struct CollectorDiagnostics {
     bool running{};
+    bool sampling_thread_prepared{};
     RecorderConfiguration configuration{};
     std::uint64_t collection_count{};
     std::uint64_t partial_samples{};

@@ -376,6 +376,15 @@ TelemetryCollector::try_dequeue_incident() noexcept {
 }
 
 void TelemetryCollector::run(const std::stop_token stop_token) {
+    const bool sampling_thread_prepared = provider_.prepare_sampling_thread();
+    {
+        const std::scoped_lock lock{diagnostics_mutex_};
+        diagnostics_.sampling_thread_prepared = sampling_thread_prepared;
+    }
+    if (!sampling_thread_prepared) {
+        core::Logger::write(core::LogLevel::warning, "telemetry",
+                            "Sampling thread preparation was unavailable");
+    }
     auto scheduled_start = clock_.now();
     auto next_metadata_collection = scheduled_start;
 

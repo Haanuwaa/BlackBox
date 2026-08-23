@@ -444,6 +444,9 @@ if ((Require-Field $report 'archive_healthy') -cne '1' -or
     (Require-Field $report 'archive_schema_version') -cne '1') {
     throw 'The app report does not prove a healthy direct-v1 archive.'
 }
+if ((Require-Field $report 'sampling_thread_prepared') -cne '1') {
+    throw 'The app report does not prove sampling-thread preparation.'
+}
 Assert-SchedulingDropEvidence $report
 Require-Zero $report @('failed_samples', 'dropped_samples', 'deadline_misses',
                         'collector_worker_failures', 'snapshot_failures',

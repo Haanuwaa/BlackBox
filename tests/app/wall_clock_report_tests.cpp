@@ -28,6 +28,7 @@ namespace {
     report.requested_runtime_seconds = 30U;
     report.capture_interval_seconds = 10U;
     report.collections = 30U;
+    report.sampling_thread_prepared = true;
     report.ring_capacity = 10U;
     report.ring_size = 10U;
     report.ring_total_appends = 30U;
@@ -67,6 +68,7 @@ TEST_CASE("wall-clock report publishes a path-free direct-v1 artifact atomically
         "video_driver=windows\nsource_revision=local-uncommitted\n"));
     CHECK(contents.find("completed=1\n") != std::string::npos);
     CHECK(contents.find("collections=30\n") != std::string::npos);
+    CHECK(contents.find("sampling_thread_prepared=1\n") != std::string::npos);
     CHECK(contents.find("scheduling_drop_event_count=0\n") != std::string::npos);
     CHECK(contents.find("scheduling_drop_event_overflow=0\n") != std::string::npos);
     CHECK(contents.find("scheduling_drop_events=none\n") != std::string::npos);

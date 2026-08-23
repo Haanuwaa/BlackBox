@@ -43,6 +43,7 @@ struct WallClockReport {
     std::uint64_t capture_interval_seconds{};
 
     std::uint64_t collections{};
+    bool sampling_thread_prepared{};
     std::uint64_t partial_samples{};
     std::uint64_t failed_samples{};
     std::uint64_t dropped_samples{};

@@ -1921,7 +1921,7 @@ one-host engineering tracks are now implemented:
 - [x] Add actual SDL video-driver identity to direct-v1 diagnostics and a dedicated packaged-app
   Wayland job under a headless Weston compositor, including the visible-window safety invariant when
   no tray host is available.
-- [ ] Execute and retain the Wayland job on the exact implementation revision; physical GNOME/KDE
+- [x] Execute and retain the Wayland job on the exact implementation revision; physical GNOME/KDE
   tray, shortcut, DPI, accessibility, and compositor behavior remain outside hosted headless proof.
 - [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
   authored cases and deterministic rasters do not satisfy this gate.
@@ -1947,6 +1947,11 @@ Hosted Linux compatibility evidence (2026-08-23):
   evidence path rejected by the production CLI, and artifact review exposed ambiguous compiled source
   identity under container Git ownership. Portable environment access, absolute evidence paths, exact
   SHA injection/assertion, and a workflow regression contract now protect those boundaries.
+- GitHub Actions run `32650227255` passed the Ubuntu, Debian, Fedora, comparison, and dedicated
+  Wayland jobs on exact implementation revision `71052d0a8dcfc7cdfcce7f3291f2cd35e9c11053`.
+  The retained Wayland artifact reports the actual SDL `wayland` driver under Weston 13.0.0, exact
+  compiled revision, completed collection with zero failed/dropped/deadline samples, unavailable tray,
+  and a visible window. This is packaged engineering proof only; physical GNOME/KDE integration remains open.
 
 The exact-revision overnight attempt on `2ded4de87cbccc9e212311e81289109521c9215f` completed its full
 eight-hour application duration with 28,779 collections, 479 process checkpoints, zero checkpoint
@@ -1965,6 +1970,19 @@ overflow, and 26.9651 ms maximum bounded scheduling jitter at
 `out/soaks/scheduling-stress-rehearsal/`. This development rehearsal receives no overnight release
 credit, but it proves the hardened evidence path and zero-drop gate under deliberate host pressure.
 
+The first exact-revision repetition on `7b297d98f3810ade1880a7728b514725320c8c02` correctly failed
+closed and remains at `out/soaks/scheduling-stress-7b297d9.partial/`: 55 collections included six
+dropped ticks and six exact deadline events, with a 1.949-second maximum collection but only 37.960 ms
+maximum wake jitter. Stage-isolation measurements then found that synchronous whole-table Windows
+network discovery could consume approximately 966 ms under saturation. The provider now uses one
+shared fast-tier PDH collection, refreshes a fixed-capacity hardware-interface inventory through
+serialized change callbacks, queries only cached interface rows on the collector, consumes aggregate
+connectivity through an atomic notification, and prepares only the sampling worker at highest
+non-real-time priority. Two provenance-valid 60-second development rehearsals at
+`out/soaks/scheduling-cached-network-dev-stress-2/` and `-3/` each passed 61 collections with zero
+drops and deadline misses; maximum collection durations were 124.212 ms and 203.831 ms, and maximum
+wake jitter was 1.502 ms and 1.890 ms. These rehearsals receive no overnight release credit.
+
 The first hosted quality attempt correctly failed closed when MSVC analysis found that copying both
 the collector event array and the flattened report array could place 18.7 KiB on the shutdown stack;
 collector integration tests similarly crossed the analyzer threshold. The collector now owns its
@@ -1981,13 +1999,14 @@ the `noexcept` boundary. The complete local MSVC `/analyze` product/test target 
 
 ## Exact next milestone
 
-Proceed to **scheduling/Wayland qualification and a fresh exact-revision overnight**: retain the failed
-`2ded4de` campaign, complete the zero-drop scheduling stress rehearsal, execute the new packaged
-Wayland job, integrate one clean revision, and start a replacement overnight campaign from that exact
-Release executable. The 32-image onboarding/page raster set is reviewed and its automated contracts
-pass; execute the strengthened physical Windows accessibility/DPI matrix only with a qualifying
-operator and real client. macOS remains behind physical Linux desktop qualification, and runtime ML
-remains behind representative held-out value.
+Proceed to **clean-revision scheduling qualification and a fresh overnight**: integrate the hardened
+Windows scheduling/network provider with the qualified Linux/Wayland slice, complete the Windows,
+Linux, and quality hosted graphs on one clean revision, rebuild the complete Release graph with that
+exact identity, repeat the zero-drop stress rehearsal, and start the replacement eight-hour campaign
+without modifying the revision afterward. The 32-image onboarding/page raster set is reviewed and its
+automated contracts pass; execute the strengthened physical Windows accessibility/DPI matrix only with
+a qualifying operator and real client. macOS remains behind physical Linux desktop qualification, and
+runtime ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.

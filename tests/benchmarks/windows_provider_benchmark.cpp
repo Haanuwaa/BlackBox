@@ -58,6 +58,24 @@ namespace {
     return succeeded && elevation.TokenIsElevated != 0U;
 }
 
+[[nodiscard]] bool parse_sampling_request(
+    const std::string_view text,
+    blackbox::telemetry::SamplingRequest& request) noexcept {
+    using blackbox::telemetry::SamplingTier;
+    if (text == "fast") {
+        request.tiers = SamplingTier::fast;
+    } else if (text == "normal") {
+        request.tiers = SamplingTier::normal;
+    } else if (text == "fast-normal") {
+        request.tiers = SamplingTier::fast | SamplingTier::normal;
+    } else if (text == "all") {
+        request.tiers = blackbox::telemetry::SamplingTierSet::all();
+    } else {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -68,9 +86,16 @@ int main(int argc, char** argv) {
     const auto sample_count = argc > 1 ? parse_or(argv[1], 100'000U) : 100'000U;
     const auto interval_ms = argc > 2 ? parse_or(argv[2], 0U) : 0U;
     const auto collector_seconds = argc > 3 ? parse_or(argv[3], 0U) : 0U;
+    auto sampling_request = telemetry::SamplingRequest{};
+    const auto sampling_mode = argc > 4 ? std::string_view{argv[4]} : std::string_view{"all"};
+    if (!parse_sampling_request(sampling_mode, sampling_request)) {
+        std::fprintf(stderr, "sampling mode must be fast, normal, fast-normal, or all\n");
+        return 2;
+    }
 
     core::SystemMonotonicClock clock;
     auto provider = std::make_unique<windows::WindowsTelemetryProvider>(clock);
+    const auto sampling_thread_prepared = provider->prepare_sampling_thread();
     telemetry::SystemTelemetryNormalizer normalizer;
     telemetry::CollectionTimingWindow timing;
     telemetry::RawTelemetrySnapshot raw;
@@ -80,7 +105,7 @@ int main(int argc, char** argv) {
 
     for (std::uint64_t index = 0U; index < sample_count; ++index) {
         const auto started = clock.now();
-        const auto result = provider->sample({}, raw);
+        const auto result = provider->sample(sampling_request, raw);
         const auto finished = clock.now();
         timing.record(std::chrono::duration_cast<std::chrono::nanoseconds>(finished - started));
 
@@ -131,17 +156,20 @@ int main(int argc, char** argv) {
     }
 
     const auto summary = timing.summary();
-    std::fprintf(stderr, "samples=%llu\nwindow_samples=%zu\naverage_ns=%.0f\n"
-                "p95_ns=%.0f\np99_ns=%.0f\nmaximum_ns=%.0f\n"
-                "deadline_margin_percent=%.6f\ndisk_rate_samples=%llu\n"
-                "network_rate_samples=%llu\nchecksum=%.3f\n",
-                static_cast<unsigned long long>(summary.samples_recorded),
+    std::fprintf(stderr, "sampling_mode=%.*s\nsampling_thread_prepared=%d\n"
+                 "samples=%llu\nwindow_samples=%zu\naverage_ns=%.0f\n"
+                 "p95_ns=%.0f\np99_ns=%.0f\nmaximum_ns=%.0f\n"
+                 "deadline_margin_percent=%.6f\ndisk_rate_samples=%llu\n"
+                 "network_rate_samples=%llu\nchecksum=%.3f\n",
+                 static_cast<int>(sampling_mode.size()), sampling_mode.data(),
+                 sampling_thread_prepared ? 1 : 0,
+                 static_cast<unsigned long long>(summary.samples_recorded),
                 summary.samples_in_window, nanoseconds(summary.average),
                 nanoseconds(summary.p95), nanoseconds(summary.p99),
                 nanoseconds(summary.maximum),
                 100.0 - nanoseconds(summary.p99) / 10'000'000.0,
-                static_cast<unsigned long long>(disk_samples),
-                static_cast<unsigned long long>(network_samples), checksum);
+                 static_cast<unsigned long long>(disk_samples),
+                 static_cast<unsigned long long>(network_samples), checksum);
 
     if (collector_seconds != 0U) {
         auto collector_provider =

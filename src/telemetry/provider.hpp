@@ -63,6 +63,10 @@ class ITelemetryProvider {
 public:
     virtual ~ITelemetryProvider() = default;
 
+    // Called once on the collector worker before its first deadline. Platform
+    // providers may apply bounded scheduling policy to that current thread.
+    [[nodiscard]] virtual bool prepare_sampling_thread() noexcept { return true; }
+
     // The caller owns and reuses destination. Providers clear logical contents
     // while retaining capacity, avoiding a forced allocation policy.
     [[nodiscard]] virtual ProviderSampleResult sample(

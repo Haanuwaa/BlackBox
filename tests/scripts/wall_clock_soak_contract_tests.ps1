@@ -155,6 +155,7 @@ completed=1
 requested_runtime_seconds=10
 capture_interval_seconds=5
 collections=10
+sampling_thread_prepared=1
 failed_samples=0
 dropped_samples=0
 deadline_misses=0

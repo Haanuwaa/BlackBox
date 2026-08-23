@@ -19,12 +19,14 @@
 
 #include <array>
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cwchar>
 #include <memory>
+#include <mutex>
 #include <span>
 
 namespace blackbox::telemetry::windows {
@@ -44,6 +46,10 @@ struct ProcessorPowerInformation {
 [[nodiscard]] constexpr std::uint64_t file_time_to_ticks(const FILETIME value) noexcept {
     return (static_cast<std::uint64_t>(value.dwHighDateTime) << 32U) |
            static_cast<std::uint64_t>(value.dwLowDateTime);
+}
+
+[[nodiscard]] bool prepare_sampling_thread() noexcept {
+    return SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST) != FALSE;
 }
 
 template <typename T>
@@ -106,113 +112,211 @@ template <typename T>
 
 struct WindowsTelemetryProvider::NativeState {
     NativeState() noexcept {
-        if (PdhOpenQueryW(nullptr, 0U, &disk_query) != ERROR_SUCCESS) {
+        if (PdhOpenQueryW(nullptr, 0U, &fast_query) != ERROR_SUCCESS) {
+            initialize_network_state();
             return;
         }
-        if (PdhAddEnglishCounterW(
-                disk_query, L"\\PhysicalDisk(*)\\Disk Read Bytes/sec", 0U,
-                &disk_read_counter) != ERROR_SUCCESS ||
+        const auto disk_added = PdhAddEnglishCounterW(
+                fast_query, L"\\PhysicalDisk(*)\\Disk Read Bytes/sec", 0U,
+                &disk_read_counter) == ERROR_SUCCESS &&
             PdhAddEnglishCounterW(
-                disk_query, L"\\PhysicalDisk(*)\\Disk Write Bytes/sec", 0U,
-                &disk_write_counter) != ERROR_SUCCESS ||
-            PdhCollectQueryData(disk_query) != ERROR_SUCCESS) {
-            PdhCloseQuery(disk_query);
-            disk_query = nullptr;
+                fast_query, L"\\PhysicalDisk(*)\\Disk Write Bytes/sec", 0U,
+                &disk_write_counter) == ERROR_SUCCESS;
+        if (!disk_added) {
             disk_read_counter = nullptr;
             disk_write_counter = nullptr;
         }
-        if (PdhOpenQueryW(nullptr, 0U, &disk_quality_query) == ERROR_SUCCESS) {
-            const auto added =
-                PdhAddEnglishCounterW(disk_quality_query,
+        const auto disk_quality_added =
+                PdhAddEnglishCounterW(fast_query,
                     L"\\PhysicalDisk(*)\\Avg. Disk sec/Read", 0U,
                     &disk_read_latency_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(disk_quality_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\PhysicalDisk(*)\\Avg. Disk sec/Write", 0U,
                     &disk_write_latency_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(disk_quality_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\PhysicalDisk(*)\\Avg. Disk sec/Transfer", 0U,
                     &disk_service_time_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(disk_quality_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\PhysicalDisk(*)\\Current Disk Queue Length", 0U,
                     &disk_queue_counter) == ERROR_SUCCESS;
-            if (!added || PdhCollectQueryData(disk_quality_query) != ERROR_SUCCESS) {
-                PdhCloseQuery(disk_quality_query);
-                disk_quality_query = nullptr;
-                disk_read_latency_counter = nullptr;
-                disk_write_latency_counter = nullptr;
-                disk_service_time_counter = nullptr;
-                disk_queue_counter = nullptr;
-            }
+        if (!disk_quality_added) {
+            disk_read_latency_counter = nullptr;
+            disk_write_latency_counter = nullptr;
+            disk_service_time_counter = nullptr;
+            disk_queue_counter = nullptr;
         }
-        if (PdhOpenQueryW(nullptr, 0U, &gpu_query) == ERROR_SUCCESS) {
-            const auto added =
-                PdhAddEnglishCounterW(gpu_query,
+        const auto gpu_added =
+                PdhAddEnglishCounterW(fast_query,
                     L"\\GPU Engine(*)\\Utilization Percentage", 0U,
                     &gpu_usage_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(gpu_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\GPU Adapter Memory(*)\\Dedicated Usage", 0U,
                     &gpu_dedicated_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(gpu_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\GPU Adapter Memory(*)\\Shared Usage", 0U,
                     &gpu_shared_counter) == ERROR_SUCCESS;
-            if (!added || PdhCollectQueryData(gpu_query) != ERROR_SUCCESS) {
-                PdhCloseQuery(gpu_query);
-                gpu_query = nullptr;
-                gpu_usage_counter = nullptr;
-                gpu_dedicated_counter = nullptr;
-                gpu_shared_counter = nullptr;
-            }
+        if (!gpu_added) {
+            gpu_usage_counter = nullptr;
+            gpu_dedicated_counter = nullptr;
+            gpu_shared_counter = nullptr;
         }
-        if (PdhOpenQueryW(nullptr, 0U, &responsiveness_query) == ERROR_SUCCESS) {
-            const auto added =
-                PdhAddEnglishCounterW(responsiveness_query,
+        const auto responsiveness_added =
+                PdhAddEnglishCounterW(fast_query,
                     L"\\Processor Information(_Total)\\% DPC Time", 0U,
                     &dpc_time_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(responsiveness_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\Processor Information(_Total)\\% Interrupt Time", 0U,
                     &interrupt_time_counter) == ERROR_SUCCESS &&
-                PdhAddEnglishCounterW(responsiveness_query,
+                PdhAddEnglishCounterW(fast_query,
                     L"\\Processor Information(_Total)\\DPC Rate", 0U,
                     &dpc_rate_counter) == ERROR_SUCCESS;
-            if (!added || PdhCollectQueryData(responsiveness_query) != ERROR_SUCCESS) {
-                PdhCloseQuery(responsiveness_query);
-                responsiveness_query = nullptr;
-                dpc_time_counter = nullptr;
-                interrupt_time_counter = nullptr;
-                dpc_rate_counter = nullptr;
-            }
+        if (!responsiveness_added) {
+            dpc_time_counter = nullptr;
+            interrupt_time_counter = nullptr;
+            dpc_rate_counter = nullptr;
         }
+        if (PdhCollectQueryData(fast_query) != ERROR_SUCCESS) {
+            PdhCloseQuery(fast_query);
+            fast_query = nullptr;
+            disk_read_counter = nullptr;
+            disk_write_counter = nullptr;
+            disk_read_latency_counter = nullptr;
+            disk_write_latency_counter = nullptr;
+            disk_service_time_counter = nullptr;
+            disk_queue_counter = nullptr;
+            gpu_usage_counter = nullptr;
+            gpu_dedicated_counter = nullptr;
+            gpu_shared_counter = nullptr;
+            dpc_time_counter = nullptr;
+            interrupt_time_counter = nullptr;
+            dpc_rate_counter = nullptr;
+        }
+        initialize_network_state();
     }
 
     ~NativeState() {
-        if (disk_query != nullptr) {
-            PdhCloseQuery(disk_query);
+        if (interface_notification != nullptr) {
+            static_cast<void>(CancelMibChangeNotify2(interface_notification));
         }
-        if (disk_quality_query != nullptr) {
-            PdhCloseQuery(disk_quality_query);
+        if (connectivity_notification != nullptr) {
+            static_cast<void>(CancelMibChangeNotify2(connectivity_notification));
         }
-        if (gpu_query != nullptr) {
-            PdhCloseQuery(gpu_query);
-        }
-        if (responsiveness_query != nullptr) {
-            PdhCloseQuery(responsiveness_query);
+        if (fast_query != nullptr) {
+            PdhCloseQuery(fast_query);
         }
     }
 
     NativeState(const NativeState&) = delete;
     NativeState& operator=(const NativeState&) = delete;
 
+    static VOID NETIOAPI_API_ connectivity_changed(
+        void* context,
+        const NL_NETWORK_CONNECTIVITY_HINT hint) noexcept {
+        if (context == nullptr) {
+            return;
+        }
+        auto& state = *static_cast<NativeState*>(context);
+        auto connectivity = NetworkConnectivityLevel::unknown;
+        switch (hint.ConnectivityLevel) {
+        case NetworkConnectivityLevelHintNone:
+            connectivity = NetworkConnectivityLevel::disconnected;
+            break;
+        case NetworkConnectivityLevelHintLocalAccess:
+            connectivity = NetworkConnectivityLevel::local;
+            break;
+        case NetworkConnectivityLevelHintInternetAccess:
+            connectivity = NetworkConnectivityLevel::internet;
+            break;
+        case NetworkConnectivityLevelHintConstrainedInternetAccess:
+            connectivity = NetworkConnectivityLevel::constrained;
+            break;
+        default: break;
+        }
+        state.connectivity_hint.store(connectivity, std::memory_order_relaxed);
+        state.connectivity_hint_ready.store(true, std::memory_order_release);
+    }
+
+    static VOID NETIOAPI_API_ interfaces_changed(
+        void* context,
+        MIB_IPINTERFACE_ROW*,
+        MIB_NOTIFICATION_TYPE) noexcept {
+        if (context != nullptr) {
+            static_cast<NativeState*>(context)->refresh_interface_inventory();
+        }
+    }
+
+    void refresh_interface_inventory() noexcept {
+        PMIB_IF_TABLE2 table = nullptr;
+        if (GetIfTable2(&table) != NO_ERROR) {
+            return;
+        }
+        std::array<std::uint64_t, maximum_tracked_interfaces> refreshed{};
+        std::size_t refreshed_count{};
+        bool refreshed_overflow{};
+        for (ULONG index = 0U; index < table->NumEntries; ++index) {
+            const auto& row = table->Table[index];
+            const auto flags = row.InterfaceAndOperStatusFlags;
+            const bool eligible = flags.HardwareInterface != 0U &&
+                                  flags.FilterInterface == 0U &&
+                                  flags.EndPointInterface == 0U &&
+                                  row.Type != IF_TYPE_SOFTWARE_LOOPBACK &&
+                                  row.Type != IF_TYPE_TUNNEL;
+            if (!eligible) {
+                continue;
+            }
+            const auto identity = row.InterfaceLuid.Value;
+            const auto refreshed_end = refreshed.begin() +
+                                       static_cast<std::ptrdiff_t>(refreshed_count);
+            if (std::find(refreshed.begin(), refreshed_end, identity) != refreshed_end) {
+                continue;
+            }
+            if (refreshed_count >= refreshed.size()) {
+                refreshed_overflow = true;
+                continue;
+            }
+            refreshed[refreshed_count++] = identity;
+        }
+        FreeMibTable(table);
+        const std::scoped_lock lock{interface_inventory_mutex};
+        interface_inventory = refreshed;
+        interface_inventory_count = refreshed_count;
+        interface_inventory_overflow = refreshed_overflow;
+    }
+
+    void initialize_network_state() noexcept {
+        refresh_interface_inventory();
+        if (NotifyIpInterfaceChange(
+                AF_UNSPEC, interfaces_changed, this, FALSE,
+                &interface_notification) != NO_ERROR) {
+            interface_notification = nullptr;
+        }
+        if (NotifyNetworkConnectivityHintChange(
+                connectivity_changed, this, TRUE,
+                &connectivity_notification) != NO_ERROR) {
+            connectivity_notification = nullptr;
+        }
+    }
+
+    [[nodiscard]] MetricStatus collect_fast() noexcept {
+        if (fast_query == nullptr) {
+            fast_collection_status = MetricStatus::temporarily_unavailable;
+        } else {
+            const auto status = PdhCollectQueryData(fast_query);
+            fast_collection_status = status == ERROR_SUCCESS
+                                         ? MetricStatus::available
+                                         : pdh_error_status(status);
+        }
+        return fast_collection_status;
+    }
+
     [[nodiscard]] MetricStatus read_disk(
         IoEntityCounters* destination,
         const std::size_t capacity,
         std::size_t& count) noexcept {
         count = 0U;
-        if (disk_query == nullptr) {
+        if (disk_read_counter == nullptr || disk_write_counter == nullptr ||
+            fast_collection_status != MetricStatus::available) {
             return MetricStatus::temporarily_unavailable;
-        }
-        const auto collect_status = PdhCollectQueryData(disk_query);
-        if (collect_status != ERROR_SUCCESS) {
-            return pdh_error_status(collect_status);
         }
 
         DWORD read_count = 0U;
@@ -264,12 +368,11 @@ struct WindowsTelemetryProvider::NativeState {
     [[nodiscard]] MetricStatus read_disk_quality(
         RawDiskQuality& destination) noexcept {
         destination = {};
-        if (disk_quality_query == nullptr) {
+        if (disk_read_latency_counter == nullptr ||
+            disk_write_latency_counter == nullptr ||
+            disk_service_time_counter == nullptr || disk_queue_counter == nullptr ||
+            fast_collection_status != MetricStatus::available) {
             return MetricStatus::temporarily_unavailable;
-        }
-        const auto collect_status = PdhCollectQueryData(disk_quality_query);
-        if (collect_status != ERROR_SUCCESS) {
-            return pdh_error_status(collect_status);
         }
 
         DWORD read_count = 0U;
@@ -353,30 +456,31 @@ struct WindowsTelemetryProvider::NativeState {
         count = 0U;
         quality = {};
         quality_status = MetricStatus::temporarily_unavailable;
-        PMIB_IF_TABLE2 table = nullptr;
-        const auto status = GetIfTable2(&table);
-        if (status != NO_ERROR) {
-            return status == ERROR_ACCESS_DENIED
-                       ? MetricStatus::inaccessible
-                       : MetricStatus::temporarily_unavailable;
+        std::array<std::uint64_t, maximum_tracked_interfaces> inventory{};
+        std::size_t inventory_count{};
+        bool inventory_overflow{};
+        {
+            const std::scoped_lock lock{interface_inventory_mutex};
+            inventory = interface_inventory;
+            inventory_count = interface_inventory_count;
+            inventory_overflow = interface_inventory_overflow;
+        }
+        if (inventory_overflow) {
+            return MetricStatus::temporarily_unavailable;
         }
 
         std::array<InterfaceState, maximum_tracked_interfaces> current_interfaces{};
         std::size_t current_interface_count{};
         std::uint64_t active_interfaces{};
-        for (ULONG index = 0U; index < table->NumEntries; ++index) {
-            const auto& row = table->Table[index];
-            const auto flags = row.InterfaceAndOperStatusFlags;
-            const bool eligible = flags.HardwareInterface != 0U &&
-                                   flags.FilterInterface == 0U &&
-                                   flags.EndPointInterface == 0U &&
-                                   row.Type != IF_TYPE_SOFTWARE_LOOPBACK &&
-                                   row.Type != IF_TYPE_TUNNEL;
-            if (!eligible) {
+        for (std::size_t index = 0U; index < inventory_count; ++index) {
+            MIB_IF_ROW2 row{};
+            row.InterfaceLuid.Value = inventory[index];
+            const auto row_status = GetIfEntry2(&row);
+            if (row_status != NO_ERROR) {
                 continue;
             }
+            const auto flags = row.InterfaceAndOperStatusFlags;
             if (current_interface_count >= current_interfaces.size()) {
-                FreeMibTable(table);
                 return MetricStatus::temporarily_unavailable;
             }
             const auto state_flags = static_cast<std::uint8_t>(
@@ -393,37 +497,21 @@ struct WindowsTelemetryProvider::NativeState {
             if (!selected) continue;
             ++active_interfaces;
             if (count >= capacity) {
-                FreeMibTable(table);
                 count = 0U;
                 return MetricStatus::temporarily_unavailable;
             }
             destination[count++] = IoEntityCounters{
                 row.InterfaceLuid.Value, row.InOctets, row.OutOctets};
         }
-        FreeMibTable(table);
 
         std::sort(current_interfaces.begin(),
                   current_interfaces.begin() +
                       static_cast<std::ptrdiff_t>(current_interface_count));
-        NetworkConnectivityLevel connectivity = NetworkConnectivityLevel::unknown;
-        NL_NETWORK_CONNECTIVITY_HINT hint{};
-        if (GetNetworkConnectivityHint(&hint) == NO_ERROR) {
-            switch (hint.ConnectivityLevel) {
-            case NetworkConnectivityLevelHintNone:
-                connectivity = NetworkConnectivityLevel::disconnected;
-                break;
-            case NetworkConnectivityLevelHintLocalAccess:
-                connectivity = NetworkConnectivityLevel::local;
-                break;
-            case NetworkConnectivityLevelHintInternetAccess:
-                connectivity = NetworkConnectivityLevel::internet;
-                break;
-            case NetworkConnectivityLevelHintConstrainedInternetAccess:
-                connectivity = NetworkConnectivityLevel::constrained;
-                break;
-            default: connectivity = NetworkConnectivityLevel::unknown; break;
-            }
-        }
+        const auto connectivity = active_interfaces == 0U
+            ? NetworkConnectivityLevel::disconnected
+            : connectivity_hint_ready.load(std::memory_order_acquire)
+                  ? connectivity_hint.load(std::memory_order_relaxed)
+                  : NetworkConnectivityLevel::local;
 
         if (interfaces_warmed &&
             (current_interface_count != previous_interface_count ||
@@ -452,8 +540,9 @@ struct WindowsTelemetryProvider::NativeState {
 
         MIB_TCPSTATS ipv4{};
         MIB_TCPSTATS ipv6{};
-        if (GetTcpStatisticsEx(&ipv4, AF_INET) == NO_ERROR &&
-            GetTcpStatisticsEx(&ipv6, AF_INET6) == NO_ERROR) {
+        const auto tcp_succeeded = GetTcpStatisticsEx(&ipv4, AF_INET) == NO_ERROR &&
+                                   GetTcpStatisticsEx(&ipv6, AF_INET6) == NO_ERROR;
+        if (tcp_succeeded) {
             const auto sum = [](const DWORD left, const DWORD right) {
                 return static_cast<std::uint64_t>(left) +
                        static_cast<std::uint64_t>(right);
@@ -485,9 +574,13 @@ struct WindowsTelemetryProvider::NativeState {
             collect_counters, resolve_paths, destination);
     }
 
-    [[nodiscard]] bool gpu_available() const noexcept { return gpu_query != nullptr; }
+    [[nodiscard]] bool gpu_available() const noexcept {
+        return gpu_usage_counter != nullptr && gpu_dedicated_counter != nullptr &&
+               gpu_shared_counter != nullptr;
+    }
     [[nodiscard]] bool responsiveness_available() const noexcept {
-        return responsiveness_query != nullptr;
+        return dpc_time_counter != nullptr && interrupt_time_counter != nullptr &&
+               dpc_rate_counter != nullptr;
     }
 
     [[nodiscard]] MetricStatus read_foreground(
@@ -533,7 +626,7 @@ struct WindowsTelemetryProvider::NativeState {
         destination.gpu_dedicated_memory = temporary<ByteCount>();
         destination.gpu_shared_memory = temporary<ByteCount>();
         destination.foreground_gpu_usage = temporary<Ratio>();
-        if (gpu_query == nullptr) {
+        if (!gpu_available()) {
             destination.gpu_usage = MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
             destination.gpu_dedicated_memory =
                 MetricValue<ByteCount>::unavailable(MetricStatus::unsupported);
@@ -543,9 +636,8 @@ struct WindowsTelemetryProvider::NativeState {
                 MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
             return MetricStatus::unsupported;
         }
-        const auto collect = PdhCollectQueryData(gpu_query);
-        if (collect != ERROR_SUCCESS) {
-            return pdh_error_status(collect);
+        if (fast_collection_status != MetricStatus::available) {
+            return fast_collection_status;
         }
         DWORD usage_count{};
         DWORD dedicated_count{};
@@ -659,16 +751,15 @@ struct WindowsTelemetryProvider::NativeState {
         destination.dpc_usage = temporary<Ratio>();
         destination.interrupt_usage = temporary<Ratio>();
         destination.dpc_rate = temporary<double>();
-        if (responsiveness_query == nullptr) {
+        if (!responsiveness_available()) {
             destination.dpc_usage = MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
             destination.interrupt_usage =
                 MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
             destination.dpc_rate = MetricValue<double>::unavailable(MetricStatus::unsupported);
             return MetricStatus::unsupported;
         }
-        const auto collect = PdhCollectQueryData(responsiveness_query);
-        if (collect != ERROR_SUCCESS) {
-            return pdh_error_status(collect);
+        if (fast_collection_status != MetricStatus::available) {
+            return fast_collection_status;
         }
         const auto read_value = [](const PDH_HCOUNTER counter,
                                    double& value) noexcept {
@@ -861,12 +952,12 @@ private:
                                        : pdh_error_status(status);
     }
 
-    PDH_HQUERY disk_query{};
+    PDH_HQUERY fast_query{};
+    MetricStatus fast_collection_status{MetricStatus::temporarily_unavailable};
     PDH_HCOUNTER disk_read_counter{};
     PDH_HCOUNTER disk_write_counter{};
     alignas(PDH_RAW_COUNTER_ITEM_W) PdhBuffer read_buffer{};
     alignas(PDH_RAW_COUNTER_ITEM_W) PdhBuffer write_buffer{};
-    PDH_HQUERY disk_quality_query{};
     PDH_HCOUNTER disk_read_latency_counter{};
     PDH_HCOUNTER disk_write_latency_counter{};
     PDH_HCOUNTER disk_service_time_counter{};
@@ -875,7 +966,6 @@ private:
     alignas(PDH_FMT_COUNTERVALUE_ITEM_W) PdhBuffer quality_write_buffer{};
     alignas(PDH_FMT_COUNTERVALUE_ITEM_W) PdhBuffer quality_service_buffer{};
     alignas(PDH_FMT_COUNTERVALUE_ITEM_W) PdhBuffer quality_queue_buffer{};
-    PDH_HQUERY gpu_query{};
     PDH_HCOUNTER gpu_usage_counter{};
     PDH_HCOUNTER gpu_dedicated_counter{};
     PDH_HCOUNTER gpu_shared_counter{};
@@ -886,7 +976,6 @@ private:
     // analyzer's safe stack-frame threshold. NativeState already lives on the
     // heap and owns the other reusable PDH scratch buffers.
     std::array<EngineGroup, 512U> gpu_engine_groups{};
-    PDH_HQUERY responsiveness_query{};
     PDH_HCOUNTER dpc_time_counter{};
     PDH_HCOUNTER interrupt_time_counter{};
     PDH_HCOUNTER dpc_rate_counter{};
@@ -896,11 +985,22 @@ private:
     NetworkConnectivityLevel previous_connectivity{NetworkConnectivityLevel::unknown};
     std::uint64_t interface_change_counter{};
     bool interfaces_warmed{};
+    HANDLE interface_notification{};
+    HANDLE connectivity_notification{};
+    std::atomic<NetworkConnectivityLevel> connectivity_hint{
+        NetworkConnectivityLevel::unknown};
+    std::atomic_bool connectivity_hint_ready{};
+    std::mutex interface_inventory_mutex{};
+    std::array<std::uint64_t, maximum_tracked_interfaces> interface_inventory{};
+    std::size_t interface_inventory_count{};
+    bool interface_inventory_overflow{};
     WindowsProcessCollector process_collector{};
 };
 
 WindowsTelemetryFunctions default_windows_telemetry_functions() noexcept {
-    return WindowsTelemetryFunctions{read_system_times, read_physical_memory};
+    auto functions = WindowsTelemetryFunctions{read_system_times, read_physical_memory};
+    functions.prepare_sampling_thread = prepare_sampling_thread;
+    return functions;
 }
 
 WindowsTelemetryProvider::WindowsTelemetryProvider(
@@ -915,6 +1015,11 @@ WindowsTelemetryProvider::WindowsTelemetryProvider(
     : clock_{clock}, functions_{functions} {}
 
 WindowsTelemetryProvider::~WindowsTelemetryProvider() = default;
+
+bool WindowsTelemetryProvider::prepare_sampling_thread() noexcept {
+    return functions_.prepare_sampling_thread != nullptr &&
+           functions_.prepare_sampling_thread();
+}
 
 ProviderSampleResult WindowsTelemetryProvider::sample(
     const SamplingRequest request,
@@ -976,6 +1081,10 @@ ProviderSampleResult WindowsTelemetryProvider::sample(
     }
 
     if (request.tiers.contains(SamplingTier::fast)) {
+        if (native_state_ != nullptr) {
+            static_cast<void>(native_state_->collect_fast());
+        }
+
         ++attempted;
         WindowsSystemTimes times{};
         if (functions_.read_system_times != nullptr && functions_.read_system_times(times)) {

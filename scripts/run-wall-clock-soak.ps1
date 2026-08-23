@@ -341,6 +341,9 @@ try {
     if ([uint64]$fields['collections'] -lt [uint64]$minimumCollections) {
         throw 'The app did not collect the minimum expected wall-clock samples.'
     }
+    if ($fields['sampling_thread_prepared'] -ne '1') {
+        throw 'The application did not prepare its sampling thread.'
+    }
     if ([uint64]$fields['incidents_completed'] -lt $minimumScheduledCaptures) {
         throw 'The app did not complete the minimum scheduled diagnostic captures.'
     }

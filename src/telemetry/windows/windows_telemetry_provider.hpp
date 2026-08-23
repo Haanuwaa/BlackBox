@@ -32,6 +32,7 @@ struct WindowsTelemetryFunctions {
         void*, IoEntityCounters*, std::size_t, std::size_t&) noexcept = nullptr;
     MetricStatus (*read_disk_quality)(void*, RawDiskQuality&) noexcept = nullptr;
     MetricStatus (*read_network_quality)(void*, RawNetworkQuality&) noexcept = nullptr;
+    bool (*prepare_sampling_thread)() noexcept = nullptr;
 };
 
 [[nodiscard]] WindowsTelemetryFunctions default_windows_telemetry_functions() noexcept;
@@ -42,6 +43,8 @@ public:
     WindowsTelemetryProvider(const core::IMonotonicClock& clock,
                              WindowsTelemetryFunctions functions) noexcept;
     ~WindowsTelemetryProvider() override;
+
+    [[nodiscard]] bool prepare_sampling_thread() noexcept override;
 
     [[nodiscard]] ProviderSampleResult sample(
         SamplingRequest request,

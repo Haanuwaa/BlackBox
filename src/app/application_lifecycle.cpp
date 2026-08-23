@@ -117,6 +117,7 @@ void Application::write_diagnostic_report() noexcept {
                                   : 0U;
     };
     report.collections = values.collection_count;
+    report.sampling_thread_prepared = values.sampling_thread_prepared;
     report.partial_samples = values.partial_samples;
     report.failed_samples = values.failed_samples;
     report.dropped_samples = values.dropped_samples;

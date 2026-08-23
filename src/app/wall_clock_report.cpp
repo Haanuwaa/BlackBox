@@ -105,6 +105,8 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "requested_runtime_seconds", report.requested_runtime_seconds);
         append(output, "capture_interval_seconds", report.capture_interval_seconds);
         append(output, "collections", report.collections);
+        append(output, "sampling_thread_prepared",
+               report.sampling_thread_prepared);
         append(output, "partial_samples", report.partial_samples);
         append(output, "failed_samples", report.failed_samples);
         append(output, "dropped_samples", report.dropped_samples);
