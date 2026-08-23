@@ -311,6 +311,10 @@ IncidentDiagnosis compose_incident_diagnosis(
     const IncidentAnalysisContext& context,
     const IntelligentAnalysisConfiguration& configuration) {
     IncidentDiagnosis diagnosis{};
+    // The validated bound is small and known before composition. Reserving it
+    // avoids repeated reallocations across the mutually exclusive symptom
+    // branches and keeps GCC's optimized vector construction path explicit.
+    diagnosis.evidence.reserve(configuration.maximum_evidence_links);
     std::optional<std::size_t> application_crash_event{};
     std::optional<std::size_t> application_hang_event{};
     std::optional<std::size_t> dns_timeout_event{};
