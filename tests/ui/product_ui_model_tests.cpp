@@ -155,6 +155,10 @@ TEST_CASE("rendered product navigation accepts the documented Ctrl digit shortcu
     product->onboarding_open = false;
     product->page = ui::ProductPage::live;
 
+    // Platform backends publish both the physical key and aggregate modifier.
+    // Reproduce that contract instead of relying on an implementation-specific
+    // aggregate-only event path in Dear ImGui.
+    io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
     io.AddKeyEvent(ImGuiMod_Ctrl, true);
     io.AddKeyEvent(ImGuiKey_6, true);
     ImGui::NewFrame();
