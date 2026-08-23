@@ -247,7 +247,7 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
             return std::unexpected{error(SupportBundleErrorCode::cannot_write,
                                          "support bundle staging directory cannot be created")};
         }
-        const auto fail = [&staging](SupportBundleError failure) {
+        const auto fail = [](SupportBundleError failure) {
             // A failed partial directory is preserved for inspection and can never be
             // mistaken for a published support bundle.
             return std::expected<SupportBundleResult, SupportBundleError>{
