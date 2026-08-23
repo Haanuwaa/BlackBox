@@ -159,6 +159,12 @@ if(APPLE)
         telemetry/macos_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryMacos)
 
+    if(BLACKBOX_BUILD_APP)
+        target_sources(blackbox_tests PRIVATE
+            platform/macos_background_shell_tests.cpp)
+        target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformMacos)
+    endif()
+
     add_executable(blackbox_macos_provider_benchmark
         benchmarks/macos_provider_benchmark.cpp)
     target_compile_features(blackbox_macos_provider_benchmark PRIVATE cxx_std_23)

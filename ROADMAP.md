@@ -1923,6 +1923,11 @@ one-host engineering tracks are now implemented:
   no tray host is available.
 - [x] Execute and retain the Wayland job on the exact implementation revision; physical GNOME/KDE
   tray, shortcut, DPI, accessibility, and compositor behavior remain outside hosted headless proof.
+- [x] Add a native macOS engineering `.app` boundary behind the existing platform contracts: bounded
+  per-user single-instance locking, SDL menu-bar commands, current ServiceManagement launch-at-login,
+  permission-aware bounded UserNotifications delivery, and AppKit contrast/reduced-motion preferences.
+- [ ] Execute and retain the Apple Silicon/Intel hosted macOS graph for the implementation revision,
+  including native shell tests, provider overhead, bundle identity/layout, and unsigned package checks.
 - [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
   authored cases and deterministic rasters do not satisfy this gate.
 

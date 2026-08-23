@@ -17,6 +17,8 @@
 #include "platform/linux/linux_global_hotkey_manager.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
 #elif defined(__APPLE__)
+#include "platform/macos/macos_accessibility.hpp"
+#include "platform/macos/macos_background_shell.hpp"
 #include "telemetry/macos/macos_telemetry_provider.hpp"
 #else
 #include "telemetry/mock/mock_telemetry_provider.hpp"
@@ -172,13 +174,17 @@ ApplicationInitializationResult Application::initialize() {
                                          loaded_product_settings.error().message;
     }
     synchronize_product_ui();
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         core::Logger::write(core::LogLevel::error, SDL_GetError());
         return ApplicationInitializationResult::failed;
     }
     sdl_initialized_ = true;
+#if defined(__linux__)
     background_shell_ = std::make_unique<platform::linux::LinuxBackgroundShell>();
+#else
+    background_shell_ = std::make_unique<platform::macos::MacosBackgroundShell>();
+#endif
     const auto shell_result = background_shell_->start(
         [this](const platform::BackgroundShellCommand command) {
             pending_background_commands_.fetch_or(command_bit(command),
@@ -362,6 +368,10 @@ ApplicationInitializationResult Application::initialize() {
     load_product_font(io);
 #if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
+#elif defined(__APPLE__)
+    const auto accessibility = platform::macos::accessibility_preferences();
+#endif
+#if defined(_WIN32) || defined(__APPLE__)
     high_contrast_enabled_ = accessibility.high_contrast;
     animations_enabled_ = accessibility.animations_enabled;
 #endif
@@ -1460,14 +1470,18 @@ void Application::refresh_dashboard_if_due() {
 }
 
 void Application::refresh_accessibility_if_due() {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__APPLE__)
     const auto now = telemetry_clock_.now();
     if (now < next_accessibility_refresh_at_) return;
     do {
         next_accessibility_refresh_at_ += 1s;
     } while (next_accessibility_refresh_at_ <= now);
 
+#if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
+#else
+    const auto accessibility = platform::macos::accessibility_preferences();
+#endif
     static_cast<void>(ui::update_accessibility_style(
         high_contrast_enabled_, accessibility.high_contrast));
     animations_enabled_ = accessibility.animations_enabled;

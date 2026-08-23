@@ -8,7 +8,10 @@ are explicitly unsupported engineering previews used to exercise platform bounda
 collect native telemetry, publish bounded desktop notifications, and request its configured global
 shortcut through the XDG Desktop Portal; desktop policy may require user approval or leave either
 service unavailable. macOS currently supplies native CPU/memory/process telemetry but no qualified
-tray, autostart, global-shortcut, signing, or notarization experience.
+product experience. Its unsigned engineering `.app` can expose menu-bar controls, request launch at
+login through macOS ServiceManagement, deliver permission-gated local notifications, and follow the
+system's increased-contrast/reduced-motion preferences. Global shortcuts, signing/notarization, and
+physical-client qualification remain open.
 
 ## Start and capture
 

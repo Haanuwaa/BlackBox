@@ -47,7 +47,10 @@ headless core/telemetry graph has no Win32 dependency; the Linux provider implem
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
 and smoke the native desktop. Its platform boundary now has a tray, per-user lock, and XDG
 autostart, but notification, GPU, event, power, crash, physical-desktop, accessibility, session,
-and installer qualification remain open. macOS remains a reserved boundary with a mock provider.
+and installer qualification remain open. macOS has an engineering-only native system/process provider
+and `.app` shell with a single-instance lock, tray, ServiceManagement login item, permission-gated local
+notifications, and AppKit accessibility preferences. Its broader telemetry, global shortcut, crash,
+physical-client, signing, notarization, and distribution qualification remain open.
 No platform support is claimed until a real backend lives in its OS directory, passes the same
 contracts, represents unsupported data explicitly, and meets equivalent quality gates.
 

@@ -119,13 +119,18 @@ microsecond process start token from `proc_pid_rusage`, and collects cumulative 
 memory, and disk read/write bytes. Name, parent PID, and executable path remain metadata, with path
 resolution limited to slow-tier requests. Access races and protected identities stay per-process
 gaps instead of failing the provider. Disk, network, GPU, event, power, platform-shell, and crash
-metrics are explicitly unsupported.
+telemetry metrics are explicitly unsupported.
 
 `blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry, and
 the native libproc boundary. Hosted Apple Silicon and Intel jobs build/test the complete desktop
 graph, exercise the real-host provider contract, collect 64 bounded benchmark observations, and
-create an unsigned TGZ engineering preview. That evidence does not qualify physical client behavior,
-background services, signing, notarization, or product support.
+create an unsigned TGZ engineering preview containing a native `.app` bundle. The separate macOS
+platform adapter owns the per-user instance lock, SDL menu-bar tray, current ServiceManagement login
+item, bounded permission-aware UserNotifications requests, and AppKit increased-contrast/reduced-motion
+preferences. None of those adapters runs on the collection thread. Hosted tests exercise the lock and
+no-service fallback, while bundle checks validate identifier, version, deployment floor, and packaged
+layout. That evidence does not qualify physical client behavior, global shortcuts, signing,
+notarization, or product support.
 
 ## Deterministic mock scenarios
 

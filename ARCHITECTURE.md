@@ -471,9 +471,17 @@ desktop lifecycle concerns. A nonblocking per-user file lock rejects duplicate r
 desktop tray API supplies show/hide, capture, pause/resume, startup, notification preference, and
 exit commands on the application thread. XDG autostart uses one exact, atomically replaced
 `blackbox.desktop` entry with a bounded absolute executable and refuses linked or foreign content.
-Linux desktop notifications remain explicitly unavailable rather than adding a shell command or
-network dependency; failed notification attempts are counted. The Linux platform target may use
-SDL, but core, telemetry, normalization, recorder, storage, and analysis remain SDL-free.
+Linux desktop notifications use the session D-Bus notification service through a bounded asynchronous
+queue; unavailable services and rejected deliveries remain explicit and counted. The Linux platform
+target may use SDL and D-Bus, but core, telemetry, normalization, recorder, storage, and analysis remain
+free of those desktop dependencies.
+
+The macOS implementation preserves the same portable shell contract. It owns a nonblocking per-user
+file lock, SDL menu-bar commands, `SMAppService.mainApp` registration from a real application bundle,
+and a bounded permission-aware `UNUserNotificationCenter` adapter. AppKit increased-contrast and
+reduced-motion preferences are flattened to the portable accessibility value. Objective-C++ and Apple
+frameworks remain private to `platform/macos`; the recorder, telemetry provider, storage, analysis, and
+UI do not acquire an Apple framework edge.
 
 Linux window-system selection remains SDL-owned. The application reports SDL's actual initialized
 video-driver identifier in downstream diagnostic evidence; it never infers support from environment
@@ -860,7 +868,7 @@ cannot attest its own human review. Real Windows DPI,
 input accessibility, multi-monitor, GPU, and power behavior remain physical release gates rather
 than inferred properties of deterministic raster output.
 
-Accessibility preference ownership follows the same boundary. Windows exposes only portable
+Accessibility preference ownership follows the same boundary. Windows and macOS expose only portable
 high-contrast and animation preferences through `platform`; the application polls them at most once
 per second while the dashboard is visible and passes state to `ui`. The UI owns the complete,
 reversible ImGui palette transition. Neither platform preference reads nor style changes enter the
@@ -951,8 +959,8 @@ and package on Ubuntu 24.04, Debian 13, and Fedora 43, measures the real provide
 the build-tree and extracted package under a virtual display, and publishes comparable package-size
 and provider-latency fields. Linux remains unsupported as a product until physical desktop,
 accessibility, session, power, installer, and long-running qualification exist. GPU, event, power,
-native notification, and crash services remain explicitly unavailable rather than being inferred
-or supplied by another module.
+and crash services remain explicitly unavailable rather than being inferred or supplied by another
+module.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

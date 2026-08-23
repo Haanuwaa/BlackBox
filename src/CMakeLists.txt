@@ -172,6 +172,30 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
     blackbox_set_project_warnings(blackbox_platform_linux)
 endif()
 
+if(APPLE AND BLACKBOX_BUILD_APP)
+    find_library(BLACKBOX_APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(BLACKBOX_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    find_library(BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK ServiceManagement REQUIRED)
+    find_library(BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK UserNotifications REQUIRED)
+    add_library(blackbox_platform_macos STATIC
+        platform/macos/macos_accessibility.mm
+        platform/macos/macos_background_shell.mm
+    )
+    add_library(BlackBox::PlatformMacos ALIAS blackbox_platform_macos)
+    target_include_directories(blackbox_platform_macos PUBLIC ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_platform_macos PUBLIC cxx_std_23)
+    target_compile_options(blackbox_platform_macos PRIVATE
+        $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    target_link_libraries(blackbox_platform_macos PUBLIC BlackBox::Platform)
+    target_link_libraries(blackbox_platform_macos PRIVATE
+        SDL3::SDL3
+        ${BLACKBOX_APPKIT_FRAMEWORK}
+        ${BLACKBOX_FOUNDATION_FRAMEWORK}
+        ${BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK}
+        ${BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK})
+    blackbox_set_project_warnings(blackbox_platform_macos)
+endif()
+
 if(WIN32)
     add_library(blackbox_platform_windows STATIC
         platform/windows/windows_background_shell.cpp
@@ -401,6 +425,8 @@ if(BLACKBOX_BUILD_APP)
                 "^/lib/.*"
                 "^/lib64/.*"
                 "^/usr/lib/.*")
+    elseif(APPLE)
+        install(TARGETS blackbox BUNDLE DESTINATION . RUNTIME DESTINATION .)
     else()
         install(TARGETS blackbox RUNTIME DESTINATION .)
     endif()
@@ -447,7 +473,18 @@ if(BLACKBOX_BUILD_APP)
         set_property(TARGET blackbox PROPERTY WIN32_EXECUTABLE TRUE)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Windows")
     elseif(APPLE)
-        target_link_libraries(blackbox PRIVATE BlackBox::TelemetryMacos)
+        target_link_libraries(blackbox PRIVATE
+            BlackBox::TelemetryMacos
+            BlackBox::PlatformMacos)
+        set_target_properties(blackbox PROPERTIES
+            MACOSX_BUNDLE TRUE
+            OUTPUT_NAME "BlackBox"
+            MACOSX_BUNDLE_BUNDLE_NAME "BlackBox"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.Haanuwaa.BlackBox"
+            MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+            MACOSX_BUNDLE_INFO_PLIST
+                "${PROJECT_SOURCE_DIR}/packaging/macos/Info.plist.in")
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="macOS")
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(blackbox PRIVATE

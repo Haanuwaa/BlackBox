@@ -7,6 +7,10 @@ project(
     LANGUAGES CXX
 )
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 include(CTest)
 include(GNUInstallDirs)
 include(cmake/BlackBoxSourceRevision.cmake)

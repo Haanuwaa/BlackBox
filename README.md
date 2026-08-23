@@ -31,7 +31,11 @@ builds, measures, extracts, and launches that package. The Linux platform bounda
 SDL tray, per-user instance lock, and exact XDG autostart entry, while unavailable tray/notification
 protocols remain explicit. Linux still lacks physical desktop/accessibility/session/power/installer
 qualification and the evidence required for support.
-macOS remains a reserved platform boundary with no native provider or shell.
+macOS now has an engineering-only native CPU/memory/process provider and `.app` bundle. Its platform
+adapter adds a bounded single-instance lock, SDL menu-bar tray, current ServiceManagement login item,
+permission-aware local notifications, and AppKit contrast/reduced-motion preferences. Global shortcuts,
+broader system telemetry, crash handling, signing/notarization, and physical-client qualification remain
+open, so this is not a macOS support claim.
 
 ## Principles
 

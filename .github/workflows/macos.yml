@@ -48,6 +48,17 @@ jobs:
         run: |
           cmake --build out/build/macos --parallel
           ctest --test-dir out/build/macos --output-on-failure
+      - name: Verify native application bundle
+        shell: bash
+        run: |
+          bundle="out/build/macos/src/BlackBox.app"
+          test -x "$bundle/Contents/MacOS/BlackBox"
+          test "$(plutil -extract CFBundleIdentifier raw "$bundle/Contents/Info.plist")" = \
+            "io.github.Haanuwaa.BlackBox"
+          test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Contents/Info.plist")" = \
+            "0.15.0"
+          test "$(plutil -extract LSMinimumSystemVersion raw "$bundle/Contents/Info.plist")" = \
+            "13.0"
       - name: Measure native provider overhead
         shell: bash
         run: |
@@ -70,6 +81,10 @@ jobs:
           package="$(find out/build/macos -maxdepth 1 -type f \
             -name 'BlackBox-*-Darwin-engineering-preview.tar.gz' -print -quit)"
           test -n "$package" && test -s "$package"
+          tar -tzf "$package" | grep -Eq \
+            'BlackBox-[^/]+/BlackBox.app/Contents/MacOS/BlackBox$'
+          tar -tzf "$package" | grep -Eq \
+            'BlackBox-[^/]+/BlackBox.app/Contents/Info.plist$'
       - name: Upload package and provider evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
