@@ -15,7 +15,7 @@ development machine from gates that require outside hardware, participants, or s
 | Statistical intelligence | Implemented | Robust baselines, personalized executable history, automatic detection, context recognition, recurrence, evidence-linked contributor ranking, uncertainty, and conservative local feedback are native and optional. |
 | Native ML | Not adopted; offline harness implemented | No model or ML runtime ships. A label-free versioned feature exporter and verified baseline/candidate comparison tool now support research, but the representative held-out dataset needed to prove a material improvement does not exist yet. |
 | Windows release quality | Strong locally and hosted, externally incomplete | Exact revision `949e919...` passes 313/313 local Release and Debug tests plus both hosted Windows and quality/security workflows with locally verified attestations. The successor UI branch passes 316/316 Release tests. The overnight campaign is active; 72-hour, physical-client, signed-package, and multi-hardware diagnostic gates remain open. |
-| Linux | System/process engineering provider | A Linux-only provider reads bounded CPU, memory, physical-device I/O, non-loopback network I/O, and per-process identity/CPU/RSS/I/O evidence behind `ITelemetryProvider`. Portable strict-parser tests, a native hosted provider contract, and a full desktop build/smoke exist. Shell, packaging, overhead/distribution evidence, physical validation, and a support claim remain absent. |
+| Linux | Measured system/process engineering preview | A Linux-only provider reads bounded CPU, memory, physical-device I/O, non-loopback network I/O, and per-process identity/CPU/RSS/I/O evidence behind `ITelemetryProvider`. Portable strict-parser tests, a native hosted provider contract, a bounded overhead gate, and an extracted-package desktop smoke exist. The TGZ is explicitly an engineering preview; shell, representative distribution/physical validation, and a support claim remain absent. |
 | macOS | Reserved boundary only | There is no provider or native shell implementation and no product-support claim. |
 | Security/dependencies | Hardened, cleanup in progress | The security-focused CodeQL graph passes, no open high/critical path alert remains after review, and Dependabot reports no open vulnerability alert. Historical broad quality-query alerts still need administrative closure after the narrowed workflow is merged. |
 | UI | Coherent preview visual system implemented; physical review pending | A semantic native palette, system-font fallback, consistent geometry, selected navigation, metric cards, and grouped archive/detail/settings surfaces now reinforce the three-action recorder/capture/review path. Technical counters and raw factors remain available through progressive disclosure. Explicit archive states and keyboard/high-contrast behavior are tested. Physical keyboard, display, and accessibility review remains open. |
@@ -109,7 +109,9 @@ until the Linux shell/packaging boundary is proven; no mock-backed macOS build i
 telemetry. Runtime ML remains unadopted because the held-out evidence gate has not changed.
 
 This update completes maintainability scaffolding, broader cross-platform provider engineering, and ML research
-infrastructure. The complete Windows Release graph now passes 328/328 tests. It does not change the
-audit's release conclusion: the active wall-clock campaign,
+infrastructure. A subsequent bounded slice reuses Linux pseudo-file buffers, adds a native overhead gate and
+extract-and-launch engineering package smoke, and makes core logging bounded, single-line, component-tagged,
+elapsed-time stamped, and reentrancy-safe. The complete Windows Release graph passes 330/330 tests.
+It does not change the audit's release conclusion: a fresh wall-clock campaign,
 72-hour actions, physical matrix, multi-hardware corpus, signing, and one-shot held-out quality gates
 remain external evidence work.

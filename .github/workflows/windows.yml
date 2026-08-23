@@ -130,6 +130,19 @@ jobs:
         run: |
           cmake --build out/build/linux-headless --parallel
           ctest --test-dir out/build/linux-headless --output-on-failure
+      - name: Measure native Linux provider overhead
+        shell: bash
+        run: |
+          report="$GITHUB_WORKSPACE/out/build/linux-headless/linux-provider-overhead.ini"
+          ./out/build/linux-headless/tests/blackbox_linux_provider_benchmark 32 > "$report"
+          grep -Fxq "format=1" "$report"
+          grep -Fxq "failed=0" "$report"
+          processes="$(awk -F= '$1 == "processes_max" { print $2 }' "$report")"
+          p95="$(awk -F= '$1 == "p95_us" { print $2 }' "$report")"
+          maximum="$(awk -F= '$1 == "maximum_us" { print $2 }' "$report")"
+          test -n "$processes" && test "$processes" -ge 1
+          test -n "$p95" && test "$p95" -le 250000
+          test -n "$maximum" && test "$maximum" -le 1000000
       - name: Configure native Linux desktop graph
         shell: bash
         run: >-
@@ -154,6 +167,40 @@ jobs:
           collections="$(awk -F= '$1 == "collections" { print $2 }' "$report")"
           test -n "$collections"
           test "$collections" -ge 2
+      - name: Package and smoke Linux engineering preview
+        shell: bash
+        run: |
+          cmake --build out/build/linux-desktop --target package --parallel
+          package="$(find out/build/linux-desktop -maxdepth 1 -type f \
+            -name 'BlackBox-*-linux-*-engineering-preview.tar.gz' -print -quit)"
+          test -n "$package" && test -s "$package"
+          extract="$GITHUB_WORKSPACE/out/build/linux-package-smoke"
+          mkdir -p "$extract"
+          tar -xzf "$package" -C "$extract"
+          executable="$(find "$extract" -type f -name blackbox -perm -u+x -print -quit)"
+          test -n "$executable"
+          readelf -d "$executable" | grep -Fq '$ORIGIN'
+          if readelf -d "$executable" | grep -Fq "$GITHUB_WORKSPACE"; then
+            echo "Packaged executable retains a build-workspace runtime path" >&2
+            exit 1
+          fi
+          report="$GITHUB_WORKSPACE/out/build/linux-package-smoke.ini"
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+            "$executable" --background-diagnostic-seconds=2 \
+            --diagnostic-report="$report"
+          grep -Fxq "platform=Linux" "$report"
+          grep -Fxq "completed=1" "$report"
+          grep -Fxq "failed_samples=0" "$report"
+      - name: Upload Linux engineering evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-linux-engineering-${{ github.sha }}
+          path: |
+            out/build/linux-desktop/BlackBox-*-linux-*-engineering-preview.tar.gz
+            out/build/linux-headless/linux-provider-overhead.ini
+            out/build/linux-desktop/linux-desktop-smoke.ini
+            out/build/linux-package-smoke.ini
+          if-no-files-found: error
 
   hosted-evidence:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'

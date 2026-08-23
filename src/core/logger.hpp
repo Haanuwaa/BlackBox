@@ -12,11 +12,14 @@ enum class LogLevel {
     error,
 };
 
-using LogSink = std::function<void(LogLevel, std::string_view)>;
+using LogSink =
+    std::function<void(LogLevel, std::string_view, std::string_view)>;
 
 class Logger final {
 public:
     static void set_sink(LogSink sink);
+    static void write(LogLevel level, std::string_view component,
+                      std::string_view message);
     static void write(LogLevel level, std::string_view message);
 };
 

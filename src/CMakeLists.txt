@@ -340,7 +340,23 @@ if(BLACKBOX_BUILD_APP)
     blackbox_set_project_warnings(blackbox)
     blackbox_copy_address_sanitizer_runtime(blackbox)
 
-    install(TARGETS blackbox RUNTIME DESTINATION .)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set_property(TARGET blackbox PROPERTY INSTALL_RPATH "$ORIGIN")
+        install(TARGETS blackbox
+            RUNTIME_DEPENDENCY_SET blackbox_linux_runtime
+            RUNTIME DESTINATION .)
+        install(RUNTIME_DEPENDENCY_SET blackbox_linux_runtime
+            DESTINATION .
+            PRE_EXCLUDE_REGEXES
+                "^ld-linux.*"
+                "^lib(c|dl|gcc_s|m|pthread|rt|stdc\\+\\+)\\.so.*"
+            POST_EXCLUDE_REGEXES
+                "^/lib/.*"
+                "^/lib64/.*"
+                "^/usr/lib/.*")
+    else()
+        install(TARGETS blackbox RUNTIME DESTINATION .)
+    endif()
     if(WIN32)
         install(FILES $<TARGET_RUNTIME_DLLS:blackbox> DESTINATION .)
         if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)

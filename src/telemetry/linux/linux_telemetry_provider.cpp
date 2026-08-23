@@ -56,6 +56,12 @@ template <typename T> [[nodiscard]] MetricValue<T> temporary() noexcept {
 } // namespace
 
 struct LinuxTelemetryProvider::NativeState {
+  NativeState() {
+    system_contents.reserve(64U * 1024U);
+    disk_contents.reserve(4U * 1024U);
+    network_contents.reserve(64U * 1024U);
+  }
+
   [[nodiscard]] MetricStatus read_disks() {
     std::error_code error{};
     std::size_t count{};
@@ -68,12 +74,11 @@ struct LinuxTelemetryProvider::NativeState {
         error.clear();
         continue;
       }
-      std::string contents{};
       const auto stat = iterator->path() / "stat";
-      if (!read_bounded_proc_file(stat.c_str(), contents)) {
+      if (!read_bounded_proc_file(stat.c_str(), disk_contents)) {
         return MetricStatus::temporarily_unavailable;
       }
-      const auto parsed = parse_sys_block_stat(contents);
+      const auto parsed = parse_sys_block_stat(disk_contents);
       if (!parsed) return MetricStatus::temporarily_unavailable;
       const auto name = iterator->path().filename().string();
       disks[count++] = IoEntityCounters{stable_identity(name),
@@ -92,11 +97,10 @@ struct LinuxTelemetryProvider::NativeState {
   }
 
   [[nodiscard]] MetricStatus read_network() {
-    std::string contents{};
-    if (!read_bounded_proc_file("/proc/net/dev", contents)) {
+    if (!read_bounded_proc_file("/proc/net/dev", network_contents)) {
       return MetricStatus::temporarily_unavailable;
     }
-    const auto count = parse_proc_net_dev(contents, interfaces);
+    const auto count = parse_proc_net_dev(network_contents, interfaces);
     if (!count) return MetricStatus::temporarily_unavailable;
     const auto totals = network_tracker.update(
         std::span<const IoEntityCounters>{interfaces.data(), *count});
@@ -117,6 +121,9 @@ struct LinuxTelemetryProvider::NativeState {
   MetricValue<ByteCount> disk_write{};
   MetricValue<ByteCount> network_receive{};
   MetricValue<ByteCount> network_transmit{};
+  std::string system_contents{};
+  std::string disk_contents{};
+  std::string network_contents{};
 };
 
 LinuxTelemetryProvider::LinuxTelemetryProvider(
@@ -139,7 +146,7 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   destination.system.network_transmit_bytes = temporary<ByteCount>();
   std::uint32_t attempted{};
   std::uint32_t failed{};
-  std::string contents{};
+  auto &contents = native_state_->system_contents;
 
   if (request.tiers.contains(SamplingTier::fast)) {
     ++attempted;

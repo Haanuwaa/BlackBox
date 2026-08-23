@@ -117,6 +117,7 @@ struct LinuxProcessCollector::State {
   State() noexcept {
     const auto ticks = sysconf(_SC_CLK_TCK);
     ticks_per_second = ticks > 0 ? static_cast<std::uint64_t>(ticks) : 0U;
+    contents.reserve(maximum_process_file_bytes);
   }
 
   [[nodiscard]] MetricStatus collect(const bool resolve_paths,
@@ -127,7 +128,6 @@ struct LinuxProcessCollector::State {
                                                : MetricStatus::temporarily_unavailable;
     }
     std::size_t observed{};
-    std::string contents{};
     std::array<char, 64U> path{};
     while (const auto *entry = readdir(directory)) {
       const std::string_view name{entry->d_name};
@@ -229,6 +229,7 @@ struct LinuxProcessCollector::State {
 
   std::uint64_t ticks_per_second{};
   std::size_t active_count{};
+  std::string contents{};
 };
 
 LinuxProcessCollector::LinuxProcessCollector() noexcept

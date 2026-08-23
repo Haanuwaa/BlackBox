@@ -269,7 +269,8 @@ void SystemEventCollector::run(const std::stop_token stop_token) noexcept {
         const std::scoped_lock lock{diagnostics_mutex_};
         ++diagnostics_.worker_failures;
         diagnostics_.provider_status = EventProviderStatus::temporarily_failed;
-        core::Logger::write(core::LogLevel::error, "System event collector failed");
+        core::Logger::write(core::LogLevel::error, "events",
+                            "System event collector failed");
     }
     const std::scoped_lock lock{diagnostics_mutex_};
     diagnostics_.running = false;

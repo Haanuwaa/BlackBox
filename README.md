@@ -24,9 +24,10 @@ support claim or a shipped ML runtime. Native ML remains unshipped because no re
 held-out dataset demonstrates material benefit; all intelligence stays optional and unable to
 affect recording.
 
-Windows is the only currently supported product platform. Linux now has an engineering desktop build
-and CPU/memory/disk/network/process telemetry in hosted CI, but still lacks the native background
-shell, packaging, overhead/distribution evidence, and physical qualification required for support.
+Windows is the only currently supported product platform. Linux now has an engineering desktop build,
+CPU/memory/disk/network/process telemetry, a bounded provider-overhead gate, and an explicitly
+unsupported TGZ engineering preview that hosted CI extracts and launches. It still lacks a native
+background shell, representative distribution/physical qualification, and the evidence required for support.
 macOS remains a reserved platform boundary with no native provider or shell.
 
 ## Principles
@@ -139,6 +140,8 @@ single-host profiles, independent bundle verification, and aggregate clean-clien
 The development Linux system/process boundary is described in
 [docs/TELEMETRY.md](docs/TELEMETRY.md), and the label-free feature export plus verified baseline
 comparison workflow is documented in [docs/OFFLINE_ML.md](docs/OFFLINE_ML.md).
+The bounded component record format and replaceable-sink rules are documented in
+[docs/LOGGING.md](docs/LOGGING.md).
 The same-revision hosted/UI/client/soak/signing composition contract is documented in
 [docs/V017_RELEASE_EVIDENCE.md](docs/V017_RELEASE_EVIDENCE.md); it cannot replace the separate
 diagnostic-quality gate.

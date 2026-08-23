@@ -98,9 +98,13 @@ remain `unsupported`.
 platform-shell dependency. Hosted Linux sanitizer and coverage builds compile it, and a native test
 samples the runner's real `/proc` and `/sys` files before applying the backend-independent provider
 contract. Portable parser tests also run on Windows. A separate hosted step builds the complete Linux
-desktop target and runs a bounded diagnostic smoke under Xvfb. This is engineering evidence only:
-BlackBox does not yet claim Linux product support, packaging, background-shell behavior, overhead
-qualification, physical client behavior, or cross-distribution compatibility.
+desktop target and runs a bounded diagnostic smoke under Xvfb. Reused pseudo-file buffers avoid
+reallocating provider scratch storage on each observation. A native all-tier benchmark retains direct-v1
+timing/RSS aggregates and fails if P95 exceeds 250 ms, any observation exceeds one second, the process
+inventory is empty, or a provider sample fails. CI also creates a TGZ engineering preview, extracts it,
+and launches the packaged executable under Xvfb. This is engineering evidence only: BlackBox does not
+yet claim Linux product support, background-shell behavior, physical client behavior, or representative
+cross-distribution compatibility.
 
 ## Deterministic mock scenarios
 

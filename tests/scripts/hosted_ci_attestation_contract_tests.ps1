@@ -44,6 +44,11 @@ foreach ($clause in @(
     '- name: Install native Linux desktop dependencies',
     '- name: Configure portable headless graph',
     'SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software',
+    'blackbox_linux_provider_benchmark 32',
+    'test "$p95" -le 250000',
+    'Package and smoke Linux engineering preview',
+    'readelf -d "$executable" | grep -Fq ''$ORIGIN''',
+    'BlackBox-linux-engineering-${{ github.sha }}',
     'needs: [build-test-package, headless-collection, linux-boundary]',
     '-WorkflowKey windows -OutputDirectory out/hosted-ci/windows',
     'BlackBox-hosted-ci-windows-${{ github.sha }}')) {

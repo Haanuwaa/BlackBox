@@ -1,6 +1,7 @@
 add_executable(blackbox_tests
     core/circular_recorder_tests.cpp
     core/incident_tests.cpp
+    core/logger_tests.cpp
     core/version_tests.cpp
     telemetry/collector_tests.cpp
     telemetry/collection_timing_tests.cpp
@@ -401,6 +402,24 @@ if(WIN32)
     )
     add_dependencies(blackbox_tests blackbox_process_fixture)
     add_dependencies(blackbox_tests blackbox_crash_probe)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(blackbox_tests PRIVATE
+        telemetry/linux_telemetry_provider_tests.cpp)
+    target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
+
+    add_executable(blackbox_linux_provider_benchmark
+        benchmarks/linux_provider_benchmark.cpp)
+    target_compile_features(blackbox_linux_provider_benchmark PRIVATE cxx_std_23)
+    target_link_libraries(blackbox_linux_provider_benchmark PRIVATE
+        BlackBox::TelemetryLinux)
+    blackbox_set_project_warnings(blackbox_linux_provider_benchmark)
+    add_test(
+        NAME linux_native_provider_overhead_contract
+        COMMAND blackbox_linux_provider_benchmark 16)
+    set_tests_properties(linux_native_provider_overhead_contract
+        PROPERTIES LABELS "linux;performance")
 endif()
 
 include(Catch)

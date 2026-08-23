@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target is built and smoke-tested in hosted CI, but it still has no background shell, packaging, cross-distribution/physical qualification, or support claim. The macOS directory remains a reserved boundary only; non-Linux Unix builds continue to compose the deterministic mock provider.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target is built and smoke-tested in hosted CI, and a separately labeled engineering TGZ is extracted and launched only after a bounded provider-overhead gate. It still has no background shell, representative cross-distribution/physical qualification, or support claim. The macOS directory remains a reserved boundary only; non-Linux Unix builds continue to compose the deterministic mock provider.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -155,7 +155,7 @@ Cause candidates must use probabilistic language. Temporal correlation and anoma
 
 ## V0.0.1 implementation note
 
-The bootstrap links SDL3's renderer, the matching Dear ImGui backends, and ImPlot. This is the smallest cross-platform native rendering path and avoids a custom graphics backend. SQLite is resolved behind a storage dependency target but deliberately has no runtime storage code yet. Logging is a small replaceable sink in `core`; a heavier logging framework is not justified at this stage.
+The bootstrap links SDL3's renderer, the matching Dear ImGui backends, and ImPlot. This is the smallest cross-platform native rendering path and avoids a custom graphics backend. SQLite is resolved behind a storage dependency target but deliberately has no runtime storage code yet. Logging is a small replaceable sink in `core`; records are component-tagged, single-line, bounded to 2,048 message bytes, and elapsed-time stamped by the default sink. Sink callbacks run outside logger ownership locks so a test or future adapter may safely reenter. A heavier logging framework is not justified at this stage.
 
 `FindSQLite3` changed its canonical imported-target spelling across supported CMake generations.
 The root build resolves either `SQLite3::SQLite3` or `SQLite::SQLite3` once and exposes only
@@ -912,11 +912,18 @@ Windows and Linux providers; first sight/reappearance warms up, removal subtract
 counter decrease invalidates only that channel for one observation. The Linux process walk is
 capped at 8,192 identities and every pseudo-file read is bounded.
 
+Provider scratch strings are retained inside the Linux native state so ordinary sampling clears and
+reuses capacity instead of allocating a new `/proc` or `/sys` buffer. A Linux-only benchmark exercises
+all tiers against the real host, retains bounded timing/RSS aggregates, and enforces deliberately broad
+engineering limits. CPack labels its TGZ as an unsupported engineering preview; hosted CI extracts and
+launches that exact archive before it can contribute to the Windows workflow attestation. Packaging and
+benchmark infrastructure remain downstream of the provider and do not enter normalization or recording.
+
 Hosted Linux tests exercise strict malformed/overflow/duplicate parsing and the native provider
 contract. The workflow separately preserves the storage/UI-free headless graph and builds the full
 native desktop target, then runs a bounded diagnostic smoke under a virtual display. Linux remains
-unsupported as a product until its background shell, packaging, measured overhead, distribution
-matrix, and physical qualification exist. GPU, event, power, platform-shell, and crash services
+unsupported as a product until its background shell, representative distribution matrix, and physical
+qualification exist. GPU, event, power, platform-shell, and crash services
 remain explicitly unavailable rather than being inferred or supplied by another module.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an

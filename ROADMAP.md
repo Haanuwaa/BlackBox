@@ -1872,10 +1872,11 @@ security workflows. Their downloaded direct-v1 attestations independently verify
 writer at `out/hosted-ci/949e919b014beff5062c3cc1caa54e1bd45ef26d/{windows,quality}`.
 
 A fresh exact-revision overnight campaign started from that frozen Release executable at
-`out/soaks/overnight-v1-949e919-20260822.partial`. Its 1,020-second checkpoint retained 17 process
-samples with zero sampling gaps and no stderr output. This is active evidence, not a pass: the
-directory must remain `.partial` until all 28,800 seconds, coverage/resource gates, manifest hashes,
-and independent verification complete.
+`out/soaks/overnight-v1-949e919-20260822.partial`. It stopped without publication after 17,285
+elapsed seconds (about 4 hours 48 minutes), 288 process checkpoints, and zero sampling gaps. No
+process remains active and the stale `state=running` checkpoint cannot be treated as completed
+evidence. The retained `.partial` directory remains diagnostic-only; a fresh exact-revision campaign
+is required after integration.
 
 The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. Its actionable
 one-host engineering tracks are now implemented:
@@ -1898,8 +1899,14 @@ one-host engineering tracks are now implemented:
 - [x] Preserve the hosted Linux headless graph while additionally building the complete native Linux
   desktop target and running a bounded diagnostic-report smoke under a virtual display. This is
   engineering evidence, not a product-support or packaging claim.
+- [x] Reuse Linux `/proc` and `/sys` scratch capacity, add a real-host all-tier provider benchmark with
+  bounded P95/maximum/RSS evidence, and require CI to extract and launch an explicitly unsupported TGZ
+  engineering preview before the Linux boundary passes.
+- [x] Make the replaceable core logger produce bounded single-line component records, keep the default
+  elapsed-time output readable, and invoke custom sinks outside logger locks so reentrant adapters cannot
+  deadlock or inject multiline/unbounded records.
 
-The resulting Windows Release graph builds completely and passes 328/328 tests. A representative
+The resulting Windows Release graph builds completely and passes 330/330 tests. A representative
 schema-v1 archive also produced a three-row direct-v1 feature matrix end to end. These tracks do not
 weaken the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without
 held-out value, or satisfy any external V1 evidence gate.
@@ -1912,12 +1919,13 @@ held-out value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **qualification and platform evidence in isolation**: allow the frozen revision's overnight
-campaign to complete without mutating its executable or scripts; independently verify the result,
-then schedule the operator-assisted 72-hour campaign. Validate this UI/Linux/offline-evaluation branch
-in hosted CI, measure Linux provider cost and behavior across representative distributions, and add a
-Linux background shell/package only if that evidence remains healthy. macOS stays behind that proven
-platform boundary, and runtime ML stays behind the representative held-out value gate. The signed package,
+Proceed to **integration and qualification in isolation**: validate the Linux overhead/package and
+logging slice on one exact hosted revision, fast-forward it into `main`, build a clean revision-bound
+Release executable, and start a fresh eight-hour campaign. Preserve that executable and its scripts
+until the campaign publishes or retains a diagnostic `.partial`, then independently verify the result
+and schedule the operator-assisted 72-hour campaign. Representative Linux distributions and a native
+background shell remain the next platform gates; macOS stays behind that proven boundary, and runtime
+ML stays behind the representative held-out value gate. The signed Windows package,
 72-hour physical actions, independently reviewed UI/client matrix,
 consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
 local rehearsals or additional schema machinery cannot satisfy them.

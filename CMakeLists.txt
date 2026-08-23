@@ -168,9 +168,24 @@ endif()
 
 set(CPACK_PACKAGE_NAME "BlackBox")
 set(CPACK_PACKAGE_VENDOR "BlackBox")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Native Windows computer flight recorder")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_GENERATOR "ZIP")
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
-set(CPACK_PACKAGE_FILE_NAME "BlackBox-${PROJECT_VERSION}-windows-x64")
+if(WIN32)
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Native Windows computer flight recorder")
+    set(CPACK_GENERATOR "ZIP")
+    set(CPACK_PACKAGE_FILE_NAME "BlackBox-${PROJECT_VERSION}-windows-x64")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "Unsupported Linux engineering preview of the BlackBox computer flight recorder")
+    set(CPACK_GENERATOR "TGZ")
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" BLACKBOX_PACKAGE_PROCESSOR)
+    set(CPACK_PACKAGE_FILE_NAME
+        "BlackBox-${PROJECT_VERSION}-linux-${BLACKBOX_PACKAGE_PROCESSOR}-engineering-preview")
+else()
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "Unsupported engineering build of the BlackBox computer flight recorder")
+    set(CPACK_GENERATOR "TGZ")
+    set(CPACK_PACKAGE_FILE_NAME
+        "BlackBox-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-engineering-preview")
+endif()
 include(CPack)

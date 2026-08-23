@@ -189,7 +189,7 @@ void TelemetryCollector::start() {
                     const std::scoped_lock diagnostics_lock{diagnostics_mutex_};
                     ++diagnostics_.worker_failures;
                 }
-                core::Logger::write(core::LogLevel::error,
+                core::Logger::write(core::LogLevel::error, "telemetry",
                                     "Collector worker stopped after an unexpected failure");
             }
             set_running(false);
@@ -382,7 +382,7 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
                 diagnostics_.resume_skipped_samples += resume.skipped_ticks;
                 diagnostics_.last_resume_gap = resume.gap;
             }
-            core::Logger::write(core::LogLevel::info,
+            core::Logger::write(core::LogLevel::info, "telemetry",
                                 "Resume gap detected; telemetry baselines reset");
         }
         const auto jitter = nonnegative_duration(actual_start - scheduled_start);
@@ -597,7 +597,7 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
             const auto level = status == ProviderSampleStatus::complete
                                    ? core::LogLevel::info
                                    : core::LogLevel::warning;
-            core::Logger::write(level, provider_status_text(status));
+            core::Logger::write(level, "telemetry", provider_status_text(status));
             logged_status_ = status;
             has_logged_status_ = true;
         }
