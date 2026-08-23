@@ -1877,12 +1877,23 @@ samples with zero sampling gaps and no stderr output. This is active evidence, n
 directory must remain `.partial` until all 28,800 seconds, coverage/resource gates, manifest hashes,
 and independent verification complete.
 
-The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. It identifies
-preview UX simplification, characterization-led decomposition of the largest app/storage/UI files,
-a Linux telemetry-provider MVP, and an offline ML comparison interface as useful parallel work while
-physical-client, multi-hardware corpus, and signing gates lack resources. Those tracks do not weaken
-the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without held-out
-value, or satisfy any external V1 evidence gate.
+The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. Its actionable
+one-host engineering tracks are now implemented:
+
+- [x] Decompose application lifecycle/reporting, product/archive settings rendering, and SQLite
+  backup/restore into responsibility-specific translation units after an 11-test characterization
+  baseline; the public graph, shutdown order, renderer surface, and direct-v1 archive remain unchanged.
+- [x] Add a Linux-only CPU/memory `ITelemetryProvider` with bounded strict `/proc` parsing, portable
+  malformed/overflow tests, a native provider-contract test in hosted Linux graphs, and Linux app
+  composition without claiming product support.
+- [x] Add a build-only offline model harness that exports sibling-staged label-free versioned feature
+  matrices from read-only archives and compares independently verified candidate/baseline artifacts
+  from the same frozen corpus under predeclared non-inferiority tolerances.
+
+The resulting Windows Release graph builds completely and passes 324/324 tests. A representative
+schema-v1 archive also produced a three-row direct-v1 feature matrix end to end. These tracks do not
+weaken the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without
+held-out value, or satisfy any external V1 evidence gate.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 
@@ -1894,8 +1905,9 @@ value, or satisfy any external V1 evidence gate.
 
 Proceed to **qualification and maintainability in isolation**: allow the frozen revision's overnight
 campaign to complete without mutating its executable or scripts; independently verify the result,
-then schedule the operator-assisted 72-hour campaign. Continue characterization-led maintainability,
-Linux-provider, and offline ML-evaluation work in separate branches/builds only. The signed package,
+then schedule the operator-assisted 72-hour campaign. Validate the completed maintainability/Linux/
+offline-evaluation branch in hosted CI, then broaden Linux only after measuring this CPU/memory MVP.
+The signed package,
 72-hour physical actions, independently reviewed UI/client matrix,
 consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
 local rehearsals or additional schema machinery cannot satisfy them.

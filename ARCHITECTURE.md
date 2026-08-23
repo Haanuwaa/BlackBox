@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows is the only production backend through V0.1. Mock scenarios support deterministic development on every build host. Linux and macOS directories reserve implementation boundaries but contain no claims of support.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development CPU/memory provider behind the same interface; it does not imply a tray shell, process/disk/network coverage, packaging, physical qualification, or a support claim. The macOS directory remains a reserved boundary only.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -892,6 +892,31 @@ The configure-time validator checks commit identity as exactly 40 lowercase hexa
 using an explicit length plus character-set contract, and a platform-independent CTest exercises
 valid and malformed values so CMake-regex dialect differences cannot silently downgrade a clean
 release build to `local-uncommitted`.
+
+## Maintainability, Linux MVP, and offline model research note
+
+The first characterization-led decomposition keeps responsibilities inside their existing modules:
+application shutdown/report publication is a second composition-root translation unit, product and
+archive settings rendering remains inside `ui`, and SQLite backup/restore plus the native connection
+state remain inside `storage`. No service, queue, database operation, renderer, or analysis call was
+added to `TelemetryProvider -> Normalizer -> Recorder`; the public module graph and direct-v1 schema
+are unchanged.
+
+The Linux engineering MVP consists of strict portable parsers for aggregate `/proc/stat` CPU ticks
+and `/proc/meminfo` physical-memory gauges plus a Linux-only `ITelemetryProvider` target. CPU remains
+cumulative busy/total ticks and memory remains total/available bytes, so the existing normalizer and
+recorder need no Linux branch. Unsupported metrics retain explicit `unsupported` status. Hosted
+Linux tests exercise the native provider contract, while Windows builds exercise malformed,
+overflow, duplicate, unit, and relationship parsing. Linux remains unsupported as a product until
+the missing providers, shell, packaging, overhead evidence, and physical qualification exist.
+
+Offline model research remains below the evaluation boundary. A development-only tool reads an
+archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free
+matrix of the existing 16 versioned incident-shape features. It excludes local incident IDs,
+timestamps, process identities, paths, annotations, and truth. Candidate comparison accepts only
+canonical prediction artifacts independently recomputed against the same frozen corpus and applies
+predeclared non-inferiority tolerances. The desktop, analyzer, recorder, provider, and shipped
+package do not link the tool or an ML runtime.
 
 Exact archive-layout verification remains a storage/open boundary. It derives a canonical manifest
 by executing the one compiled direct-V1 schema in an isolated in-memory SQLite connection and

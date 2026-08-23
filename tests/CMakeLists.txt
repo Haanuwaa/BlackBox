@@ -6,6 +6,7 @@ add_executable(blackbox_tests
     telemetry/collection_timing_tests.cpp
     telemetry/event_collector_tests.cpp
     telemetry/incident_snapshot_builder_tests.cpp
+    telemetry/linux_proc_parser_tests.cpp
     telemetry/mock_telemetry_provider_tests.cpp
     telemetry/normalizer_tests.cpp
     telemetry/process_metadata_cache_tests.cpp
@@ -81,6 +82,7 @@ if(BLACKBOX_ENABLE_ANALYSIS)
         evaluation/diagnostic_evaluation_artifact_tests.cpp
         evaluation/dogfood_corpus_tests.cpp
         evaluation/evaluation_run_transaction_tests.cpp
+        evaluation/offline_model_harness_tests.cpp
         evaluation/truth_review_tests.cpp
     )
     target_link_libraries(blackbox_tests PRIVATE
@@ -137,6 +139,12 @@ if(BLACKBOX_ENABLE_ANALYSIS)
         target_link_libraries(blackbox_intelligent_analysis_benchmark PRIVATE psapi)
     endif()
     blackbox_set_project_warnings(blackbox_intelligent_analysis_benchmark)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(blackbox_tests PRIVATE
+        telemetry/linux_telemetry_provider_tests.cpp)
+    target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
 endif()
 
 if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)

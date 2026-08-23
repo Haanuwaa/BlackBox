@@ -80,6 +80,7 @@ if(BLACKBOX_ENABLE_ANALYSIS)
         evaluation/diagnostic_evaluation_artifact.cpp
         evaluation/dogfood_corpus.cpp
         evaluation/evaluation_run_transaction.cpp
+        evaluation/offline_model_harness.cpp
         evaluation/truth_review.cpp
     )
     add_library(BlackBox::Evaluation ALIAS blackbox_evaluation)
@@ -94,6 +95,7 @@ add_library(blackbox_telemetry STATIC
     telemetry/collection_timing.cpp
     telemetry/event_collector.cpp
     telemetry/incident_snapshot_builder.cpp
+    telemetry/linux/linux_proc_parser.cpp
     telemetry/mock/mock_telemetry_provider.cpp
     telemetry/normalizer.cpp
     telemetry/process_metadata_cache.cpp
@@ -115,6 +117,17 @@ target_include_directories(blackbox_telemetry PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_compile_features(blackbox_telemetry PUBLIC cxx_std_23)
 target_link_libraries(blackbox_telemetry PUBLIC BlackBox::Core)
 blackbox_set_project_warnings(blackbox_telemetry)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(blackbox_telemetry_linux STATIC
+        telemetry/linux/linux_telemetry_provider.cpp
+    )
+    add_library(BlackBox::TelemetryLinux ALIAS blackbox_telemetry_linux)
+    target_include_directories(blackbox_telemetry_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_telemetry_linux PUBLIC cxx_std_23)
+    target_link_libraries(blackbox_telemetry_linux PUBLIC BlackBox::Telemetry)
+    blackbox_set_project_warnings(blackbox_telemetry_linux)
+endif()
 
 add_library(blackbox_platform INTERFACE)
 add_library(BlackBox::Platform ALIAS blackbox_platform)
@@ -164,6 +177,7 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
         storage/incident_dataset.cpp
         storage/incident_writer.cpp
         storage/sqlite_incident_archive.cpp
+        storage/sqlite_incident_archive_maintenance.cpp
     )
     add_library(BlackBox::Storage ALIAS blackbox_storage)
     target_include_directories(blackbox_storage PUBLIC ${PROJECT_SOURCE_DIR}/src)
@@ -205,6 +219,18 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
         )
         blackbox_set_project_warnings(blackbox_dogfood_tool)
         install(TARGETS blackbox_dogfood_tool RUNTIME DESTINATION .)
+
+        add_executable(blackbox_offline_ml_tool app/offline_ml_tool.cpp)
+        blackbox_add_windows_version_resource(blackbox_offline_ml_tool
+            "BlackBox Offline Model Comparison Tool")
+        target_include_directories(blackbox_offline_ml_tool PRIVATE
+            ${PROJECT_SOURCE_DIR}/src)
+        target_compile_features(blackbox_offline_ml_tool PRIVATE cxx_std_23)
+        target_link_libraries(blackbox_offline_ml_tool PRIVATE
+            BlackBox::Evaluation
+            BlackBox::Storage
+        )
+        blackbox_set_project_warnings(blackbox_offline_ml_tool)
     endif()
 
     if(WIN32 AND BLACKBOX_ENABLE_AUTOMATIC_DETECTION)
@@ -240,6 +266,7 @@ blackbox_set_project_warnings(blackbox_app_support)
 if(BLACKBOX_BUILD_APP)
     add_library(blackbox_ui STATIC
         ui/dashboard.cpp
+        ui/dashboard_settings.cpp
         ui/incident_viewer.cpp
         ui/product_ui_model.cpp
     )
@@ -277,6 +304,7 @@ if(BLACKBOX_BUILD_APP)
 
     add_executable(blackbox
         app/application.cpp
+        app/application_lifecycle.cpp
         app/main.cpp
     )
     blackbox_add_windows_version_resource(blackbox
@@ -343,8 +371,11 @@ if(BLACKBOX_BUILD_APP)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Windows")
     elseif(APPLE)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="macOS")
-    elseif(UNIX)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(blackbox PRIVATE BlackBox::TelemetryLinux)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Linux")
+    elseif(UNIX)
+        target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Unix")
     else()
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Unknown")
     endif()

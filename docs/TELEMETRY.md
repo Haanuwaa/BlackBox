@@ -58,6 +58,33 @@ V0.1 starts with a simple one-second schedule, but provider and scheduler contra
 
 Collection output records capability and availability changes. A provider failure should degrade the affected metric and increment diagnostics without terminating collection of healthy signals.
 
+## Linux CPU/memory engineering MVP
+
+Linux now has a development-only `LinuxTelemetryProvider` behind the same portable provider
+contract. It reads two bounded kernel pseudo-files without administrator privileges:
+
+| Metric | Source | Tier | Portable representation |
+|---|---|---|---|
+| CPU | aggregate `cpu` row in `/proc/stat` | Fast | cumulative busy and total kernel ticks |
+| Physical memory | `MemTotal` and `MemAvailable` in `/proc/meminfo` | Normal | total and available bytes |
+| Logical processors | numbered `cpuN` rows in `/proc/stat` | Fast | available count |
+
+CPU total sums Linux user, nice, system, idle, I/O wait, IRQ, soft IRQ, and steal counters. Guest
+fields are not added because Linux already includes them in user/nice. Busy subtracts idle and I/O
+wait from total; the shared normalizer still computes `delta(busy) / delta(total)`. Memory values
+must use the kernel's `kB` unit, are converted as KiB (`* 1024`), and require
+`0 < available <= total`. Both parsers reject missing/duplicate fields, noncanonical numbers,
+overflow, impossible relationships, and input above the provider's 1 MiB bound. A failed requested
+source becomes `temporarily_unavailable`; unsupported disk, network, process, GPU, event, and power
+metrics remain `unsupported`.
+
+`blackbox_telemetry_linux` is built only on Linux and has no SQLite, UI, storage, analysis, or
+platform-shell dependency. Hosted Linux sanitizer and coverage builds compile it, and a native test
+samples the runner's real `/proc` files before applying the backend-independent provider contract.
+Portable parser tests also run on Windows. This is provider-boundary evidence only: BlackBox does
+not yet claim Linux product support, packaging, background-shell behavior, overhead qualification,
+or cross-distribution compatibility.
+
 ## Deterministic mock scenarios
 
 The mock provider emits one stable process (`PID 4242`, creation token `1`) and advances counters once per requested snapshot. The anomaly interval is the fifth observation:
