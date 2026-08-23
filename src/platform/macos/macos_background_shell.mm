@@ -407,19 +407,22 @@ bool MacosBackgroundShell::notify(const std::string_view title,
 
 bool MacosBackgroundShell::set_launch_at_login(const bool enabled) noexcept {
     if (!native_->options.use_native_services || !uses_application_bundle()) return false;
+    bool matches_requested_state = false;
     @autoreleasepool {
         NSError* error = nil;
         const bool accepted = enabled
             ? [SMAppService.mainAppService registerAndReturnError:&error]
             : [SMAppService.mainAppService unregisterAndReturnError:&error];
         if (!accepted || error != nil) return false;
+        matches_requested_state =
+            native_->launch_at_login_enabled_unlocked() == enabled;
     }
     if (native_->autostart_entry != nullptr) {
         SDL_SetTrayEntryChecked(native_->autostart_entry,
                                 native_->launch_at_login_enabled_unlocked());
         SDL_UpdateTrays();
     }
-    return true;
+    return matches_requested_state;
 }
 
 bool MacosBackgroundShell::launch_at_login_enabled() const noexcept {
