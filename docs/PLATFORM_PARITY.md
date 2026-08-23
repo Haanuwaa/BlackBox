@@ -27,7 +27,7 @@ qualified.
 | Increased contrast and reduced motion | Native | Open; XDG Settings portal selected | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Open | Open |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
-| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland | Apple Silicon/Intel workflow; current parity revision pending |
+| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland | Apple Silicon and Intel passed on `52d6c8b` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 

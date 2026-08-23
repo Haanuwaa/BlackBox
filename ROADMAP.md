@@ -1926,7 +1926,7 @@ one-host engineering tracks are now implemented:
 - [x] Add a native macOS engineering `.app` boundary behind the existing platform contracts: bounded
   per-user single-instance locking, SDL menu-bar commands, current ServiceManagement launch-at-login,
   permission-aware bounded UserNotifications delivery, and AppKit contrast/reduced-motion preferences.
-- [ ] Execute and retain the Apple Silicon/Intel hosted macOS graph for the implementation revision,
+- [x] Execute and retain the Apple Silicon/Intel hosted macOS graph for the implementation revision,
   including native shell tests, provider overhead, bundle identity/layout, and unsigned package checks.
 - [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
   authored cases and deterministic rasters do not satisfy this gate.
@@ -1957,6 +1957,26 @@ Hosted Linux compatibility evidence (2026-08-23):
   The retained Wayland artifact reports the actual SDL `wayland` driver under Weston 13.0.0, exact
   compiled revision, completed collection with zero failed/dropped/deadline samples, unavailable tray,
   and a visible window. This is packaged engineering proof only; physical GNOME/KDE integration remains open.
+
+Hosted macOS engineering evidence (2026-08-23):
+
+- GitHub Actions run `32672293434` passed both the Apple Silicon `macos-15` and Intel
+  `macos-15-intel` jobs on exact implementation revision
+  `52d6c8b39d7a761a09258dd3511d4e35d5179dbb`. Each architecture built the complete native
+  desktop/test graph with warnings as errors and passed all 286 applicable tests, including the
+  native provider contract/overhead check plus the no-service shell and AppKit accessibility tests.
+- Both jobs verified the built `.app` identifier, version, and macOS 13 deployment floor, then
+  verified the packaged bundle layout and retained the unsigned engineering TGZ. Package sizes were
+  5,074,823 bytes on Apple Silicon and 5,598,070 bytes on Intel.
+- Each provider benchmark completed 64/64 native observations with zero failures. Apple Silicon P95/
+  maximum collection cost was 515/1,465 microseconds across up to 282 processes; Intel was
+  1,902/4,166 microseconds across up to 268 processes. This is hosted engineering evidence, not
+  physical-client, global-shortcut, signing/notarization, or macOS product-support qualification.
+- The first strict compiler passes usefully exposed one macOS-unavailable notification status,
+  Objective-C const qualification, and Intel's signed-byte `BOOL` conversion. The final revision
+  removes the unavailable API, preserves explicit Objective-C ownership types, converts AppKit
+  preferences without narrowing, and reports launch-at-login success only when ServiceManagement's
+  observed status actually matches the requested state.
 
 The exact-revision overnight attempt on `2ded4de87cbccc9e212311e81289109521c9215f` completed its full
 eight-hour application duration with 28,779 collections, 479 process checkpoints, zero checkpoint
