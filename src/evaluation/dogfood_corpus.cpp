@@ -1,4 +1,5 @@
 #include "evaluation/dogfood_corpus.hpp"
+#include "evaluation/strict_number_parser.hpp"
 
 #include <algorithm>
 #include <array>
@@ -79,14 +80,8 @@ template <typename Integer>
     return value;
 }
 
-[[nodiscard]] std::optional<double> finite_double(const std::string_view text) noexcept {
-    double value{};
-    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
-        !std::isfinite(value)) {
-        return std::nullopt;
-    }
-    return value;
+[[nodiscard]] std::optional<double> finite_double(const std::string_view text) {
+    return parse_finite_decimal(text);
 }
 
 [[nodiscard]] std::optional<bool> boolean(const std::string_view text) noexcept {

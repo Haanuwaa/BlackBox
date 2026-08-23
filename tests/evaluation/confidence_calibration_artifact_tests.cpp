@@ -1,4 +1,5 @@
 #include "evaluation/confidence_calibration_artifact.hpp"
+#include "evaluation/strict_number_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -52,6 +53,20 @@ void replace_once(std::string& text, const std::string_view needle,
 }
 
 } // namespace
+
+TEST_CASE("portable artifact decimals use a strict locale-independent grammar",
+          "[evaluation][artifact][format]") {
+    REQUIRE(evaluation::parse_finite_decimal("0.125").has_value());
+    CHECK(*evaluation::parse_finite_decimal("0.125") == 0.125);
+    CHECK(*evaluation::parse_finite_decimal("-1.25e+2") == -125.0);
+    CHECK(evaluation::parse_finite_decimal("1.").has_value());
+    CHECK(evaluation::parse_finite_decimal(".5").has_value());
+
+    for (const auto malformed : {"", "+1", " 1", "1 ", ".", "1e",
+                                 "1e+", "nan", "inf", "0x1p2", "1,5"}) {
+        CHECK_FALSE(evaluation::parse_finite_decimal(malformed).has_value());
+    }
+}
 
 TEST_CASE("confidence calibration artifacts enforce one bounded canonical V1",
           "[evaluation][calibration][artifact][format]") {

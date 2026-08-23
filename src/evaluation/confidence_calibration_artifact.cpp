@@ -1,4 +1,5 @@
 #include "evaluation/confidence_calibration_artifact.hpp"
+#include "evaluation/strict_number_parser.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -32,15 +33,8 @@ template <typename Value>
     return value;
 }
 
-[[nodiscard]] std::optional<double> number(const std::string_view text) noexcept {
-    double value{};
-    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value,
-                                        std::chars_format::general);
-    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
-        !std::isfinite(value)) {
-        return std::nullopt;
-    }
-    return value;
+[[nodiscard]] std::optional<double> number(const std::string_view text) {
+    return parse_finite_decimal(text);
 }
 
 [[nodiscard]] std::optional<std::string_view> field(
