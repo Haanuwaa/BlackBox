@@ -8,8 +8,10 @@ AccessibilityPreferences accessibility_preferences() noexcept {
     @autoreleasepool {
         const auto* workspace = [NSWorkspace sharedWorkspace];
         return AccessibilityPreferences{
-            .high_contrast = workspace.accessibilityDisplayShouldIncreaseContrast,
-            .animations_enabled = !workspace.accessibilityDisplayShouldReduceMotion,
+            .high_contrast =
+                workspace.accessibilityDisplayShouldIncreaseContrast != NO,
+            .animations_enabled =
+                workspace.accessibilityDisplayShouldReduceMotion == NO,
         };
     }
 }
