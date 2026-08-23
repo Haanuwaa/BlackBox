@@ -65,7 +65,13 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
             }
             if (selected) ImGui::PopStyleColor(3);
             ImGui::PopID();
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(page_keys[index], false)) {
+            const auto& io = ImGui::GetIO();
+            const auto control_down = io.KeyCtrl ||
+                                      ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ||
+                                      ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+            // This assignment is intentionally idempotent while the chord is held.
+            // It avoids depending on platform-specific first-frame key-repeat timing.
+            if (control_down && ImGui::IsKeyDown(page_keys[index])) {
                 product.page = static_cast<ProductPage>(index);
             }
         }
