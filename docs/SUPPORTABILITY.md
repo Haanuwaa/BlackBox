@@ -9,10 +9,12 @@ telemetry provider or the rolling recorder.
 On Windows, the application creates the local crash directory before normal initialization and
 pre-opens one uniquely named `.dmp.partial` file for the current process. The top-level exception
 filter writes `MiniDumpNormal` evidence through that already-open handle, flushes it, and renames it
-to `.dmp`. Final publication tolerates only bounded transient access/sharing/lock contention for at
-most 500 milliseconds; permanent failure leaves the `.partial` artifact visibly incomplete rather
-than presenting it as completed evidence. A clean shutdown closes and removes the unused partial
-file. Existing completed dumps are never deleted automatically.
+to `.dmp`. A failed dump write resets the same bounded staging file and retries at most five times
+with 100-millisecond delays; it neither allocates nor opens another file on the crash path. Final
+publication tolerates only bounded transient access/sharing/lock contention for at most 500
+milliseconds. Permanent write or publication failure leaves the `.partial` artifact visibly
+incomplete rather than presenting it as completed evidence. A clean shutdown closes and removes the
+unused partial file. Existing completed dumps are never deleted automatically.
 
 The handler is deliberately small: it does not open SQLite, allocate an incident, render UI, acquire
 application locks, upload data, or attempt recovery. Windows implementation details remain under

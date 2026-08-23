@@ -53,18 +53,32 @@ struct WindowsCrashDiagnostics::Impl final {
         exception_information.ThreadId = GetCurrentThreadId();
         exception_information.ExceptionPointers = pointers;
         exception_information.ClientPointers = FALSE;
-        const auto wrote = MiniDumpWriteDump(
-            GetCurrentProcess(), GetCurrentProcessId(), state->dump_file,
-            MiniDumpNormal, pointers == nullptr ? nullptr : &exception_information,
-            nullptr, nullptr);
+        constexpr unsigned maximum_dump_attempts = 6U;
+        constexpr DWORD dump_retry_delay_milliseconds = 100U;
+        BOOL wrote = FALSE;
+        for (unsigned attempt = 0U; attempt < maximum_dump_attempts; ++attempt) {
+            if (attempt != 0U) {
+                LARGE_INTEGER beginning{};
+                if (!SetFilePointerEx(state->dump_file, beginning, nullptr, FILE_BEGIN) ||
+                    !SetEndOfFile(state->dump_file)) {
+                    break;
+                }
+            }
+            wrote = MiniDumpWriteDump(
+                GetCurrentProcess(), GetCurrentProcessId(), state->dump_file,
+                MiniDumpNormal, pointers == nullptr ? nullptr : &exception_information,
+                nullptr, nullptr);
+            if (wrote != FALSE) break;
+            if (attempt + 1U != maximum_dump_attempts) {
+                Sleep(dump_retry_delay_milliseconds);
+            }
+        }
         static_cast<void>(FlushFileBuffers(state->dump_file));
         static_cast<void>(CloseHandle(state->dump_file));
         state->dump_file = INVALID_HANDLE_VALUE;
-        if (wrote) {
+        if (wrote != FALSE) {
             static_cast<void>(detail::publish_completed_dump(
                 state->pending_path.c_str(), state->completed_path.c_str()));
-        } else {
-            static_cast<void>(DeleteFileW(state->pending_path.c_str()));
         }
         return EXCEPTION_EXECUTE_HANDLER;
     }
