@@ -39,6 +39,9 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
 
         constexpr const char* page_names[]{"Live", "Incidents", "Detail", "Patterns",
                                             "Settings", "Diagnostics"};
+        constexpr ImGuiKey page_keys[]{ImGuiKey_1, ImGuiKey_2, ImGuiKey_3,
+                                       ImGuiKey_4, ImGuiKey_5, ImGuiKey_6};
+        static_assert(std::size(page_names) == std::size(page_keys));
         const auto spacing = ImGui::GetStyle().ItemSpacing.x;
         const auto button_width = std::max(
             72.0F, (ImGui::GetContentRegionAvail().x -
@@ -62,8 +65,7 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
             }
             if (selected) ImGui::PopStyleColor(3);
             ImGui::PopID();
-            const auto key = static_cast<ImGuiKey>(ImGuiKey_1 + static_cast<int>(index));
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(key, false)) {
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(page_keys[index], false)) {
                 product.page = static_cast<ProductPage>(index);
             }
         }

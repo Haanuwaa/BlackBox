@@ -67,8 +67,17 @@ struct MacosTelemetryProvider::NativeState {
 
         std::uint32_t logical_processors{};
         std::size_t size = sizeof(logical_processors);
-        if (sysctlbyname("hw.logicalcpu", &logical_processors, &size, nullptr, 0U) == 0 &&
-            size == sizeof(logical_processors) && logical_processors != 0U) {
+        if (sysctlbyname("hw.logicalcpu", &logical_processors, &size, nullptr, 0U) != 0 ||
+            size != sizeof(logical_processors) || logical_processors == 0U) {
+            host_basic_info_data_t basic{};
+            mach_msg_type_number_t basic_count = HOST_BASIC_INFO_COUNT;
+            if (host_info(mach_host_self(), HOST_BASIC_INFO,
+                          reinterpret_cast<host_info_t>(&basic), &basic_count) == KERN_SUCCESS &&
+                basic_count >= HOST_BASIC_INFO_COUNT && basic.avail_cpus > 0) {
+                logical_processors = static_cast<std::uint32_t>(basic.avail_cpus);
+            }
+        }
+        if (logical_processors != 0U) {
             destination.system.logical_processor_count =
                 MetricValue<std::uint32_t>::available(logical_processors);
         }
@@ -80,7 +89,14 @@ struct MacosTelemetryProvider::NativeState {
         std::size_t total_size = sizeof(total);
         if (sysctlbyname("hw.memsize", &total, &total_size, nullptr, 0U) != 0 ||
             total_size != sizeof(total) || total == 0U) {
-            return false;
+            host_basic_info_data_t basic{};
+            mach_msg_type_number_t basic_count = HOST_BASIC_INFO_COUNT;
+            if (host_info(mach_host_self(), HOST_BASIC_INFO,
+                          reinterpret_cast<host_info_t>(&basic), &basic_count) != KERN_SUCCESS ||
+                basic_count < HOST_BASIC_INFO_COUNT || basic.max_mem == 0U) {
+                return false;
+            }
+            total = static_cast<std::uint64_t>(basic.max_mem);
         }
 
         vm_statistics64_data_t statistics{};
@@ -91,7 +107,7 @@ struct MacosTelemetryProvider::NativeState {
             host_statistics64(host, HOST_VM_INFO64,
                               reinterpret_cast<host_info64_t>(&statistics), &count) !=
                 KERN_SUCCESS ||
-            count != HOST_VM_INFO64_COUNT) {
+            count < HOST_VM_INFO64_REV0_COUNT) {
             return false;
         }
         std::uint64_t available_pages{};
