@@ -39,9 +39,9 @@ jobs:
               build-essential cmake ninja-build git curl ca-certificates zip unzip tar \
               pkg-config python3 file binutils xvfb xauth \
               libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev \
-               libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
-               libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
-               libgl1-mesa-dev libasound2-dev libpulse-dev \
+              libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
+              libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+              libgl1-mesa-dev libasound2-dev libpulse-dev \
               libudev-dev libdbus-1-dev
           else
             dnf install --assumeyes \
@@ -50,9 +50,9 @@ jobs:
               xorg-x11-server-Xvfb xorg-x11-xauth \
               libX11-devel libXext-devel libXrandr-devel libXrender-devel \
               libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel \
-               libXcursor-devel libXinerama-devel libxkbcommon-devel \
-               wayland-devel wayland-protocols-devel libdecor-devel \
-               mesa-libGL-devel alsa-lib-devel pulseaudio-libs-devel \
+              libXcursor-devel libXinerama-devel libxkbcommon-devel \
+              wayland-devel wayland-protocols-devel libdecor-devel \
+              mesa-libGL-devel alsa-lib-devel pulseaudio-libs-devel \
               systemd-devel dbus-devel
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -99,8 +99,8 @@ jobs:
           xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
             "$build/src/blackbox" --background-diagnostic-seconds=2 \
             --diagnostic-report="$desktop_report"
-           grep -Fxq "platform=Linux" "$desktop_report"
-           grep -Fxq "video_driver=x11" "$desktop_report"
+          grep -Fxq "platform=Linux" "$desktop_report"
+          grep -Fxq "video_driver=x11" "$desktop_report"
           grep -Fxq "source_revision=$GITHUB_SHA" "$desktop_report"
           grep -Fxq "completed=1" "$desktop_report"
           grep -Fxq "failed_samples=0" "$desktop_report"
@@ -123,8 +123,8 @@ jobs:
           xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
             "$executable" --background-diagnostic-seconds=2 \
             --diagnostic-report="$package_report"
-           grep -Fxq "platform=Linux" "$package_report"
-           grep -Fxq "video_driver=x11" "$package_report"
+          grep -Fxq "platform=Linux" "$package_report"
+          grep -Fxq "video_driver=x11" "$package_report"
           grep -Fxq "source_revision=$GITHUB_SHA" "$package_report"
           grep -Fxq "completed=1" "$package_report"
           grep -Fxq "failed_samples=0" "$package_report"
@@ -166,7 +166,7 @@ jobs:
             out/build/linux-${{ matrix.id }}/linux-desktop-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-package-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
-           if-no-files-found: error
+          if-no-files-found: error
 
   wayland-session:
     needs: [distro-package-telemetry]
