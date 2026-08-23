@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development CPU/memory provider behind the same interface; it does not imply a tray shell, process/disk/network coverage, packaging, physical qualification, or a support claim. The macOS directory remains a reserved boundary only.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target is built and smoke-tested in hosted CI, but it still has no background shell, packaging, cross-distribution/physical qualification, or support claim. The macOS directory remains a reserved boundary only; non-Linux Unix builds continue to compose the deterministic mock provider.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -902,13 +902,22 @@ state remain inside `storage`. No service, queue, database operation, renderer, 
 added to `TelemetryProvider -> Normalizer -> Recorder`; the public module graph and direct-v1 schema
 are unchanged.
 
-The Linux engineering MVP consists of strict portable parsers for aggregate `/proc/stat` CPU ticks
-and `/proc/meminfo` physical-memory gauges plus a Linux-only `ITelemetryProvider` target. CPU remains
-cumulative busy/total ticks and memory remains total/available bytes, so the existing normalizer and
-recorder need no Linux branch. Unsupported metrics retain explicit `unsupported` status. Hosted
-Linux tests exercise the native provider contract, while Windows builds exercise malformed,
-overflow, duplicate, unit, and relationship parsing. Linux remains unsupported as a product until
-the missing providers, shell, packaging, overhead evidence, and physical qualification exist.
+The Linux engineering provider uses strict portable parsers for aggregate `/proc/stat` CPU ticks,
+`/proc/meminfo` physical-memory gauges, `/sys/block/*/stat` cumulative physical-device sectors,
+`/proc/net/dev` cumulative non-loopback interface bytes, and bounded `/proc/<pid>` identity,
+CPU-time, RSS, I/O, parent/name, and optional slow-tier executable-path evidence. CPU and every I/O
+channel remain cumulative counters, and memory remains a gauge, so the existing normalizer and
+recorder need no Linux branch. A fixed-capacity generic entity-lifecycle tracker is shared by the
+Windows and Linux providers; first sight/reappearance warms up, removal subtracts nothing, and a
+counter decrease invalidates only that channel for one observation. The Linux process walk is
+capped at 8,192 identities and every pseudo-file read is bounded.
+
+Hosted Linux tests exercise strict malformed/overflow/duplicate parsing and the native provider
+contract. The workflow separately preserves the storage/UI-free headless graph and builds the full
+native desktop target, then runs a bounded diagnostic smoke under a virtual display. Linux remains
+unsupported as a product until its background shell, packaging, measured overhead, distribution
+matrix, and physical qualification exist. GPU, event, power, platform-shell, and crash services
+remain explicitly unavailable rather than being inferred or supplied by another module.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

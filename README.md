@@ -18,13 +18,16 @@ independent privacy-bounded Windows event evidence, and a frozen one-host dogfoo
 calibration/held-out tooling. It is not yet the production product
 described by the vision: representative multi-host/natural diagnostic quality, held-out symptom
 classification/ML comparison, clean-client qualification, distribution lifecycle, and official
-signing remain roadmap gates. A development-only Linux CPU/memory provider and label-free offline
+signing remain roadmap gates. A development-only Linux system/process provider and label-free offline
 model-comparison harness now exercise the platform and evaluation boundaries, but neither is a
 support claim or a shipped ML runtime. Native ML remains unshipped because no representative
 held-out dataset demonstrates material benefit; all intelligence stays optional and unable to
 affect recording.
 
-Windows is the first supported development platform. Linux and macOS implementations are planned, but are not currently supported.
+Windows is the only currently supported product platform. Linux now has an engineering desktop build
+and CPU/memory/disk/network/process telemetry in hosted CI, but still lacks the native background
+shell, packaging, overhead/distribution evidence, and physical qualification required for support.
+macOS remains a reserved platform boundary with no native provider or shell.
 
 ## Principles
 
@@ -133,7 +136,7 @@ native UI raster evidence and the separate physical Windows accessibility/DPI/mu
 are defined in [docs/UI_QUALIFICATION.md](docs/UI_QUALIFICATION.md). Portable-package smoke,
 single-host profiles, independent bundle verification, and aggregate clean-client coverage are in
 [docs/CLIENT_QUALIFICATION.md](docs/CLIENT_QUALIFICATION.md).
-The development Linux CPU/memory boundary is described in
+The development Linux system/process boundary is described in
 [docs/TELEMETRY.md](docs/TELEMETRY.md), and the label-free feature export plus verified baseline
 comparison workflow is documented in [docs/OFFLINE_ML.md](docs/OFFLINE_ML.md).
 The same-revision hosted/UI/client/soak/signing composition contract is documented in

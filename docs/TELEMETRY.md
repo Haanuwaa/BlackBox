@@ -58,16 +58,22 @@ V0.1 starts with a simple one-second schedule, but provider and scheduler contra
 
 Collection output records capability and availability changes. A provider failure should degrade the affected metric and increment diagnostics without terminating collection of healthy signals.
 
-## Linux CPU/memory engineering MVP
+## Linux system/process engineering provider
 
-Linux now has a development-only `LinuxTelemetryProvider` behind the same portable provider
-contract. It reads two bounded kernel pseudo-files without administrator privileges:
+Linux has a development-only `LinuxTelemetryProvider` behind the same portable provider contract.
+It reads bounded kernel pseudo-files without administrator privileges:
 
 | Metric | Source | Tier | Portable representation |
 |---|---|---|---|
 | CPU | aggregate `cpu` row in `/proc/stat` | Fast | cumulative busy and total kernel ticks |
 | Physical memory | `MemTotal` and `MemAvailable` in `/proc/meminfo` | Normal | total and available bytes |
 | Logical processors | numbered `cpuN` rows in `/proc/stat` | Fast | available count |
+| Physical-device I/O | `/sys/block/<device>/stat` entries with a native `device` link | Fast | cumulative read/write bytes |
+| Network I/O | non-loopback rows in `/proc/net/dev` | Fast | cumulative receive/transmit bytes |
+| Process identity and CPU | `/proc/<pid>/stat` | Normal | PID plus kernel start-time token and cumulative CPU ticks |
+| Process memory | `VmRSS` in `/proc/<pid>/status` | Normal | working-set bytes |
+| Process I/O | `/proc/<pid>/io` | Normal | cumulative read/write bytes |
+| Process metadata | stat name/parent plus `/proc/<pid>/exe` | Normal; path only on Slow | portable metadata with explicit availability |
 
 CPU total sums Linux user, nice, system, idle, I/O wait, IRQ, soft IRQ, and steal counters. Guest
 fields are not added because Linux already includes them in user/nice. Busy subtracts idle and I/O
@@ -75,15 +81,26 @@ wait from total; the shared normalizer still computes `delta(busy) / delta(total
 must use the kernel's `kB` unit, are converted as KiB (`* 1024`), and require
 `0 < available <= total`. Both parsers reject missing/duplicate fields, noncanonical numbers,
 overflow, impossible relationships, and input above the provider's 1 MiB bound. A failed requested
-source becomes `temporarily_unavailable`; unsupported disk, network, process, GPU, event, and power
-metrics remain `unsupported`.
+source becomes `temporarily_unavailable`. Block-sector conversion uses the kernel accounting unit of
+512 bytes and rejects multiplication overflow. Disk and interface aggregation use the same bounded
+lifecycle semantics as Windows: a new/reappearing entity establishes a baseline, removal contributes
+no negative delta, and a counter reset invalidates only that channel for one sample. Loopback is
+excluded so local traffic is not presented as host network transport.
+
+The process walk accepts only numeric `/proc` entries, caps each observation at 8,192 identities,
+uses PID plus kernel start time to prevent reuse collisions, and treats exit/access races as explicit
+diagnostics or per-metric unavailability. CPU ticks are converted to cumulative nanoseconds using
+`_SC_CLK_TCK`; the shared normalizer derives rates using the measured interval. Executable paths are
+resolved only when the slow tier is requested. GPU, event, power, platform-shell, and crash metrics
+remain `unsupported`.
 
 `blackbox_telemetry_linux` is built only on Linux and has no SQLite, UI, storage, analysis, or
 platform-shell dependency. Hosted Linux sanitizer and coverage builds compile it, and a native test
-samples the runner's real `/proc` files before applying the backend-independent provider contract.
-Portable parser tests also run on Windows. This is provider-boundary evidence only: BlackBox does
-not yet claim Linux product support, packaging, background-shell behavior, overhead qualification,
-or cross-distribution compatibility.
+samples the runner's real `/proc` and `/sys` files before applying the backend-independent provider
+contract. Portable parser tests also run on Windows. A separate hosted step builds the complete Linux
+desktop target and runs a bounded diagnostic smoke under Xvfb. This is engineering evidence only:
+BlackBox does not yet claim Linux product support, packaging, background-shell behavior, overhead
+qualification, physical client behavior, or cross-distribution compatibility.
 
 ## Deterministic mock scenarios
 

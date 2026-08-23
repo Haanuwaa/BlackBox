@@ -119,6 +119,34 @@ jobs:
         run: |
           cmake --build out/build/linux-headless --parallel
           ctest --test-dir out/build/linux-headless --output-on-failure
+      - name: Install native desktop smoke dependency
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb
+      - name: Configure native Linux desktop graph
+        shell: bash
+        run: >-
+          cmake -S . -B out/build/linux-desktop -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=OFF
+          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build and smoke native Linux desktop
+        shell: bash
+        run: |
+          cmake --build out/build/linux-desktop --target blackbox --parallel
+          report="$GITHUB_WORKSPACE/out/build/linux-desktop/linux-desktop-smoke.ini"
+          xvfb-run -a ./out/build/linux-desktop/src/blackbox \
+            --background-diagnostic-seconds=2 \
+            --diagnostic-report="$report"
+          test -f "$report"
+          grep -Fxq "platform=Linux" "$report"
+          grep -Fxq "completed=1" "$report"
+          grep -Fxq "failed_samples=0" "$report"
+          collections="$(awk -F= '$1 == "collections" { print $2 }' "$report")"
+          test -n "$collections"
+          test "$collections" -ge 2
 
   hosted-evidence:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'

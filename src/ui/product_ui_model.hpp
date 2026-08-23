@@ -23,6 +23,24 @@ struct AccessibilityPalette {
                                      const AccessibilityPalette&) = default;
 };
 
+struct ProductVisualStyle {
+    std::array<float, 4U> background{};
+    std::array<float, 4U> surface{};
+    std::array<float, 4U> surface_raised{};
+    std::array<float, 4U> foreground{};
+    std::array<float, 4U> muted{};
+    std::array<float, 4U> accent{};
+    std::array<float, 4U> accent_hovered{};
+    std::array<float, 4U> success{};
+    std::array<float, 4U> warning{};
+    std::array<float, 4U> border{};
+    float window_rounding{};
+    float child_rounding{};
+    float frame_rounding{};
+    friend constexpr bool operator==(const ProductVisualStyle&,
+                                     const ProductVisualStyle&) = default;
+};
+
 enum class IncidentArchivePresentation : std::uint8_t {
     loading,
     empty,
@@ -43,6 +61,7 @@ enum class IncidentArchivePresentation : std::uint8_t {
     const DisplayWorkArea* displays, std::size_t display_count) noexcept;
 [[nodiscard]] AccessibilityPalette accessibility_palette(bool high_contrast,
                                                           bool dark_theme) noexcept;
+[[nodiscard]] ProductVisualStyle product_visual_style(bool high_contrast) noexcept;
 [[nodiscard]] IncidentArchivePresentation incident_archive_presentation(
     IncidentViewerLoadState state, std::uint64_t total_matching,
     bool search_active) noexcept;

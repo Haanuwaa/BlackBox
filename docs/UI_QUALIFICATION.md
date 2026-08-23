@@ -4,6 +4,14 @@ BlackBox uses deterministic software raster evidence to catch native UI renderin
 the physical Windows client matrix. This is a development qualification aid, not a substitute for
 testing the packaged application on real displays and assistive configurations.
 
+The product UI uses one code-native semantic visual system: restrained navy surfaces, explicit
+text/accent/success/warning roles, consistent padding and rounding, a system-native UI font when one
+is available, and a reversible maximum-contrast palette. Live leads with recording state and one
+primary capture action; incident browsing, explanation/annotation, collection profiles, capture
+preferences, archive maintenance, and permanent removal are grouped into bordered surfaces. The
+deterministic raster runner intentionally keeps its bundled Basic Latin font so screenshots remain
+host-independent; production font loading has an explicit fallback and does not alter evidence text.
+
 ## Generate the direct-v1 evidence bundle
 
 Build the Release tests, then choose a new destination that does not already exist:

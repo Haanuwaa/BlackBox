@@ -11,6 +11,9 @@ void render_product_settings(const DashboardState &state,
                              ProductUiState &product,
                              DashboardCommand &command) {
   ImGui::SeparatorText("Capture and privacy settings");
+  ImGui::BeginChild("Capture preferences", ImVec2{-1.0F, 610.0F},
+                    ImGuiChildFlags_Borders);
+  ImGui::TextUnformatted("Capture behavior and privacy");
   ImGui::TextWrapped(
       "Settings are validated before they cross into the recorder. Changing "
       "archive path or capacity is saved for the next launch; existing "
@@ -105,8 +108,11 @@ void render_product_settings(const DashboardState &state,
     command.archive_path = product.archive_path.data();
   }
   ImGui::TextDisabled("%s", state.recorder_settings_status.data());
+  ImGui::EndChild();
 
   ImGui::SeparatorText("Archive health and guided recovery");
+  ImGui::BeginChild("Archive maintenance", ImVec2{-1.0F, 500.0F},
+                    ImGuiChildFlags_Borders);
   const auto used_mib = static_cast<double>(state.archive_database_size_bytes) /
                         (1024.0 * 1024.0);
   const auto maximum_mib =
@@ -190,7 +196,13 @@ void render_product_settings(const DashboardState &state,
   }
   if (retention_disabled)
     ImGui::EndDisabled();
+  ImGui::EndChild();
 
+  ImGui::SeparatorText("Permanent local-data removal");
+  ImGui::BeginChild("Privacy purge", ImVec2{-1.0F, 118.0F},
+                    ImGuiChildFlags_Borders);
+  ImGui::TextWrapped(
+      "This is the only operation on this page that permanently removes all local incident evidence and learned profiles.");
   ImGui::Checkbox("Confirm permanent privacy purge of incidents and profiles",
                   &product.purge_confirmed);
   const auto purge_disabled = !product.purge_confirmed;
@@ -202,6 +214,7 @@ void render_product_settings(const DashboardState &state,
   }
   if (purge_disabled)
     ImGui::EndDisabled();
+  ImGui::EndChild();
   if (state.archive_maintenance_busy)
     ImGui::EndDisabled();
 }

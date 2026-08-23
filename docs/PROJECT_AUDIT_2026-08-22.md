@@ -15,10 +15,10 @@ development machine from gates that require outside hardware, participants, or s
 | Statistical intelligence | Implemented | Robust baselines, personalized executable history, automatic detection, context recognition, recurrence, evidence-linked contributor ranking, uncertainty, and conservative local feedback are native and optional. |
 | Native ML | Not adopted; offline harness implemented | No model or ML runtime ships. A label-free versioned feature exporter and verified baseline/candidate comparison tool now support research, but the representative held-out dataset needed to prove a material improvement does not exist yet. |
 | Windows release quality | Strong locally and hosted, externally incomplete | Exact revision `949e919...` passes 313/313 local Release and Debug tests plus both hosted Windows and quality/security workflows with locally verified attestations. The successor UI branch passes 316/316 Release tests. The overnight campaign is active; 72-hour, physical-client, signed-package, and multi-hardware diagnostic gates remain open. |
-| Linux | CPU/memory engineering MVP | A Linux-only provider reads bounded aggregate `/proc/stat` and `/proc/meminfo` evidence behind `ITelemetryProvider`; portable parser tests and a native hosted contract test exist. Disk/network/process telemetry, shell, packaging, overhead evidence, physical validation, and a support claim remain absent. |
+| Linux | System/process engineering provider | A Linux-only provider reads bounded CPU, memory, physical-device I/O, non-loopback network I/O, and per-process identity/CPU/RSS/I/O evidence behind `ITelemetryProvider`. Portable strict-parser tests, a native hosted provider contract, and a full desktop build/smoke exist. Shell, packaging, overhead/distribution evidence, physical validation, and a support claim remain absent. |
 | macOS | Reserved boundary only | There is no provider or native shell implementation and no product-support claim. |
 | Security/dependencies | Hardened, cleanup in progress | The security-focused CodeQL graph passes, no open high/critical path alert remains after review, and Dependabot reports no open vulnerability alert. Historical broad quality-query alerts still need administrative closure after the narrowed workflow is merged. |
-| UI | Preview simplification implemented; physical review pending | First run is a three-action recorder/capture/review path. Live and Detail lead with glanceable status and conclusions while technical counters, histories, process tables, and raw factors remain available through progressive disclosure. Explicit archive loading/empty/no-match/unavailable states are tested. Physical keyboard, display, and accessibility review remains open. |
+| UI | Coherent preview visual system implemented; physical review pending | A semantic native palette, system-font fallback, consistent geometry, selected navigation, metric cards, and grouped archive/detail/settings surfaces now reinforce the three-action recorder/capture/review path. Technical counters and raw factors remain available through progressive disclosure. Explicit archive states and keyboard/high-contrast behavior are tested. Physical keyboard, display, and accessibility review remains open. |
 
 The roadmap contains 308 completed and 21 open checklist items (93.6% mechanically complete), but
 that percentage is not release readiness. Several open items are the highest-value acceptance gates:
@@ -102,7 +102,14 @@ without adding unsupported metrics or a non-Linux target edge. The offline model
 opens evidence read-only, excludes truth and local identity from feature matrices, and compares only
 independently verified same-corpus reports. The complete Windows Release graph passes 324/324 tests.
 
-This update completes maintainability scaffolding, a cross-platform provider MVP, and ML research
-infrastructure. It does not change the audit's release conclusion: the active wall-clock campaign,
+The next bounded slice adds the code-native semantic UI system and grouping described above, broadens
+Linux through the shared normalizer with disk/network/process evidence, and makes the complete Linux
+desktop target a hosted build-and-diagnostic-smoke contract. macOS remains deliberately deferred
+until the Linux shell/packaging boundary is proven; no mock-backed macOS build is described as native
+telemetry. Runtime ML remains unadopted because the held-out evidence gate has not changed.
+
+This update completes maintainability scaffolding, broader cross-platform provider engineering, and ML research
+infrastructure. The complete Windows Release graph now passes 328/328 tests. It does not change the
+audit's release conclusion: the active wall-clock campaign,
 72-hour actions, physical matrix, multi-hardware corpus, signing, and one-shot held-out quality gates
 remain external evidence work.

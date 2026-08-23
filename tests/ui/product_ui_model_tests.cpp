@@ -192,10 +192,31 @@ TEST_CASE("high contrast palette preserves maximum text contrast", "[ui][accessi
     CHECK(palette.accent != palette.warning);
 }
 
+TEST_CASE("product visual system keeps semantic colors and geometry explicit",
+          "[ui][style]") {
+    const auto standard = ui::product_visual_style(false);
+    CHECK(standard.background != standard.surface);
+    CHECK(standard.surface != standard.surface_raised);
+    CHECK(standard.accent != standard.warning);
+    CHECK(standard.success != standard.warning);
+    CHECK(standard.window_rounding > 0.0F);
+    CHECK(standard.child_rounding > 0.0F);
+    CHECK(standard.frame_rounding > 0.0F);
+
+    const auto high_contrast = ui::product_visual_style(true);
+    CHECK(high_contrast.background[0] == 0.0F);
+    CHECK(high_contrast.foreground[0] == 1.0F);
+    CHECK(high_contrast.accent[1] == 1.0F);
+    CHECK(high_contrast.window_rounding == 0.0F);
+}
+
 TEST_CASE("accessibility style switches to high contrast and reverses cleanly",
           "[ui][accessibility][high-contrast][interaction]") {
     const ScopedImGuiContext context;
     ui::apply_accessibility_style(false);
+    CHECK(ImGui::GetStyle().WindowPadding.x == 16.0F);
+    CHECK(ImGui::GetStyle().FramePadding.y == 6.0F);
+    CHECK(ImGui::GetStyle().WindowRounding > 0.0F);
     const auto normal_background = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
     const auto normal_button = ImGui::GetStyle().Colors[ImGuiCol_Button];
 

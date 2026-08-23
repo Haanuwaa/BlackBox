@@ -25,8 +25,10 @@
 #include <implot.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -35,6 +37,25 @@ namespace blackbox::app {
 namespace {
 
 using namespace std::chrono_literals;
+
+void load_product_font(ImGuiIO& io) {
+#if defined(_WIN32)
+    constexpr std::array candidates{"C:/Windows/Fonts/segoeui.ttf",
+                                    "C:/Windows/Fonts/arial.ttf"};
+#elif defined(__APPLE__)
+    constexpr std::array candidates{"/System/Library/Fonts/SFNS.ttf",
+                                    "/System/Library/Fonts/Helvetica.ttc"};
+#else
+    constexpr std::array candidates{"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                                    "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"};
+#endif
+    for (const auto* candidate : candidates) {
+        std::error_code error{};
+        if (!std::filesystem::is_regular_file(candidate, error) || error) continue;
+        if (io.Fonts->AddFontFromFileTTF(candidate, 17.0F) != nullptr) return;
+    }
+    static_cast<void>(io.Fonts->AddFontDefault());
+}
 
 [[nodiscard]] constexpr bool any_event_source_enabled(
     const telemetry::EventProviderConfiguration& configuration) noexcept {
@@ -299,6 +320,7 @@ ApplicationInitializationResult Application::initialize() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
+    load_product_font(io);
 #if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
     high_contrast_enabled_ = accessibility.high_contrast;

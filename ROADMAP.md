@@ -1889,8 +1889,17 @@ one-host engineering tracks are now implemented:
 - [x] Add a build-only offline model harness that exports sibling-staged label-free versioned feature
   matrices from read-only archives and compares independently verified candidate/baseline artifacts
   from the same frozen corpus under predeclared non-inferiority tolerances.
+- [x] Add one semantic native UI visual system with explicit standard/high-contrast roles, production
+  system-font fallback, selected navigation, glanceable Live cards, and grouped archive/detail/settings
+  surfaces without changing the primitive view-model/command boundary.
+- [x] Broaden the Linux-only provider through existing cumulative-counter normalization with bounded
+  physical-device disk, non-loopback network, and stable-identity process CPU/RSS/I/O evidence; share
+  the fixed-capacity entity lifecycle tracker with Windows and strictly test malformed/overflow cases.
+- [x] Preserve the hosted Linux headless graph while additionally building the complete native Linux
+  desktop target and running a bounded diagnostic-report smoke under a virtual display. This is
+  engineering evidence, not a product-support or packaging claim.
 
-The resulting Windows Release graph builds completely and passes 324/324 tests. A representative
+The resulting Windows Release graph builds completely and passes 328/328 tests. A representative
 schema-v1 archive also produced a three-row direct-v1 feature matrix end to end. These tracks do not
 weaken the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without
 held-out value, or satisfy any external V1 evidence gate.
@@ -1903,11 +1912,12 @@ held-out value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **qualification and maintainability in isolation**: allow the frozen revision's overnight
+Proceed to **qualification and platform evidence in isolation**: allow the frozen revision's overnight
 campaign to complete without mutating its executable or scripts; independently verify the result,
-then schedule the operator-assisted 72-hour campaign. Validate the completed maintainability/Linux/
-offline-evaluation branch in hosted CI, then broaden Linux only after measuring this CPU/memory MVP.
-The signed package,
+then schedule the operator-assisted 72-hour campaign. Validate this UI/Linux/offline-evaluation branch
+in hosted CI, measure Linux provider cost and behavior across representative distributions, and add a
+Linux background shell/package only if that evidence remains healthy. macOS stays behind that proven
+platform boundary, and runtime ML stays behind the representative held-out value gate. The signed package,
 72-hour physical actions, independently reviewed UI/client matrix,
 consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
 local rehearsals or additional schema machinery cannot satisfy them.

@@ -120,6 +120,7 @@ blackbox_set_project_warnings(blackbox_telemetry)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_library(blackbox_telemetry_linux STATIC
+        telemetry/linux/linux_process_collector.cpp
         telemetry/linux/linux_telemetry_provider.cpp
     )
     add_library(BlackBox::TelemetryLinux ALIAS blackbox_telemetry_linux)
