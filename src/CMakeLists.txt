@@ -136,6 +136,18 @@ target_include_directories(blackbox_platform INTERFACE ${PROJECT_SOURCE_DIR}/src
 target_compile_features(blackbox_platform INTERFACE cxx_std_23)
 target_link_libraries(blackbox_platform INTERFACE BlackBox::Core)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
+    add_library(blackbox_platform_linux STATIC
+        platform/linux/linux_background_shell.cpp
+    )
+    add_library(BlackBox::PlatformLinux ALIAS blackbox_platform_linux)
+    target_include_directories(blackbox_platform_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_platform_linux PUBLIC cxx_std_23)
+    target_link_libraries(blackbox_platform_linux PUBLIC BlackBox::Platform)
+    target_link_libraries(blackbox_platform_linux PRIVATE SDL3::SDL3)
+    blackbox_set_project_warnings(blackbox_platform_linux)
+endif()
+
 if(WIN32)
     add_library(blackbox_platform_windows STATIC
         platform/windows/windows_background_shell.cpp
@@ -389,7 +401,9 @@ if(BLACKBOX_BUILD_APP)
     elseif(APPLE)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="macOS")
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(blackbox PRIVATE BlackBox::TelemetryLinux)
+        target_link_libraries(blackbox PRIVATE
+            BlackBox::TelemetryLinux
+            BlackBox::PlatformLinux)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Linux")
     elseif(UNIX)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Unix")

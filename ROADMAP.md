@@ -1905,6 +1905,21 @@ one-host engineering tracks are now implemented:
 - [x] Make the replaceable core logger produce bounded single-line component records, keep the default
   elapsed-time output readable, and invoke custom sinks outside logger locks so reentrant adapters cannot
   deadlock or inject multiline/unbounded records.
+- [x] Add a separate Ubuntu 24.04, Debian 13, and Fedora 43 desktop/package compatibility matrix that
+  builds/tests the native graph, measures 64 real provider samples, smokes the build-tree and extracted
+  TGZ, and publishes comparable direct-v1 package-size/provider-overhead evidence.
+- [x] Add the native Linux background boundary behind `IBackgroundShell`: SDL tray commands, a
+  nonblocking per-user instance lock, exact atomic XDG autostart ownership, explicit unavailable
+  notifications, no-tray fallback, and Linux-only lifecycle/autostart tests.
+- [x] Replace fixed auto-sized onboarding with a bounded responsive, scrollable, keyboard-guided
+  recorder/capture/review flow and live readiness summary; add compact 100% and 200%-high-contrast
+  raster cases with strict 32-image publication/review contracts.
+- [x] Strengthen clean-client physical qualification so the standard profile starts at first run and
+  requires separate keyboard-only onboarding plus focus-visibility/increased-text observations before
+  its existing 100/125/150/200%, high-contrast, tray, capture, and navigation cases can pass.
+- [ ] Execute and retain the new three-distribution hosted matrix on the exact integration revision.
+- [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
+  authored cases and deterministic rasters do not satisfy this gate.
 
 The resulting Windows Release graph builds completely and passes 330/330 tests. A representative
 schema-v1 archive also produced a three-row direct-v1 feature matrix end to end. These tracks do not
@@ -1919,13 +1934,12 @@ held-out value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **integration and qualification in isolation**: validate the Linux overhead/package and
-logging slice on one exact hosted revision, fast-forward it into `main`, build a clean revision-bound
-Release executable, and start a fresh eight-hour campaign. Preserve that executable and its scripts
-until the campaign publishes or retains a diagnostic `.partial`, then independently verify the result
-and schedule the operator-assisted 72-hour campaign. Representative Linux distributions and a native
-background shell remain the next platform gates; macOS stays behind that proven boundary, and runtime
-ML stays behind the representative held-out value gate. The signed Windows package,
-72-hour physical actions, independently reviewed UI/client matrix,
-consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-execution gates;
-local rehearsals or additional schema machinery cannot satisfy them.
+Proceed to **hosted validation and isolated integration**: run the new Ubuntu/Debian/Fedora matrix on
+the exact feature revision, harden any genuine distro/package/shell failure, and retain its comparison
+artifact. Review the new 32-image onboarding/page raster set. Do not change or replace the currently
+frozen overnight executable; after that campaign publishes or retains diagnostic evidence, integrate
+this branch, rebuild one clean revision, and start the next exact-revision campaign. macOS remains
+behind the proven Linux desktop boundary, and runtime ML remains behind representative held-out value.
+The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
+client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
+execution gates; local rehearsals or additional schema machinery cannot satisfy them.

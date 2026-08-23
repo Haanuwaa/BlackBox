@@ -45,7 +45,7 @@ The verifier streams every exact V5 BMP header, checks its complete payload leng
 `summary.ini`, and rechecks source/test/runner/verifier provenance. It rejects links, extras, partial
 directories, and old unbound bundles.
 
-After one reviewer actually checks all 30 images at native pixel size, record a pseudonymous
+After one reviewer actually checks all 32 images at native pixel size, record a pseudonymous
 attestation. The confirmation switch is intentionally explicit:
 
 ```powershell

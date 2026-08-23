@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <implot.h>
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -1138,26 +1139,65 @@ DashboardCommand render_dashboard(const DashboardState& state,
         ImGui::Spacing();
 
         if (product.onboarding_open) ImGui::OpenPopup("Welcome to BlackBox");
+        const auto onboarding = onboarding_layout(viewport->WorkSize.x,
+                                                  viewport->WorkSize.y);
+        ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Appearing,
+                                ImVec2{0.5F, 0.5F});
+        ImGui::SetNextWindowSize(ImVec2{onboarding.width, onboarding.height},
+                                 ImGuiCond_Always);
         if (ImGui::BeginPopupModal("Welcome to BlackBox", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 500.0F);
+                                   ImGuiWindowFlags_NoResize |
+                                       ImGuiWindowFlags_NoSavedSettings)) {
+            ImGui::SetWindowFontScale(onboarding.compact ? 1.08F : 1.22F);
             ImGui::TextUnformatted("Record first. Explain after the slowdown.");
+            ImGui::SetWindowFontScale(1.0F);
+            ImGui::TextDisabled("A private flight recorder for the computer you already use.");
             ImGui::Separator();
-            ImGui::TextWrapped(
-                "1. BlackBox keeps a short, bounded history in memory while your computer runs.");
-            ImGui::TextWrapped(
-                "2. When something feels wrong, press the configured hotkey to save the moments before and after it.");
-            ImGui::TextWrapped(
-                "3. Review the saved incident locally. BlackBox shows evidence, likely contributors, and what remains uncertain.");
-            ImGui::Spacing();
-            ImGui::TextWrapped(
-                "Incidents stay on this computer unless you explicitly export them. Analysis never blocks recording and correlation is never presented as proof of cause.");
-            if (ImGui::CollapsingHeader("What do 'warming up' and 'unavailable' mean?")) {
+
+            const float footer_height = ImGui::GetFrameHeightWithSpacing() * 2.2F;
+            if (ImGui::BeginChild("Onboarding steps", ImVec2{0.0F, -footer_height},
+                                  ImGuiChildFlags_None,
+                                  ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
+                ImGui::SeparatorText("1  Keep a rolling history");
                 ImGui::TextWrapped(
-                    "Warming up means a counter needs an earlier observation. Unavailable means Windows did not provide a reliable value. BlackBox keeps those states explicit instead of silently treating them as zero.");
+                    "BlackBox records a short, bounded resource history. Collection stays independent from this window and from later analysis.");
+                ImGui::SeparatorText("2  Capture the moment");
+                ImGui::TextWrapped(
+                    "When something feels wrong, use Capture incident to preserve the moments before and after it. Configure the global shortcut in Settings when the platform supports one.");
+                ImGui::SeparatorText("3  Review local evidence");
+                ImGui::TextWrapped(
+                    "Saved incidents stay on this computer unless you explicitly export them. BlackBox shows likely contributors and uncertainty; correlation is never presented as proof of cause.");
+
+                ImGui::Spacing();
+                ImGui::SeparatorText("Ready now");
+                if (ImGui::BeginTable("Onboarding readiness", 2,
+                                      ImGuiTableFlags_BordersInnerH |
+                                          ImGuiTableFlags_SizingStretchProp)) {
+                    const auto row = [](const char* label, const char* value) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextDisabled("%s", label);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextWrapped("%s", value);
+                    };
+                    row("Recorder", state.recorder_status.c_str());
+                    row("Capture", state.incident_capture_enabled
+                                       ? "Ready"
+                                       : "Temporarily unavailable");
+                    row("Storage", state.storage_status.c_str());
+                    row("Privacy", "Local unless you export");
+                    ImGui::EndTable();
+                }
+                if (ImGui::CollapsingHeader("Warming up and unavailable")) {
+                    ImGui::TextWrapped(
+                        "Warming up means a counter needs an earlier observation. Unavailable means the operating system did not provide a reliable value. BlackBox keeps both states explicit instead of silently treating them as zero.");
+                }
+                ImGui::TextDisabled(
+                    "Keyboard: Tab and Shift+Tab move focus; Enter or Space activates a control. After setup, Ctrl+1 through Ctrl+6 changes pages.");
             }
-            ImGui::PopTextWrapPos();
-            if (ImGui::Button("Start BlackBox")) {
+            ImGui::EndChild();
+            ImGui::Separator();
+            if (ImGui::Button("Open BlackBox", ImVec2{-FLT_MIN, 0.0F})) {
                 product.onboarding_open = false;
                 command.action = DashboardAction::complete_onboarding;
                 ImGui::CloseCurrentPopup();

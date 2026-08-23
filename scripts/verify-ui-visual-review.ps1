@@ -69,7 +69,7 @@ Require-Value $manifest 'summary.ini' (
                   -Algorithm SHA256).Hash.ToLowerInvariant())
 foreach ($pair in @(
     @('state', 'passed'), @('source_revision', $ExpectedSourceRevision),
-    @('case_count', '30'), @('all_cases_reviewed', '1'), @('all_cases_passed', '1'))) {
+    @('case_count', '32'), @('all_cases_reviewed', '1'), @('all_cases_passed', '1'))) {
     Require-Value $summary $pair[0] $pair[1]
 }
 [DateTimeOffset]$reviewedUtc = [DateTimeOffset]::MinValue

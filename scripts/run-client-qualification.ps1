@@ -240,6 +240,7 @@ if ($Mode -eq 'interactive' -and $Profile -eq 'low-end' -and
 $requiredByProfile = @{
     standard = @(
         'package_launch_ordinary_user', 'tray_hide_restore', 'global_hotkey_capture',
+        'first_run_onboarding_keyboard', 'focus_visibility_text_scaling',
         'incident_view', 'settings_diagnostics', 'keyboard_navigation',
         'high_contrast_live_toggle', 'hidden_high_contrast_catchup',
         'scale_100', 'scale_125', 'scale_150', 'scale_200'
@@ -297,6 +298,7 @@ $archive = Join-Path $dataPath 'incidents.sqlite3'
 $productSettings = Join-Path $dataPath 'product-settings.ini'
 $recorderSettings = Join-Path $dataPath 'recorder-settings.ini'
 $archiveField = $archive.Replace('\', '/')
+$onboardingCompleted = if ($Mode -eq 'interactive' -and $Profile -eq 'standard') { 0 } else { 1 }
 Write-AtomicText $productSettings @"
 format=1
 hotkey_key=12
@@ -318,7 +320,7 @@ record_audio_device_events=1
 record_windows_event_log_evidence=0
 archive_path=$archiveField
 archive_maximum_bytes=1073741824
-onboarding_completed=1
+onboarding_completed=$onboardingCompleted
 "@
 Write-AtomicText $recorderSettings @"
 format=1

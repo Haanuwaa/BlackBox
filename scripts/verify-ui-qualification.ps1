@@ -58,6 +58,10 @@ foreach ($fixture in $fixtures) {
         }
     }
 }
+$expected += @(
+    @{ Name = 'representative-compact-100pct-onboarding.bmp'; Width = 800; Height = 600 },
+    @{ Name = 'representative-200pct-high-contrast-onboarding.bmp'; Width = 1600; Height = 1200 }
+)
 
 $directory = (Resolve-Path -LiteralPath $EvidenceDirectory -ErrorAction Stop).Path
 if (-not [IO.Directory]::Exists($directory) -or
@@ -72,8 +76,8 @@ if (@($entries | Where-Object { $_.PSIsContainer }).Count -ne 0) {
 $expectedNames = @('manifest.sha256.ini', 'summary.ini') + @($expected.Name)
 $differences = @(Compare-Object ($expectedNames | Sort-Object) `
     @($entries.Name | Sort-Object) -CaseSensitive -SyncWindow 0)
-if ($entries.Count -ne 32 -or $differences.Count -ne 0) {
-    throw 'UI evidence does not contain the exact 30-case direct-v1 file set.'
+if ($entries.Count -ne 34 -or $differences.Count -ne 0) {
+    throw 'UI evidence does not contain the exact 32-case direct-v1 file set.'
 }
 foreach ($entry in $entries) {
     if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
@@ -87,11 +91,12 @@ foreach ($pair in @(
     @('state', 'passed'), @('render_backend', 'sdl-software'),
     @('fixture_count', '2'), @('page_count', '6'), @('display_mode_count', '2'),
     @('timeline_cursor_case_count', '4'), @('feedback_control_case_count', '2'),
-    @('case_count', '30'), @('manual_visual_review_required', '1'),
+    @('onboarding_case_count', '2'), @('case_count', '32'),
+    @('manual_visual_review_required', '1'),
     @('physical_matrix_satisfied', '0'))) {
     Require-Value $summary $pair[0] $pair[1]
 }
-if ($summary.Count -ne 15 -or
+if ($summary.Count -ne 16 -or
     $summary['source_revision'] -notmatch '^(local-uncommitted|[0-9a-f]{40})$') {
     throw 'UI evidence summary has malformed provenance or unexpected fields.'
 }
@@ -120,9 +125,9 @@ if (-not [string]::IsNullOrWhiteSpace($TestExecutable)) {
 
 $manifest = Read-DirectV1 (Join-Path $directory 'manifest.sha256.ini')
 Require-Value $manifest 'algorithm' 'sha256'
-Require-Value $manifest 'file_count' '31'
-Require-Value $manifest 'case_count' '30'
-if ($manifest.Count -ne 35) { throw 'UI evidence manifest field count is invalid.' }
+Require-Value $manifest 'file_count' '33'
+Require-Value $manifest 'case_count' '32'
+if ($manifest.Count -ne 37) { throw 'UI evidence manifest field count is invalid.' }
 $summaryHash = (Get-FileHash -LiteralPath (Join-Path $directory 'summary.ini') `
                                 -Algorithm SHA256).Hash.ToLowerInvariant()
 Require-Value $manifest 'summary.ini' $summaryHash

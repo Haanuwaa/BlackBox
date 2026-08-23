@@ -51,6 +51,13 @@ ZIP packaging on Windows 2022, repeats Release tests on Windows 2025, and builds
 headless graph on Linux. CI fetches the exact vcpkg commit named by the manifest baseline before
 bootstrapping the tool, so the dependency registry and frontend are reproducible together.
 
+`.github/workflows/linux-compatibility.yml` is a separate engineering matrix for Ubuntu 24.04,
+Debian 13, and Fedora 43. Each container builds/tests the complete Linux desktop graph, exercises
+the no-tray shell/autostart contract, measures 64 real provider samples, packages the TGZ, and
+smoke-tests both the build-tree and extracted executable under Xvfb. Its direct-v1 reports compare
+package bytes, provider P95, and maximum observed process cardinality. Passing this workflow is a
+cross-distribution engineering result; it is not physical Linux product qualification.
+
 `.github/workflows/quality.yml` adds isolated dependency/SBOM, dependency-review, CodeQL, MSVC
 native-analysis, Windows ASan, Linux UBSan, native-fuzz, and coverage jobs. Run the local policy,
 Visual Studio 2026 analyzer, and ASan commands documented in `QUALITY_GATES.md` before a release
@@ -99,7 +106,7 @@ CPack name, and evidence gates must agree.
 4. Run storage/viewer benchmarks and compare with `PERFORMANCE.md` regression thresholds.
 5. Exercise hotkey and tray capture, close-to-tray, pause/resume, duplicate launch, Explorer
    restart, suspend/resume, archive lock/failure recovery, clean tray Exit, and restart inspection.
-6. Generate and review the exact 30-image direct-v1 raster bundle in `UI_QUALIFICATION.md`, then
+6. Generate and review the exact 32-image direct-v1 raster bundle in `UI_QUALIFICATION.md`, then
    complete its clean-client physical accessibility, DPI, multi-monitor, low-end, battery, and
    power-mode matrix on this revision.
 7. Complete and retain the overnight and 72-hour campaigns in `WALL_CLOCK_SOAKS.md` on this revision.

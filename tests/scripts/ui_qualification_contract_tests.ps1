@@ -78,6 +78,10 @@ function Write-Fixture([string]$Directory, [string]$TestExecutable,
             }
         }
     }
+    $cases += @(
+        @{ Name = 'representative-compact-100pct-onboarding.bmp'; Width = 800; Height = 600 },
+        @{ Name = 'representative-200pct-high-contrast-onboarding.bmp'; Width = 1600; Height = 1200 }
+    )
     foreach ($case in $cases) {
         New-Bitmap (Join-Path $Directory $case.Name) $case.Width $case.Height
     }
@@ -85,7 +89,7 @@ function Write-Fixture([string]$Directory, [string]$TestExecutable,
         'format=1', 'state=passed', 'render_backend=sdl-software',
         "source_revision=$Revision", 'fixture_count=2', 'page_count=6',
         'display_mode_count=2', 'timeline_cursor_case_count=4',
-        'feedback_control_case_count=2', 'case_count=30',
+        'feedback_control_case_count=2', 'onboarding_case_count=2', 'case_count=32',
         "test_executable_sha256=$((Get-FileHash $TestExecutable -Algorithm SHA256).Hash.ToLowerInvariant())",
         "runner_sha256=$((Get-FileHash $Runner -Algorithm SHA256).Hash.ToLowerInvariant())",
         "verifier_sha256=$((Get-FileHash $Verifier -Algorithm SHA256).Hash.ToLowerInvariant())",
@@ -95,7 +99,7 @@ function Write-Fixture([string]$Directory, [string]$TestExecutable,
         (($summary -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
     $summaryHash = (Get-FileHash (Join-Path $Directory 'summary.ini') `
                                     -Algorithm SHA256).Hash.ToLowerInvariant()
-    $manifest = @('format=1', 'algorithm=sha256', 'file_count=31', 'case_count=30',
+    $manifest = @('format=1', 'algorithm=sha256', 'file_count=33', 'case_count=32',
                   "summary.ini=$summaryHash")
     foreach ($case in $cases) {
         $hash = (Get-FileHash (Join-Path $Directory $case.Name) `

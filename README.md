@@ -26,8 +26,11 @@ affect recording.
 
 Windows is the only currently supported product platform. Linux now has an engineering desktop build,
 CPU/memory/disk/network/process telemetry, a bounded provider-overhead gate, and an explicitly
-unsupported TGZ engineering preview that hosted CI extracts and launches. It still lacks a native
-background shell, representative distribution/physical qualification, and the evidence required for support.
+unsupported TGZ engineering preview. A separate Ubuntu 24.04, Debian 13, and Fedora 43 hosted matrix
+builds, measures, extracts, and launches that package. The Linux platform boundary also owns a native
+SDL tray, per-user instance lock, and exact XDG autostart entry, while unavailable tray/notification
+protocols remain explicit. Linux still lacks physical desktop/accessibility/session/power/installer
+qualification and the evidence required for support.
 macOS remains a reserved platform boundary with no native provider or shell.
 
 ## Principles

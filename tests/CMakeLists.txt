@@ -146,6 +146,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(blackbox_tests PRIVATE
         telemetry/linux_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
+    if(BLACKBOX_BUILD_APP)
+        target_sources(blackbox_tests PRIVATE
+            platform/linux_background_shell_tests.cpp)
+        target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformLinux)
+    endif()
 endif()
 
 if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)

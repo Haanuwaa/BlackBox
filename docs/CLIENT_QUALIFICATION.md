@@ -88,7 +88,8 @@ diagnostic as smoke mode before it can publish.
 
 Profiles have non-overlapping purposes:
 
-- `standard`: ordinary-user launch, tray restore, hotkey/capture/viewer/settings/diagnostics,
+- `standard`: ordinary-user launch, keyboard-only first-run onboarding, focus visibility under
+  increased text/display scaling, tray restore, hotkey/capture/viewer/settings/diagnostics,
   keyboard-only use, live and hidden high-contrast transitions, and 100/125/150/200% scaling;
 - `multimonitor`: mixed-scale movement, taskbar/work-area changes, monitor disconnect/reconnect, and
   suspend/resume; at least two active displays are mechanically required;
@@ -96,6 +97,13 @@ Profiles have non-overlapping purposes:
   logical processors;
 - `battery`: battery operation, battery saver, balanced/performance modes, and battery
   suspend/resume; a detected battery is mechanically required.
+
+The interactive `standard` profile deliberately launches with onboarding incomplete. Record
+`first_run_onboarding_keyboard` only after completing the modal without a pointer: traverse every
+focus target with Tab/Shift+Tab, scroll its bounded content, and activate the final action with the
+keyboard. Record `focus_visibility_text_scaling` only after confirming visible focus, legible text,
+and reachable controls at increased text size and each required display scale. These operator cases
+add evidence obligations; they do not make raster output or one development host physical proof.
 
 Host evidence deliberately excludes computer name, username, serial numbers, device IDs, local
 paths, and operator notes. It records OS family/build/edition, architecture, CPU/GPU, memory and

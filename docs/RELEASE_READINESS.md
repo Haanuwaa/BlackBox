@@ -42,12 +42,14 @@ Windows 2025 runner kernels. The release checklist still requires an extracted-p
 on clean Windows 10 22H2 and current Windows 11 x64 hosts before publishing an official build; CI
 server kernels supplement rather than replace those client tests.
 
-Linux and macOS are not supported products in V1.0. Their readiness claim is architectural: the
-headless core/telemetry graph has no Win32 dependency, the app selects a portable mock provider on
-non-Windows hosts, public provider/capability contracts have a backend-independent executable
-conformance check, and CI builds/tests the headless graph on Linux. A real backend must live in its
-OS directory, pass the same contract, represent unsupported data explicitly, and meet the Windows
-quality gates before support is claimed.
+Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
+headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
+system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
+and smoke the native desktop. Its platform boundary now has a tray, per-user lock, and XDG
+autostart, but notification, GPU, event, power, crash, physical-desktop, accessibility, session,
+and installer qualification remain open. macOS remains a reserved boundary with a mock provider.
+No platform support is claimed until a real backend lives in its OS directory, passes the same
+contracts, represents unsupported data explicitly, and meets equivalent quality gates.
 
 ## Release gates
 

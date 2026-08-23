@@ -24,7 +24,7 @@ cmake --build out/build/windows-vs2026-release --config Release --target blackbo
 ```
 
 The runner refuses an existing final or `.partial` destination. It renders representative and
-large incident fixtures through the SDL3 software renderer at these two modes:
+large incident fixtures through the SDL3 software renderer at these two page modes:
 
 - 1100 x 700 logical/physical pixels at 100%, using the normal dark palette
 - 1100 x 700 logical pixels on a 1650 x 1050 physical surface at 150%, using the high-contrast
@@ -35,7 +35,9 @@ for both fixtures. Four additional scrolled Detail cases pin a sticky cursor at 
 show it beside the independent incident marker across a lower synchronized timeline and the process
 table. Two representative Detail cases explicitly expose the feedback reset, one-step rollback,
 and preceding/marker-spanning/post-marker contributor roles with their attribution controls. A
-passing bundle contains exactly 30 BMP files, `summary.ini`, and `manifest.sha256.ini`.
+compact 800 x 600 first-run case protects responsive keyboard guidance at 100%; a second 800 x 600
+logical case renders on a 1600 x 1200 surface at 200% with high contrast. A passing bundle contains
+exactly 32 BMP files, `summary.ini`, and `manifest.sha256.ini`.
 The runner and independent verifier validate every filename, exact V5 BMP structure/payload,
 dimension, SHA-256 digest, summary hash, source revision, and test/runner/verifier identity before one
 same-volume rename publishes the directory. Re-run `verify-ui-qualification.ps1` on the immutable
@@ -59,7 +61,7 @@ Automated generation therefore cannot close the V0.17 physical qualification gat
 
 ## Visual review
 
-Review all 30 images at native pixel size. Record the bundle manifest hash and any finding outside
+Review all 32 images at native pixel size. Record the bundle manifest hash and any finding outside
 the bundle; do not edit generated evidence. Verify:
 
 - the complete application viewport is rasterized, with no unused high-DPI canvas caused by an
@@ -90,6 +92,8 @@ the bundle; do not edit generated evidence. Verify:
   caveats remain readable in Detail; the collapsed evidence control follows the headline and at
   most three contributor previews without implying that hidden raw evidence was discarded;
 - Settings and Diagnostics expose recovery/status information without hidden or ambiguous actions.
+- compact and 200% onboarding keep every step scrollable, preserve visible keyboard focus, expose
+  recorder/capture/storage/privacy readiness, and retain one unambiguous full-width completion action.
 
 The physical walkthrough must additionally exercise first-run completion and the Incidents loading,
 empty, no-match, and archive-unavailable presentations. Each state must name a safe next action,
@@ -97,7 +101,7 @@ preserve keyboard focus visibility, and avoid claiming that unsaved or filtered 
 
 Raster hashes are expected to change when rendering, fonts, layout, or fixture content changes.
 Review the new images and retain a new complete bundle instead of blessing individual changed hashes.
-After all 30 pass, use `record-ui-visual-review.ps1 -ConfirmAllCasesPassed` and independently run
+After all 32 pass, use `record-ui-visual-review.ps1 -ConfirmAllCasesPassed` and independently run
 `verify-ui-visual-review.ps1`. The separate review directory binds the exact raster manifest and
 cannot exist without explicit confirmation. `V017_RELEASE_EVIDENCE.md` contains the full commands.
 

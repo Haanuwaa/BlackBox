@@ -27,7 +27,7 @@ function Write-AtomicText([string]$Path, [string]$Contents) {
 }
 
 if (-not $ConfirmAllCasesPassed.IsPresent) {
-    throw 'Visual review publication requires explicit confirmation that all 30 cases passed.'
+    throw 'Visual review publication requires explicit confirmation that all 32 cases passed.'
 }
 $evidence = (Resolve-Path -LiteralPath $EvidenceDirectory -ErrorAction Stop).Path
 $uiVerifier = Join-Path $PSScriptRoot 'verify-ui-qualification.ps1'
@@ -48,7 +48,7 @@ $uiManifestHash = (Get-FileHash -LiteralPath (Join-Path $evidence 'manifest.sha2
 try {
     $summary = @(
         'format=1', 'state=passed', "source_revision=$SourceRevision",
-        "reviewed_ui_manifest_sha256=$uiManifestHash", 'case_count=30',
+        "reviewed_ui_manifest_sha256=$uiManifestHash", 'case_count=32',
         "reviewer_id=$ReviewerId", "reviewed_utc=$([DateTimeOffset]::UtcNow.ToString('O'))",
         'all_cases_reviewed=1', 'all_cases_passed=1',
         "recorder_sha256=$recorderHash", "verifier_sha256=$verifierHash"

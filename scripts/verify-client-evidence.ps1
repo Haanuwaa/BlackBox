@@ -82,6 +82,7 @@ function Get-SignatureFacts([string]$Path) {
 $expectedCases = @{
     standard = @(
         'package_launch_ordinary_user', 'tray_hide_restore', 'global_hotkey_capture',
+        'first_run_onboarding_keyboard', 'focus_visibility_text_scaling',
         'incident_view', 'settings_diagnostics', 'keyboard_navigation',
         'high_contrast_live_toggle', 'hidden_high_contrast_catchup',
         'scale_100', 'scale_125', 'scale_150', 'scale_200')

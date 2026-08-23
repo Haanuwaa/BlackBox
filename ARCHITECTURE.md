@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target is built and smoke-tested in hosted CI, and a separately labeled engineering TGZ is extracted and launched only after a bounded provider-overhead gate. It still has no background shell, representative cross-distribution/physical qualification, or support claim. The macOS directory remains a reserved boundary only; non-Linux Unix builds continue to compose the deterministic mock provider.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has a development provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target and separately labeled engineering TGZ are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. A Linux platform service supplies a native SDL tray boundary, a per-user instance lock, and an exact XDG autostart entry; unavailable desktop protocols keep the window visible and remain explicit. This is hosted engineering compatibility, not physical qualification or a support claim. The macOS directory remains a reserved boundary only; non-Linux Unix builds continue to compose the deterministic mock provider.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -463,6 +463,15 @@ message window, Explorer restart message, named mutex, end-session messages, and
 value. It has no telemetry, recorder, storage, analysis, SDL, or UI dependency. Its callback only
 sets a bounded application command bit; the application composition root performs collector and
 window lifecycle changes on the UI thread.
+
+The Linux implementation preserves that portable command/status contract while owning only native
+desktop lifecycle concerns. A nonblocking per-user file lock rejects duplicate recorders. SDL's
+desktop tray API supplies show/hide, capture, pause/resume, startup, notification preference, and
+exit commands on the application thread. XDG autostart uses one exact, atomically replaced
+`blackbox.desktop` entry with a bounded absolute executable and refuses linked or foreign content.
+Linux desktop notifications remain explicitly unavailable rather than adding a shell command or
+network dependency; failed notification attempts are counted. The Linux platform target may use
+SDL, but core, telemetry, normalization, recorder, storage, and analysis remain SDL-free.
 
 Close-to-tray is conditional on a confirmed tray icon, preventing an unreachable background
 process. Exit first stops the shell from producing commands, then unregisters the global hotkey,
@@ -820,7 +829,8 @@ source ownership remains in telemetry, and no device/session identifiers cross e
 UI raster qualification is also downstream test infrastructure. It calls the public UI rendering
 surface with immutable representative or large incident-view values, then uses an SDL3 software
 renderer to produce exact 100% and 150%-high-contrast pixels for all six product pages plus scrolled
-timeline-cursor cases. Incident plots share only bounded UI state: linked x-axis limits and one
+timeline-cursor cases. Compact 100% and 200%-high-contrast first-run cases separately protect the
+responsive, keyboard-guided onboarding boundary. Incident plots share only bounded UI state: linked x-axis limits and one
 finite marker-relative cursor clamped to the immutable incident window. The cursor never changes
 recorded evidence or analysis and remains visually separate from the event marker. Opt-in evidence
 output exists only in the UI test executable; the production UI, app, recorder, storage, analysis,
@@ -919,12 +929,14 @@ engineering limits. CPack labels its TGZ as an unsupported engineering preview; 
 launches that exact archive before it can contribute to the Windows workflow attestation. Packaging and
 benchmark infrastructure remain downstream of the provider and do not enter normalization or recording.
 
-Hosted Linux tests exercise strict malformed/overflow/duplicate parsing and the native provider
-contract. The workflow separately preserves the storage/UI-free headless graph and builds the full
-native desktop target, then runs a bounded diagnostic smoke under a virtual display. Linux remains
-unsupported as a product until its background shell, representative distribution matrix, and physical
-qualification exist. GPU, event, power, platform-shell, and crash services
-remain explicitly unavailable rather than being inferred or supplied by another module.
+Hosted Linux tests exercise strict malformed/overflow/duplicate parsing, the native provider
+contract, and the no-tray background/autostart boundary. A separate matrix builds the full desktop
+and package on Ubuntu 24.04, Debian 13, and Fedora 43, measures the real provider, smoke-tests both
+the build-tree and extracted package under a virtual display, and publishes comparable package-size
+and provider-latency fields. Linux remains unsupported as a product until physical desktop,
+accessibility, session, power, installer, and long-running qualification exist. GPU, event, power,
+native notification, and crash services remain explicitly unavailable rather than being inferred
+or supplied by another module.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

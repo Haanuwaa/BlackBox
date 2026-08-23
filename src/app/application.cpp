@@ -13,6 +13,7 @@
 #include "telemetry/windows/windows_telemetry_provider.hpp"
 #include "telemetry/windows/windows_system_event_provider.hpp"
 #elif defined(__linux__)
+#include "platform/linux/linux_background_shell.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
 #else
 #include "telemetry/mock/mock_telemetry_provider.hpp"
@@ -168,6 +169,37 @@ ApplicationInitializationResult Application::initialize() {
                                          loaded_product_settings.error().message;
     }
     synchronize_product_ui();
+#if defined(__linux__)
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        core::Logger::write(core::LogLevel::error, SDL_GetError());
+        return ApplicationInitializationResult::failed;
+    }
+    sdl_initialized_ = true;
+    background_shell_ = std::make_unique<platform::linux::LinuxBackgroundShell>();
+    const auto shell_result = background_shell_->start(
+        [this](const platform::BackgroundShellCommand command) {
+            pending_background_commands_.fetch_or(command_bit(command),
+                                                   std::memory_order_release);
+        });
+    if (shell_result == platform::BackgroundShellStartResult::already_running) {
+        background_shell_.reset();
+        return ApplicationInitializationResult::already_running;
+    }
+    if (shell_result == platform::BackgroundShellStartResult::started) {
+        background_shell_started_ = true;
+        background_launch_at_login_enabled_ =
+            background_shell_->launch_at_login_enabled();
+        const auto tray_available = background_shell_->diagnostics().tray_available;
+        background_status_text_ = tray_available
+            ? "Desktop tray active"
+            : "Desktop tray unavailable; close exits";
+        background_shell_->set_notifications_enabled(
+            product_settings_.notifications_enabled);
+    } else {
+        background_shell_.reset();
+        background_status_text_ = "Desktop shell unavailable; close exits";
+    }
+#endif
 #if defined(_WIN32)
     background_shell_ = std::make_unique<platform::windows::WindowsBackgroundShell>();
     const auto shell_result = background_shell_->start(
@@ -291,7 +323,7 @@ ApplicationInitializationResult Application::initialize() {
     incident_viewer_state_.content = std::move(disabled_viewer);
 #endif
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!sdl_initialized_ && !SDL_Init(SDL_INIT_VIDEO)) {
         core::Logger::write(core::LogLevel::error, SDL_GetError());
         return ApplicationInitializationResult::failed;
     }
@@ -1504,11 +1536,15 @@ void Application::refresh_background_shell_if_due() {
     const auto shell = background_shell_->diagnostics();
     background_status_text_ = shell.tray_available ? "Tray active" : "Tray unavailable";
     background_status_text_ += shell.window_visible ? " | window visible" : " | window hidden";
+#if defined(__linux__)
+    background_status_text_ += " | notifications unavailable";
+#else
     background_status_text_ += shell.notifications_enabled
                                    ? " | notifications on"
                                    : " | notifications quiet";
+#endif
     background_status_text_ += background_launch_at_login_enabled_
-                                   ? " | starts with Windows"
+                                   ? " | starts at login"
                                    : " | manual startup";
     if (shell.tray_readd_failures != 0U) {
         background_status_text_ += " | tray recovery failed";
@@ -1564,13 +1600,13 @@ void Application::process_background_commands(bool& running) {
         if (background_shell_->set_launch_at_login(enabled)) {
             background_launch_at_login_enabled_ = enabled;
             static_cast<void>(background_shell_->notify(
-                enabled ? "BlackBox starts with Windows" : "BlackBox startup disabled",
+                enabled ? "BlackBox starts at login" : "BlackBox startup disabled",
                 enabled ? "BlackBox will start quietly after you sign in."
                         : "BlackBox will only start when you launch it."));
         } else {
             static_cast<void>(background_shell_->notify(
                 "BlackBox startup setting failed",
-                "Windows did not accept the requested startup change."));
+                "The desktop session did not accept the requested startup change."));
         }
     }
     if (requested(platform::BackgroundShellCommand::toggle_notifications)) {

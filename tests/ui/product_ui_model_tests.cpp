@@ -178,6 +178,25 @@ TEST_CASE("DPI metrics remain bounded and proportional", "[ui][dpi][layout]") {
     CHECK(ui::scaled_ui_metric(44.0F, 144.0F) == 66.0F);
 }
 
+TEST_CASE("onboarding remains bounded on compact and scaled work areas",
+          "[ui][dpi][accessibility][onboarding][layout]") {
+    const auto standard = ui::onboarding_layout(1'100.0F, 700.0F);
+    CHECK(standard.width == 640.0F);
+    CHECK(standard.height == 560.0F);
+    CHECK_FALSE(standard.compact);
+
+    const auto compact = ui::onboarding_layout(360.0F, 420.0F);
+    CHECK(compact.width == 328.0F);
+    CHECK(compact.height == 388.0F);
+    CHECK(compact.compact);
+
+    const auto invalid = ui::onboarding_layout(
+        std::numeric_limits<float>::quiet_NaN(), -1.0F);
+    CHECK(invalid.width == 240.0F);
+    CHECK(invalid.height == 240.0F);
+    CHECK(invalid.compact);
+}
+
 TEST_CASE("multi-monitor layout selects the greatest visible work area", "[ui][multi-monitor][layout]") {
     constexpr std::array displays{ui::DisplayWorkArea{0, 0, 1920, 1040},
                                   ui::DisplayWorkArea{1920, -200, 2560, 1400}};

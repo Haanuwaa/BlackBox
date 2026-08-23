@@ -98,6 +98,23 @@ void save_named_evidence(SDL_Surface& surface,
     }
 }
 
+void save_onboarding_evidence(SDL_Surface& surface,
+                              const std::filesystem::path& directory,
+                              const std::string_view mode) {
+    if (directory.empty()) return;
+    const auto destination = directory /
+        ("representative-" + std::string{mode} + "-onboarding.bmp");
+    std::error_code issue;
+    if (std::filesystem::exists(destination, issue) || issue) {
+        throw std::runtime_error{"UI evidence destination is occupied"};
+    }
+    const auto utf8 = destination.u8string();
+    const std::string path{reinterpret_cast<const char*>(utf8.data()), utf8.size()};
+    if (!SDL_SaveBMP(&surface, path.c_str())) {
+        throw std::runtime_error{SDL_GetError()};
+    }
+}
+
 void save_evidence(SDL_Surface& surface, const std::filesystem::path& directory,
                    const std::string_view fixture, const unsigned display_mode,
                    const ui::ProductPage page) {
@@ -108,7 +125,9 @@ class ImGuiContextFixture final {
 public:
     ImGuiContextFixture(const int physical_width, const int physical_height,
                         const float framebuffer_scale,
-                        const bool high_contrast) {
+                        const bool high_contrast,
+                        const int logical_width = 1'100,
+                        const int logical_height = 700) {
         surface_ = SDL_CreateSurface(physical_width, physical_height,
                                      SDL_PIXELFORMAT_RGBA32);
         if (surface_ == nullptr) {
@@ -124,7 +143,8 @@ public:
         ImGui::CreateContext();
         ImPlot::CreateContext();
         auto& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2{1'100.0F, 700.0F};
+        io.DisplaySize = ImVec2{static_cast<float>(logical_width),
+                                static_cast<float>(logical_height)};
         io.DisplayFramebufferScale = ImVec2{framebuffer_scale, framebuffer_scale};
         io.DeltaTime = 1.0F / 60.0F;
         io.Fonts->AddFontDefault();
@@ -352,6 +372,23 @@ void render_fixture(const std::shared_ptr<const blackbox::core::IncidentSnapshot
     std::set<std::uint64_t> raster_signatures;
     const auto evidence = evidence_directory();
     require_matching_evidence_revision(evidence);
+    if (fixture_name == "representative") {
+        product->onboarding_open = true;
+        {
+            ImGuiContextFixture context{800, 600, 1.0F, false, 800, 600};
+            context.render(*dashboard, *viewer, *product);
+            context.render(*dashboard, *viewer, *product);
+            save_onboarding_evidence(*context.surface(), evidence, "compact-100pct");
+        }
+        {
+            ImGuiContextFixture context{1'600, 1'200, 2.0F, true, 800, 600};
+            context.render(*dashboard, *viewer, *product);
+            context.render(*dashboard, *viewer, *product);
+            save_onboarding_evidence(*context.surface(), evidence,
+                                     "200pct-high-contrast");
+        }
+        product->onboarding_open = false;
+    }
     for (unsigned display_mode = 0U; display_mode < 2U; ++display_mode) {
         const int physical_width = display_mode == 0U ? 1'100 : 1'650;
         const int physical_height = display_mode == 0U ? 700 : 1'050;

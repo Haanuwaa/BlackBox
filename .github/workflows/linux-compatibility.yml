@@ -1,0 +1,208 @@
+name: Linux engineering compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distro-package-telemetry:
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: ubuntu
+            image: ubuntu:24.04
+            family: apt
+          - id: debian
+            image: debian:13
+            family: apt
+          - id: fedora
+            image: fedora:43
+            family: dnf
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}-vcpkg-${{ matrix.id }}
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install native build and desktop dependencies
+        shell: bash
+        run: |
+          if [ "${{ matrix.family }}" = apt ]; then
+            apt-get update
+            apt-get install --yes --no-install-recommends \
+              build-essential cmake ninja-build git curl ca-certificates zip unzip tar \
+              pkg-config python3 file binutils xvfb xauth \
+              libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev \
+              libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
+              libxkbcommon-dev libgl1-mesa-dev libasound2-dev libpulse-dev \
+              libudev-dev libdbus-1-dev
+          else
+            dnf install --assumeyes \
+              gcc gcc-c++ make cmake ninja-build git curl ca-certificates zip unzip tar \
+              pkgconf-pkg-config python3 file binutils findutils which \
+              xorg-x11-server-Xvfb xorg-x11-xauth \
+              libX11-devel libXext-devel libXrandr-devel libXrender-devel \
+              libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel \
+              libXcursor-devel libXinerama-devel libxkbcommon-devel \
+              mesa-libGL-devel alsa-lib-devel pulseaudio-libs-devel \
+              systemd-devel dbus-devel
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure native desktop and test graph
+        shell: bash
+        run: >-
+          cmake -S . -B out/build/linux-${{ matrix.id }} -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON
+          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build and test native graph
+        shell: bash
+        run: |
+          cmake --build out/build/linux-${{ matrix.id }} --parallel
+          ctest --test-dir out/build/linux-${{ matrix.id }} --output-on-failure
+      - name: Measure provider overhead
+        shell: bash
+        run: |
+          report="out/build/linux-${{ matrix.id }}/linux-provider-overhead.ini"
+          ./out/build/linux-${{ matrix.id }}/tests/blackbox_linux_provider_benchmark 64 > "$report"
+          grep -Fxq "format=1" "$report"
+          grep -Fxq "failed=0" "$report"
+          processes="$(awk -F= '$1 == "processes_max" { print $2 }' "$report")"
+          p95="$(awk -F= '$1 == "p95_us" { print $2 }' "$report")"
+          maximum="$(awk -F= '$1 == "maximum_us" { print $2 }' "$report")"
+          test -n "$processes" && test "$processes" -ge 1
+          test -n "$p95" && test "$p95" -le 250000
+          test -n "$maximum" && test "$maximum" -le 1000000
+      - name: Smoke desktop shell and package
+        shell: bash
+        run: |
+          build="out/build/linux-${{ matrix.id }}"
+          desktop_report="$build/linux-desktop-smoke.ini"
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+            "$build/src/blackbox" --background-diagnostic-seconds=2 \
+            --diagnostic-report="$desktop_report"
+          grep -Fxq "platform=Linux" "$desktop_report"
+          grep -Fxq "completed=1" "$desktop_report"
+          grep -Fxq "failed_samples=0" "$desktop_report"
+
+          cmake --build "$build" --target package --parallel
+          package="$(find "$build" -maxdepth 1 -type f \
+            -name 'BlackBox-*-linux-*-engineering-preview.tar.gz' -print -quit)"
+          test -n "$package" && test -s "$package"
+          extract="$build/package-smoke"
+          mkdir -p "$extract"
+          tar -xzf "$package" -C "$extract"
+          executable="$(find "$extract" -type f -name blackbox -perm -u+x -print -quit)"
+          test -n "$executable"
+          readelf -d "$executable" | grep -Fq '$ORIGIN'
+          if readelf -d "$executable" | grep -Fq "$GITHUB_WORKSPACE"; then
+            echo "Packaged executable retains a build-workspace runtime path" >&2
+            exit 1
+          fi
+          package_report="$build/linux-package-smoke.ini"
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+            "$executable" --background-diagnostic-seconds=2 \
+            --diagnostic-report="$package_report"
+          grep -Fxq "platform=Linux" "$package_report"
+          grep -Fxq "completed=1" "$package_report"
+          grep -Fxq "failed_samples=0" "$package_report"
+
+          overhead="$build/linux-provider-overhead.ini"
+          evidence="$build/linux-${{ matrix.id }}-compatibility.ini"
+          package_name="$(basename "$package")"
+          package_bytes="$(stat --format=%s "$package")"
+          package_sha256="$(sha256sum "$package" | awk '{print $1}')"
+          pretty_name="$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | tr -d '"' | head -n 1)"
+          cat > "$evidence" <<EOF
+          format=1
+          distribution=${{ matrix.id }}
+          container_image=${{ matrix.image }}
+          distribution_name=$pretty_name
+          source_revision=$GITHUB_SHA
+          package_name=$package_name
+          package_bytes=$package_bytes
+          package_sha256=$package_sha256
+          provider_samples=$(awk -F= '$1 == "samples" { print $2 }' "$overhead")
+          provider_failed=$(awk -F= '$1 == "failed" { print $2 }' "$overhead")
+          provider_processes_max=$(awk -F= '$1 == "processes_max" { print $2 }' "$overhead")
+          provider_p95_us=$(awk -F= '$1 == "p95_us" { print $2 }' "$overhead")
+          provider_maximum_us=$(awk -F= '$1 == "maximum_us" { print $2 }' "$overhead")
+          desktop_collections=$(awk -F= '$1 == "collections" { print $2 }' "$desktop_report")
+          package_collections=$(awk -F= '$1 == "collections" { print $2 }' "$package_report")
+          completed=1
+          EOF
+          grep -Fxq "provider_samples=64" "$evidence"
+          grep -Fxq "provider_failed=0" "$evidence"
+          grep -Fxq "completed=1" "$evidence"
+      - name: Upload distro package and evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-linux-${{ matrix.id }}-${{ github.sha }}
+          path: |
+            out/build/linux-${{ matrix.id }}/BlackBox-*-linux-*-engineering-preview.tar.gz
+            out/build/linux-${{ matrix.id }}/linux-provider-overhead.ini
+            out/build/linux-${{ matrix.id }}/linux-desktop-smoke.ini
+            out/build/linux-${{ matrix.id }}/linux-package-smoke.ini
+            out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
+          if-no-files-found: error
+
+  compare-distributions:
+    needs: [distro-package-telemetry]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          pattern: BlackBox-linux-*-${{ github.sha }}
+          path: out/linux-compatibility
+      - name: Validate and compare distro evidence
+        shell: bash
+        run: |
+          shopt -s nullglob
+          reports=(out/linux-compatibility/*/linux-*-compatibility.ini)
+          test "${#reports[@]}" -eq 3
+          summary="out/linux-compatibility/summary.ini"
+          printf 'format=1\nsource_revision=%s\ndistribution_count=3\n' "$GITHUB_SHA" > "$summary"
+          printf '| Distribution | Package MiB | Provider p95 us | Max processes |\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '|---|---:|---:|---:|\n' >> "$GITHUB_STEP_SUMMARY"
+          for id in ubuntu debian fedora; do
+            report="$(find out/linux-compatibility -type f -name "linux-$id-compatibility.ini" -print -quit)"
+            test -n "$report"
+            grep -Fxq "format=1" "$report"
+            grep -Fxq "distribution=$id" "$report"
+            grep -Fxq "source_revision=$GITHUB_SHA" "$report"
+            grep -Fxq "provider_failed=0" "$report"
+            grep -Fxq "completed=1" "$report"
+            bytes="$(awk -F= '$1 == "package_bytes" { print $2 }' "$report")"
+            p95="$(awk -F= '$1 == "provider_p95_us" { print $2 }' "$report")"
+            processes="$(awk -F= '$1 == "provider_processes_max" { print $2 }' "$report")"
+            test -n "$bytes" && test "$bytes" -gt 0
+            test -n "$p95" && test "$p95" -le 250000
+            test -n "$processes" && test "$processes" -ge 1
+            printf '%s_package_bytes=%s\n%s_provider_p95_us=%s\n%s_provider_processes_max=%s\n' \
+              "$id" "$bytes" "$id" "$p95" "$id" "$processes" >> "$summary"
+            mib="$(awk -v value="$bytes" 'BEGIN { printf "%.2f", value / 1048576 }')"
+            printf '| %s | %s | %s | %s |\n' "$id" "$mib" "$p95" "$processes" \
+              >> "$GITHUB_STEP_SUMMARY"
+          done
+          printf 'completed=1\n' >> "$summary"
+      - name: Upload compatibility comparison
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-linux-compatibility-summary-${{ github.sha }}
+          path: out/linux-compatibility/summary.ini
+          if-no-files-found: error

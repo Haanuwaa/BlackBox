@@ -14,6 +14,12 @@ struct DisplayWorkArea {
                                      const DisplayWorkArea&) = default;
 };
 
+struct OnboardingLayout {
+    float width{};
+    float height{};
+    bool compact{};
+};
+
 struct AccessibilityPalette {
     std::array<float, 4U> background{};
     std::array<float, 4U> foreground{};
@@ -56,6 +62,8 @@ enum class IncidentArchivePresentation : std::uint8_t {
 }
 [[nodiscard]] float scale_for_dpi(float dpi) noexcept;
 [[nodiscard]] float scaled_ui_metric(float logical_pixels, float dpi) noexcept;
+[[nodiscard]] OnboardingLayout onboarding_layout(float viewport_width,
+                                                  float viewport_height) noexcept;
 [[nodiscard]] std::size_t choose_display_work_area(
     int window_x, int window_y, int window_width, int window_height,
     const DisplayWorkArea* displays, std::size_t display_count) noexcept;

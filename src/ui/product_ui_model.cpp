@@ -16,6 +16,17 @@ float scaled_ui_metric(const float logical_pixels, const float dpi) noexcept {
     return logical_pixels * scale_for_dpi(dpi);
 }
 
+OnboardingLayout onboarding_layout(const float viewport_width,
+                                    const float viewport_height) noexcept {
+    const auto finite_width = std::isfinite(viewport_width) ? viewport_width : 0.0F;
+    const auto finite_height = std::isfinite(viewport_height) ? viewport_height : 0.0F;
+    const auto available_width = std::max(240.0F, finite_width - 32.0F);
+    const auto available_height = std::max(240.0F, finite_height - 32.0F);
+    return {std::min(640.0F, available_width),
+            std::min(560.0F, available_height),
+            available_width < 560.0F || available_height < 480.0F};
+}
+
 std::size_t choose_display_work_area(
     const int window_x, const int window_y, const int window_width,
     const int window_height, const DisplayWorkArea* displays,

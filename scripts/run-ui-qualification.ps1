@@ -80,13 +80,17 @@ try {
             }
         }
     }
+    $expected += @(
+        @{ Name = 'representative-compact-100pct-onboarding.bmp'; Width = 800; Height = 600 },
+        @{ Name = 'representative-200pct-high-contrast-onboarding.bmp'; Width = 1600; Height = 1200 }
+    )
     $actualFiles = @(Get-ChildItem -LiteralPath $staging -File)
     $actual = @($actualFiles | Where-Object { $_.Extension -ieq '.bmp' })
     if ($actualFiles.Count -ne $actual.Count) {
         throw 'UI evidence contains an unexpected non-BMP file.'
     }
-    if ($actual.Count -ne $expected.Count) { throw 'UI evidence does not contain exactly 30 BMP files.' }
-    $manifest = @('format=1', 'algorithm=sha256', 'case_count=30')
+    if ($actual.Count -ne $expected.Count) { throw 'UI evidence does not contain exactly 32 BMP files.' }
+    $manifest = @('format=1', 'algorithm=sha256', 'case_count=32')
     foreach ($case in $expected) {
         $path = Join-Path $staging $case.Name
         if (-not [IO.File]::Exists($path)) { throw "Missing UI evidence case: $($case.Name)" }
@@ -122,7 +126,8 @@ page_count=6
 display_mode_count=2
 timeline_cursor_case_count=4
 feedback_control_case_count=2
-case_count=30
+onboarding_case_count=2
+case_count=32
 test_executable_sha256=$testHash
 runner_sha256=$runnerHash
 verifier_sha256=$verifierHash
@@ -137,7 +142,7 @@ physical_matrix_satisfied=0
     }
     $summaryHash = (Get-FileHash -LiteralPath (Join-Path $staging 'summary.ini') `
                                     -Algorithm SHA256).Hash.ToLowerInvariant()
-    $manifest = @('format=1', 'algorithm=sha256', 'file_count=31', 'case_count=30',
+    $manifest = @('format=1', 'algorithm=sha256', 'file_count=33', 'case_count=32',
                   "summary.ini=$summaryHash") + @($manifest | Select-Object -Skip 3)
     Write-AtomicText (Join-Path $staging 'manifest.sha256.ini') (($manifest -join "`n") + "`n")
     & $verifier -EvidenceDirectory $staging -TestExecutable $test `
