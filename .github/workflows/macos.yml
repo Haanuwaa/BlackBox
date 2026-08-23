@@ -17,6 +17,8 @@ jobs:
         os: [macos-15, macos-15-intel]
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      CC: gcc-14
+      CXX: g++-14
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
@@ -29,13 +31,17 @@ jobs:
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
       - name: Configure native macOS graph
         shell: bash
-        run: >-
-          cmake -S . -B out/build/macos -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON
-          -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}"
-          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+        run: |
+          "$CXX" --version
+          printf '#include <stop_token>\nint main(){ std::stop_source source; return source.stop_possible() ? 0 : 1; }\n' \
+            | "$CXX" -std=c++23 -x c++ - -o "$RUNNER_TEMP/blackbox-stop-token-probe"
+          "$RUNNER_TEMP/blackbox-stop-token-probe"
+          cmake -S . -B out/build/macos -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON \
+            -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}" \
+            -DBLACKBOX_WARNINGS_AS_ERRORS=ON
       - name: Build and test native graph
         shell: bash
         run: |

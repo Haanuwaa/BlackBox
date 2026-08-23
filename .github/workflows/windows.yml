@@ -107,7 +107,8 @@ jobs:
             xvfb \
             libx11-dev libxext-dev libxrandr-dev libxrender-dev \
             libxfixes-dev libxi-dev libxss-dev libxtst-dev \
-            libxcursor-dev libxinerama-dev libxkbcommon-dev
+            libxcursor-dev libxinerama-dev libxkbcommon-dev \
+            pkg-config libdbus-1-dev
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
