@@ -1917,14 +1917,31 @@ one-host engineering tracks are now implemented:
 - [x] Strengthen clean-client physical qualification so the standard profile starts at first run and
   requires separate keyboard-only onboarding plus focus-visibility/increased-text observations before
   its existing 100/125/150/200%, high-contrast, tray, capture, and navigation cases can pass.
-- [ ] Execute and retain the new three-distribution hosted matrix on the exact integration revision.
+- [x] Execute and retain the new three-distribution hosted matrix on the exact implementation revision.
 - [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
   authored cases and deterministic rasters do not satisfy this gate.
 
-The resulting Windows Release graph builds completely and passes 330/330 tests. A representative
+The resulting Windows Release graph builds completely and passes 331/331 tests. A representative
 schema-v1 archive also produced a three-row direct-v1 feature matrix end to end. These tracks do not
 weaken the Windows-first architecture, claim Linux/macOS support, adopt a runtime model without
 held-out value, or satisfy any external V1 evidence gate.
+
+Hosted Linux compatibility evidence (2026-08-23):
+
+- GitHub Actions run `32623677392` passed the Ubuntu 24.04, Debian 13, and Fedora 43 jobs plus the
+  comparison job on exact implementation revision `6ad06956791b440e94d658b26ece84c1795783cd`.
+  Every distribution built the complete native desktop/test graph, passed all 284 applicable tests,
+  completed 64/64 real-provider samples with zero failures, launched both the build-tree executable
+  and extracted TGZ under Xvfb, and published retained package/evidence artifacts.
+- The compiled revision is asserted in both diagnostic reports rather than inferred from the
+  container checkout. Package sizes were 6,734,308 bytes on Ubuntu, 6,875,134 on Debian, and
+  7,010,957 on Fedora. Provider P95 overhead was respectively 304, 403, and 157 microseconds; maxima
+  were 453, 584, and 347 microseconds, with peak RSS between 3,911,680 and 4,276,224 bytes.
+- Diagnostic attempts did useful hardening work without receiving completion credit: the full Linux
+  graph exposed a Windows-only UI-test environment helper, the first package smoke exposed a relative
+  evidence path rejected by the production CLI, and artifact review exposed ambiguous compiled source
+  identity under container Git ownership. Portable environment access, absolute evidence paths, exact
+  SHA injection/assertion, and a workflow regression contract now protect those boundaries.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 
@@ -1934,12 +1951,12 @@ held-out value, or satisfy any external V1 evidence gate.
 
 ## Exact next milestone
 
-Proceed to **hosted validation and isolated integration**: run the new Ubuntu/Debian/Fedora matrix on
-the exact feature revision, harden any genuine distro/package/shell failure, and retain its comparison
-artifact. Review the new 32-image onboarding/page raster set. Do not change or replace the currently
-frozen overnight executable; after that campaign publishes or retains diagnostic evidence, integrate
-this branch, rebuild one clean revision, and start the next exact-revision campaign. macOS remains
-behind the proven Linux desktop boundary, and runtime ML remains behind representative held-out value.
+Proceed to **isolated integration after the frozen overnight campaign**: retain the current campaign's
+result without changing its executable, then integrate this completed branch, rebuild one clean
+revision, and start the next exact-revision campaign. The 32-image onboarding/page raster set is
+reviewed and its automated contracts pass; execute the strengthened physical Windows accessibility/
+DPI matrix only with a qualifying operator and real client. macOS remains behind the proven Linux
+desktop boundary, and runtime ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.
