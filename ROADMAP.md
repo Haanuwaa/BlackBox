@@ -1991,22 +1991,51 @@ small, and only the stopped collector's explicit bounded snapshot allocates down
 uses a strictly capped vector, and allocation failure becomes explicit overflow rather than crossing
 the `noexcept` boundary. The complete local MSVC `/analyze` product/test target then passed.
 
+The cross-platform engineering and product-polish slice is complete:
+
+- [x] Add a native macOS CPU, physical-memory, and stable-identity process telemetry provider behind
+  `ITelemetryProvider`, using Mach, `sysctl`, and `libproc` only inside `telemetry/macos`; compose it
+  only on Apple builds and exercise the complete native graph, provider contract, and bounded overhead
+  benchmark on hosted Intel and Apple Silicon macOS runners without claiming product support.
+- [x] Add bounded Linux desktop notifications and a Wayland-compatible XDG Desktop Portal global-
+  shortcut boundary behind the existing background/hotkey interfaces. Notification queueing cannot
+  block collection, portal/session-bus absence stays explicitly unavailable, and window visibility
+  remains the fallback when no tray host exists.
+- [x] Produce relocatable TGZ plus native DEB/RPM Linux engineering packages with `/usr` desktop/icon
+  integration, distribution-correct `lib`/`lib64` private runtime dependencies and `$ORIGIN` RPATH,
+  metadata validation, extraction, executable smoke tests, and Ubuntu/Debian/Fedora hosted evidence.
+- [x] Replace the Windows normal-tier Tool Help walk with bounded PSAPI PID enumeration and reuse
+  identity-bound process handles across warm samples; retain slow-tier metadata/path resolution and
+  PID-plus-creation-token safety. On the development host, the same benchmark fell from 11.366 ms
+  average (13.660 ms P95, 15.723 ms P99) to 3.246 ms average (3.633 ms P95, 4.181 ms P99); a later
+  warm run averaged 2.094 ms with all 139 readable handles reused and zero new opens.
+- [x] Continue product UI polish with responsive 6/3/2-column navigation, compact-view wrapping,
+  actionable incident empty states, explicit Observation/Inference/Uncertainty explanations, shortcut
+  and background readiness in onboarding/Live, clearer tray discoverability, and deterministic
+  keyboard/DPI/high-contrast coverage.
+
+The complete Windows Release graph now passes 334/334 tests. The platform additions preserve the
+Windows-first product boundary: Linux and macOS outputs remain unsigned, unsupported engineering
+previews until physical desktop, accessibility, lifecycle, installer, and signing qualification exists.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
-- [ ] Consider Linux/macOS providers only after Windows quality remains intact
+- [x] Add Linux and macOS engineering providers behind the existing platform boundary while the
+  Windows Release, static-analysis, sanitizer, and security graphs remain intact
+- [ ] Promote Linux or macOS to a supported product target only after physical desktop integration,
+  accessibility, lifecycle, package/install, signing, and support qualification
 - [ ] Consider opt-in anonymous feature-level collective intelligence as a separate privacy-reviewed product
 
 ## Exact next milestone
 
-Proceed to **clean-revision scheduling qualification and a fresh overnight**: integrate the hardened
-Windows scheduling/network provider with the qualified Linux/Wayland slice, complete the Windows,
-Linux, and quality hosted graphs on one clean revision, rebuild the complete Release graph with that
-exact identity, repeat the zero-drop stress rehearsal, and start the replacement eight-hour campaign
-without modifying the revision afterward. The 32-image onboarding/page raster set is reviewed and its
-automated contracts pass; execute the strengthened physical Windows accessibility/DPI matrix only with
-a qualifying operator and real client. macOS remains behind physical Linux desktop qualification, and
-runtime ML remains behind representative held-out value.
+Proceed to **fresh exact-revision overnight qualification**: integrate this completed platform/UI slice,
+complete the Windows, Linux, macOS, and quality hosted graphs on its clean revision, rebuild the complete
+Release graph with that exact identity, repeat the zero-drop stress rehearsal, and start the replacement
+eight-hour campaign without modifying the revision afterward. The 32-image onboarding/page raster set
+and deterministic accessibility contracts pass; execute the strengthened physical Windows matrix and
+physical GNOME/KDE/macOS desktop qualification only with qualifying operators and real clients. Runtime
+ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.
