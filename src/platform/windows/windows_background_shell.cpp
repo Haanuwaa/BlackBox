@@ -435,6 +435,7 @@ struct WindowsBackgroundShell::NativeState {
             const std::scoped_lock diagnostics_lock{diagnostics_mutex};
             diagnostics.running = initialization_succeeded;
             diagnostics.window_visible = window_visible.load();
+            diagnostics.notifications_available = tray_installed;
             diagnostics.notifications_enabled = notifications_enabled.load();
             diagnostics.session_notifications_available =
                 session_notifications_registered;

@@ -22,10 +22,28 @@ namespace {
 
 struct HandleGuard {
     HANDLE value{INVALID_HANDLE_VALUE};
+    HandleGuard() = default;
+    explicit HandleGuard(const HANDLE handle) noexcept : value{handle} {}
+    HandleGuard(const HandleGuard&) = delete;
+    HandleGuard& operator=(const HandleGuard&) = delete;
+    HandleGuard(HandleGuard&& other) noexcept : value{other.value} {
+        other.value = INVALID_HANDLE_VALUE;
+    }
+    HandleGuard& operator=(HandleGuard&& other) noexcept {
+        if (this == &other) return *this;
+        reset();
+        value = other.value;
+        other.value = INVALID_HANDLE_VALUE;
+        return *this;
+    }
     ~HandleGuard() {
+        reset();
+    }
+    void reset(const HANDLE replacement = INVALID_HANDLE_VALUE) noexcept {
         if (value != nullptr && value != INVALID_HANDLE_VALUE) {
             CloseHandle(value);
         }
+        value = replacement;
     }
 };
 
@@ -77,6 +95,7 @@ struct WindowsProcessCollector::State {
 
     struct CachedMetadata {
         ProcessInfo info{};
+        HandleGuard process{};
         std::uint64_t generation{};
         bool path_terminal{};
     };
@@ -86,37 +105,25 @@ struct WindowsProcessCollector::State {
 
     State() {
         metadata.reserve(512U);
+        active_by_pid.reserve(512U);
     }
 
     [[nodiscard]] MetricStatus collect(
         const bool collect_counters,
         const bool resolve_paths,
         RawTelemetrySnapshot& destination) {
-        HandleGuard snapshot{CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0U)};
-        if (snapshot.value == INVALID_HANDLE_VALUE) {
-            lifecycle_warmed = false;
-            return last_error_status();
-        }
-
         const bool emit_lifecycle = lifecycle_warmed;
         ++generation;
-        PROCESSENTRY32W entry{};
-        entry.dwSize = sizeof(entry);
-        BOOL has_entry = Process32FirstW(snapshot.value, &entry);
-        while (has_entry != FALSE) {
-            ++destination.process_diagnostics.enumerated;
-            collect_entry(entry, collect_counters, resolve_paths, emit_lifecycle,
-                          destination);
-            entry.dwSize = sizeof(entry);
-            has_entry = Process32NextW(snapshot.value, &entry);
-        }
-        const auto final_error = GetLastError();
-        if (final_error != ERROR_NO_MORE_FILES) {
+        last_diagnostics = {};
+        const auto enumeration_status = resolve_paths
+            ? collect_metadata_enumeration(collect_counters, emit_lifecycle,
+                                           destination)
+            : collect_fast_enumeration(collect_counters, emit_lifecycle,
+                                       destination);
+        if (enumeration_status != MetricStatus::available) {
             destination.process_lifecycle_events.clear();
             lifecycle_warmed = false;
-            return final_error == ERROR_ACCESS_DENIED
-                       ? MetricStatus::inaccessible
-                       : MetricStatus::temporarily_unavailable;
+            return enumeration_status;
         }
 
         for (auto iterator = metadata.begin(); iterator != metadata.end();) {
@@ -125,6 +132,10 @@ struct WindowsProcessCollector::State {
                     destination.process_lifecycle_events.push_back(
                         RawProcessLifecycleEvent{iterator->first,
                                                  RawProcessLifecycleKind::exited});
+                }
+                const auto active = active_by_pid.find(iterator->first.pid.value);
+                if (active != active_by_pid.end() && active->second == iterator->first) {
+                    active_by_pid.erase(active);
                 }
                 iterator = metadata.erase(iterator);
             } else {
@@ -135,21 +146,104 @@ struct WindowsProcessCollector::State {
         return MetricStatus::available;
     }
 
+    [[nodiscard]] MetricStatus collect_metadata_enumeration(
+        const bool collect_counters,
+        const bool emit_lifecycle,
+        RawTelemetrySnapshot& destination) {
+        HandleGuard snapshot{CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0U)};
+        if (snapshot.value == INVALID_HANDLE_VALUE) return last_error_status();
+        PROCESSENTRY32W entry{};
+        entry.dwSize = sizeof(entry);
+        BOOL has_entry = Process32FirstW(snapshot.value, &entry);
+        while (has_entry != FALSE) {
+            ++destination.process_diagnostics.enumerated;
+            collect_entry(entry, collect_counters, true, emit_lifecycle,
+                          destination);
+            entry.dwSize = sizeof(entry);
+            has_entry = Process32NextW(snapshot.value, &entry);
+        }
+        const auto final_error = GetLastError();
+        return final_error == ERROR_NO_MORE_FILES
+                   ? MetricStatus::available
+                   : final_error == ERROR_ACCESS_DENIED
+                         ? MetricStatus::inaccessible
+                         : MetricStatus::temporarily_unavailable;
+    }
+
+    [[nodiscard]] MetricStatus collect_fast_enumeration(
+        const bool collect_counters,
+        const bool emit_lifecycle,
+        RawTelemetrySnapshot& destination) {
+        DWORD bytes{};
+        if (EnumProcesses(process_ids.data(), static_cast<DWORD>(sizeof(process_ids)),
+                          &bytes) == 0) {
+            return last_error_status();
+        }
+        if (bytes >= sizeof(process_ids) || bytes % sizeof(process_ids[0]) != 0U) {
+            return MetricStatus::temporarily_unavailable;
+        }
+        const auto count = static_cast<std::size_t>(bytes / sizeof(process_ids[0]));
+        for (std::size_t index = 0U; index < count; ++index) {
+            if (process_ids[index] == 0U) continue;
+            PROCESSENTRY32W entry{};
+            entry.dwSize = sizeof(entry);
+            entry.th32ProcessID = process_ids[index];
+            ++destination.process_diagnostics.enumerated;
+            collect_entry(entry, collect_counters, false, emit_lifecycle,
+                          destination);
+        }
+        return MetricStatus::available;
+    }
+
     void collect_entry(const PROCESSENTRY32W& entry,
                        const bool collect_counters,
                        const bool resolve_paths,
                        const bool emit_lifecycle,
                        RawTelemetrySnapshot& destination) {
         const auto pid = static_cast<std::uint32_t>(entry.th32ProcessID);
-        HandleGuard process{OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,
-                                        FALSE, entry.th32ProcessID)};
-        if (process.value == nullptr) {
+        auto active = active_by_pid.find(pid);
+        auto cached = metadata.end();
+        if (active != active_by_pid.end()) {
+            cached = metadata.find(active->second);
+            if (cached == metadata.end()) {
+                active_by_pid.erase(active);
+            } else {
+                const auto wait = WaitForSingleObject(cached->second.process.value, 0U);
+                if (wait == WAIT_TIMEOUT) {
+                    ++last_diagnostics.handles_reused;
+                } else if (wait == WAIT_OBJECT_0) {
+                    if (emit_lifecycle) {
+                        destination.process_lifecycle_events.push_back(
+                            RawProcessLifecycleEvent{cached->first,
+                                                     RawProcessLifecycleKind::exited});
+                    }
+                    active_by_pid.erase(active);
+                    metadata.erase(cached);
+                    cached = metadata.end();
+                } else {
+                    cached = metadata.end();
+                }
+            }
+        }
+
+        HandleGuard opened{};
+        HANDLE process = cached != metadata.end()
+                             ? cached->second.process.value
+                             : OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION |
+                                               SYNCHRONIZE,
+                                           FALSE, entry.th32ProcessID);
+        if (cached == metadata.end() && process != nullptr) {
+            opened.reset(process);
+            ++last_diagnostics.handles_opened;
+        }
+        if (process == nullptr || process == INVALID_HANDLE_VALUE) {
             // The Tool Help snapshot still proves that this PID existed at
             // enumeration time. Preserve any prior durable identity so an
             // access transition cannot fabricate an exit/start pair.
-            for (auto& [identity, cached] : metadata) {
-                if (identity.pid.value == pid) cached.generation = generation;
+            for (auto& [identity, metadata_entry] : metadata) {
+                if (identity.pid.value == pid) metadata_entry.generation = generation;
             }
+            ++last_diagnostics.handle_open_failures;
             ++destination.process_diagnostics.inaccessible;
             return;
         }
@@ -158,13 +252,15 @@ struct WindowsProcessCollector::State {
         FILETIME exit{};
         FILETIME kernel{};
         FILETIME user{};
-        if (GetProcessTimes(process.value, &creation, &exit, &kernel, &user) == 0) {
+        const bool need_times = cached == metadata.end() || collect_counters;
+        if (need_times &&
+            GetProcessTimes(process, &creation, &exit, &kernel, &user) == 0) {
             // The process was present in this enumeration even if its durable
             // creation token became unreadable before we queried it. Preserve
             // any prior identity for this PID so the transient race cannot be
             // misreported as a lifecycle transition.
-            for (auto& [identity, cached] : metadata) {
-                if (identity.pid.value == pid) cached.generation = generation;
+            for (auto& [identity, metadata_entry] : metadata) {
+                if (identity.pid.value == pid) metadata_entry.generation = generation;
             }
             const auto error = GetLastError();
             if (error == ERROR_INVALID_PARAMETER || error == ERROR_INVALID_HANDLE) {
@@ -175,8 +271,10 @@ struct WindowsProcessCollector::State {
             return;
         }
 
-        const ProcessIdentity identity{ProcessId{pid}, file_time_ticks(creation)};
-        auto cached = metadata.find(identity);
+        const ProcessIdentity identity = cached != metadata.end()
+            ? cached->first
+            : ProcessIdentity{ProcessId{pid}, file_time_ticks(creation)};
+        if (cached == metadata.end()) cached = metadata.find(identity);
         const bool is_new = cached == metadata.end();
         if (is_new) {
             if (metadata.size() >= maximum_processes) {
@@ -185,6 +283,7 @@ struct WindowsProcessCollector::State {
             }
             CachedMetadata value{};
             value.info.identity = identity;
+            value.process = std::move(opened);
             value.info.parent_pid = MetricValue<ProcessId>::available(
                 ProcessId{static_cast<std::uint32_t>(entry.th32ParentProcessID)});
             auto name = utf8(entry.szExeFile);
@@ -195,17 +294,32 @@ struct WindowsProcessCollector::State {
             value.info.executable_path = MetricValue<std::string>::unavailable(
                 MetricStatus::temporarily_unavailable);
             cached = metadata.emplace(identity, std::move(value)).first;
+            active_by_pid[pid] = identity;
             if (emit_lifecycle) {
                 destination.process_lifecycle_events.push_back(
                     RawProcessLifecycleEvent{identity,
                                              RawProcessLifecycleKind::started});
             }
+        } else if (opened.value != nullptr &&
+                   opened.value != INVALID_HANDLE_VALUE) {
+            cached->second.process = std::move(opened);
+            active_by_pid[pid] = identity;
         }
         cached->second.generation = generation;
 
+        if (resolve_paths) {
+            cached->second.info.parent_pid = MetricValue<ProcessId>::available(
+                ProcessId{static_cast<std::uint32_t>(entry.th32ParentProcessID)});
+            auto name = utf8(entry.szExeFile);
+            if (!name.empty()) {
+                cached->second.info.name =
+                    MetricValue<std::string>::available(std::move(name));
+            }
+        }
+
         if (resolve_paths && !cached->second.path_terminal) {
             DWORD size = maximum_path_characters;
-            if (QueryFullProcessImageNameW(process.value, 0U, path_buffer.data(), &size) != 0) {
+            if (QueryFullProcessImageNameW(process, 0U, path_buffer.data(), &size) != 0) {
                 path_buffer[size] = L'\0';
                 auto path = utf8(path_buffer.data());
                 cached->second.info.executable_path = path.empty()
@@ -247,7 +361,7 @@ struct WindowsProcessCollector::State {
 
             PROCESS_MEMORY_COUNTERS memory{};
             memory.cb = sizeof(memory);
-            if (GetProcessMemoryInfo(process.value, &memory, sizeof(memory)) != 0) {
+            if (GetProcessMemoryInfo(process, &memory, sizeof(memory)) != 0) {
                 counters.working_set = MetricValue<ByteCount>::available(
                     ByteCount{static_cast<std::uint64_t>(memory.WorkingSetSize)});
             } else {
@@ -255,7 +369,7 @@ struct WindowsProcessCollector::State {
             }
 
             IO_COUNTERS io{};
-            if (GetProcessIoCounters(process.value, &io) != 0) {
+            if (GetProcessIoCounters(process, &io) != 0) {
                 counters.disk_read_bytes = MetricValue<ByteCount>::available(
                     ByteCount{io.ReadTransferCount});
                 counters.disk_write_bytes = MetricValue<ByteCount>::available(
@@ -270,9 +384,12 @@ struct WindowsProcessCollector::State {
     }
 
     std::unordered_map<ProcessIdentity, CachedMetadata, IdentityHash> metadata{};
+    std::unordered_map<std::uint32_t, ProcessIdentity> active_by_pid{};
+    std::array<DWORD, maximum_processes> process_ids{};
     std::array<wchar_t, maximum_path_characters + 1U> path_buffer{};
     std::uint64_t generation{};
     bool lifecycle_warmed{};
+    WindowsProcessCollectorDiagnostics last_diagnostics{};
 };
 
 WindowsProcessCollector::WindowsProcessCollector() noexcept
@@ -291,6 +408,12 @@ MetricStatus WindowsProcessCollector::collect(
 
 std::size_t WindowsProcessCollector::cache_size() const noexcept {
     return state_ != nullptr ? state_->metadata.size() : 0U;
+}
+
+WindowsProcessCollectorDiagnostics
+WindowsProcessCollector::diagnostics() const noexcept {
+    return state_ != nullptr ? state_->last_diagnostics
+                             : WindowsProcessCollectorDiagnostics{};
 }
 
 } // namespace blackbox::telemetry::windows

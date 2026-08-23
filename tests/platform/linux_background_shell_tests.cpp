@@ -95,15 +95,18 @@ TEST_CASE("Linux autostart is an exact owned XDG desktop entry",
     CHECK_FALSE(std::filesystem::exists(desktop));
 }
 
-TEST_CASE("Linux preview reports unsupported desktop notifications honestly",
+TEST_CASE("Linux preview reports unavailable session-bus notifications honestly",
           "[platform][linux][background][notification]") {
     const TemporaryDirectory temporary;
     linux_platform::LinuxBackgroundShell shell{options_for(temporary)};
     REQUIRE(shell.start([](platform::BackgroundShellCommand) {}) ==
             platform::BackgroundShellStartResult::started);
     shell.set_notifications_enabled(true);
-    CHECK_FALSE(shell.notify("Capture complete", "Saved locally"));
-    CHECK(shell.diagnostics().notifications_dropped == 1U);
+    const auto available = shell.diagnostics().notifications_available;
+    const auto accepted = shell.notify("Capture complete", "Saved locally");
+    CHECK(accepted == available);
+    if (!available) CHECK(shell.diagnostics().notifications_dropped == 1U);
     shell.set_notifications_enabled(false);
     CHECK_FALSE(shell.notifications_enabled());
+    CHECK_FALSE(shell.notify("Capture complete", "Saved locally"));
 }

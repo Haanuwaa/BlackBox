@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=BlackBox
+GenericName=Computer Flight Recorder
+Comment=Keep a bounded local history for incident capture
+Exec=blackbox
+Icon=io.github.Haanuwaa.BlackBox
+Terminal=false
+Categories=System;Utility;
+Keywords=telemetry;incident;diagnostics;performance;
+StartupNotify=false

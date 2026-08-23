@@ -20,12 +20,18 @@ jobs:
           - id: ubuntu
             image: ubuntu:24.04
             family: apt
+            native_package: deb
+            package_generators: "TGZ;DEB"
           - id: debian
             image: debian:13
             family: apt
+            native_package: deb
+            package_generators: "TGZ;DEB"
           - id: fedora
             image: fedora:43
             family: dnf
+            native_package: rpm
+            package_generators: "TGZ;RPM"
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg-${{ matrix.id }}
       DEBIAN_FRONTEND: noninteractive
@@ -37,7 +43,7 @@ jobs:
             apt-get update
             apt-get install --yes --no-install-recommends \
               build-essential cmake ninja-build git curl ca-certificates zip unzip tar \
-              pkg-config python3 file binutils xvfb xauth \
+              pkg-config python3 file binutils xvfb xauth desktop-file-utils \
               libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev \
               libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
               libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
@@ -46,7 +52,8 @@ jobs:
           else
             dnf install --assumeyes \
               gcc gcc-c++ make cmake ninja-build git curl ca-certificates zip unzip tar \
-              pkgconf-pkg-config python3 file binutils findutils which \
+              pkgconf-pkg-config python3 file binutils findutils which rpm-build cpio \
+              desktop-file-utils \
               xorg-x11-server-Xvfb xorg-x11-xauth \
               libX11-devel libXext-devel libXrandr-devel libXrender-devel \
               libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel \
@@ -72,6 +79,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON
           -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}"
+          -DBLACKBOX_LINUX_PACKAGE_GENERATORS="${{ matrix.package_generators }}"
           -DBLACKBOX_WARNINGS_AS_ERRORS=ON
       - name: Build and test native graph
         shell: bash
@@ -129,11 +137,29 @@ jobs:
           grep -Fxq "completed=1" "$package_report"
           grep -Fxq "failed_samples=0" "$package_report"
 
+          native_package="$(find "$build" -maxdepth 1 -type f \
+            -name "*.${{ matrix.native_package }}" -print -quit)"
+          test -n "$native_package" && test -s "$native_package"
+          native_extract="$build/native-package-smoke"
+          native_executable="$(bash scripts/verify-linux-engineering-package.sh \
+            "${{ matrix.native_package }}" "$native_package" "$native_extract")"
+          native_report="$(pwd)/$build/linux-native-package-smoke.ini"
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+            "$native_executable" --background-diagnostic-seconds=2 \
+            --diagnostic-report="$native_report"
+          grep -Fxq "platform=Linux" "$native_report"
+          grep -Fxq "source_revision=$GITHUB_SHA" "$native_report"
+          grep -Fxq "completed=1" "$native_report"
+          grep -Fxq "failed_samples=0" "$native_report"
+
           overhead="$build/linux-provider-overhead.ini"
           evidence="$build/linux-${{ matrix.id }}-compatibility.ini"
           package_name="$(basename "$package")"
           package_bytes="$(stat --format=%s "$package")"
           package_sha256="$(sha256sum "$package" | awk '{print $1}')"
+          native_package_name="$(basename "$native_package")"
+          native_package_bytes="$(stat --format=%s "$native_package")"
+          native_package_sha256="$(sha256sum "$native_package" | awk '{print $1}')"
           pretty_name="$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | tr -d '"' | head -n 1)"
           cat > "$evidence" <<EOF
           format=1
@@ -144,6 +170,10 @@ jobs:
           package_name=$package_name
           package_bytes=$package_bytes
           package_sha256=$package_sha256
+          native_package_kind=${{ matrix.native_package }}
+          native_package_name=$native_package_name
+          native_package_bytes=$native_package_bytes
+          native_package_sha256=$native_package_sha256
           provider_samples=$(awk -F= '$1 == "samples" { print $2 }' "$overhead")
           provider_failed=$(awk -F= '$1 == "failed" { print $2 }' "$overhead")
           provider_processes_max=$(awk -F= '$1 == "processes_max" { print $2 }' "$overhead")
@@ -162,9 +192,12 @@ jobs:
           name: BlackBox-linux-${{ matrix.id }}-${{ github.sha }}
           path: |
             out/build/linux-${{ matrix.id }}/BlackBox-*-linux-*-engineering-preview.tar.gz
+            out/build/linux-${{ matrix.id }}/*.deb
+            out/build/linux-${{ matrix.id }}/*.rpm
             out/build/linux-${{ matrix.id }}/linux-provider-overhead.ini
             out/build/linux-${{ matrix.id }}/linux-desktop-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-package-smoke.ini
+            out/build/linux-${{ matrix.id }}/linux-native-package-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
           if-no-files-found: error
 

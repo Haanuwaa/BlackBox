@@ -13,12 +13,12 @@ This matrix separates portable domain readiness from real collection. Windows so
 - Providers receive a tier set and caller-owned destination. Snapshot vector capacity is retained for reuse; tier selection does not prescribe scheduling frequency.
 - `ProviderSampleResult` describes overall collection, while each metric preserves its own availability state.
 
-| Metric | Internal representation | Units | Tier / initial frequency | Windows source/API | Privilege | Normalization | Expected cost | Future Linux source | Future macOS source | Status |
+| Metric | Internal representation | Units | Tier / initial frequency | Windows source/API | Privilege | Normalization | Expected cost | Linux source | macOS source | Status |
 |---|---|---:|---|---|---|---|---|---|---|---|
 | Observation time | `MonotonicTimePoint` plus future wall-clock correlation | monotonic duration | Fast / 1 Hz | C++ monotonic clock contract; wall correlation TBD | None | None; monotonic time drives deltas | Negligible | C++ clocks | C++ clocks | Portable contract implemented V0.0.2 |
-| Total CPU | `MetricValue<Ratio>` | fraction `[0,1]` | Fast / 1 Hz | `GetSystemTimes` selected | None | Busy tick delta / total tick delta; Windows kernel includes idle | Very low; measured in provider benchmark | `/proc/stat` | `host_processor_info` / Mach candidate | Windows implemented V0.0.3; >64-LP limitation |
-| RAM used | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GlobalMemoryStatusEx` selected | None | `total - available`, with consistency guard | Very low; measured with CPU call | `/proc/meminfo` | `host_statistics64` candidate | Windows implemented V0.0.3 |
-| RAM total | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GlobalMemoryStatusEx` selected | None | Gauge | Very low; measured with CPU call | `/proc/meminfo` | `sysctl` / `host_statistics64` candidate | Windows implemented V0.0.3 |
+| Total CPU | `MetricValue<Ratio>` | fraction `[0,1]` | Fast / 1 Hz | `GetSystemTimes` selected | None | Busy tick delta / total tick delta; Windows kernel includes idle | Very low; measured in provider benchmark | `/proc/stat` | Mach host CPU ticks | Windows/Linux/macOS implemented; Windows >64-LP limitation |
+| RAM used | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GlobalMemoryStatusEx` selected | None | `total - available`, with consistency guard | Very low; measured with CPU call | `/proc/meminfo` | Mach VM statistics plus `hw.memsize` | Windows/Linux/macOS implemented |
+| RAM total | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GlobalMemoryStatusEx` selected | None | Gauge | Very low; measured with CPU call | `/proc/meminfo` | `sysctlbyname("hw.memsize")` | Windows/Linux/macOS implemented |
 | RAM utilization | `MetricValue<Ratio>` | fraction `[0,1]` | Normal / 1 Hz | Derived | None | `used / total`, with zero guard | Negligible | Derived | Derived | Domain/normalization implemented V0.0.2 |
 | Disk read throughput | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | PDH `PhysicalDisk(*)\\Disk Read Bytes/sec` selected | None observed | Per-instance lifecycle-safe cumulative aggregation, then measured-time delta | Low; measured in provider benchmark | `/proc/diskstats` | IOKit statistics candidate | Windows implemented V0.0.5 |
 | Disk write throughput | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | PDH `PhysicalDisk(*)\\Disk Write Bytes/sec` selected | None observed | Same as read | Low; measured in provider benchmark | `/proc/diskstats` | IOKit statistics candidate | Windows implemented V0.0.5 |
@@ -27,14 +27,14 @@ This matrix separates portable domain readiness from real collection. Windows so
 | Network transmit | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | `GetIfTable2` `OutOctets` selected | None observed | Same as receive | Low; measured with provider | `/proc/net/dev` or rtnetlink | Network interface counters candidate | Windows implemented V0.0.5 |
 | Network connectivity/transitions | typed level plus interval count | level, events | Fast / 1 Hz | `GetNetworkConnectivityHint` + `GetIfTable2` | None observed | Aggregate hint and bounded lifecycle delta | Low | Candidate | Candidate | Windows implemented V0.13 |
 | TCP retransmission/failure/reset | ratio plus interval counts | fraction, events | Fast / 1 Hz | `GetTcpStatisticsEx` IPv4+IPv6 | None observed | Counter deltas; retransmission ratio requires 8 segments | Low | Candidate | Candidate | Windows implemented V0.13 |
-| Process identity | `ProcessIdentity` (PID + creation token) | opaque | Normal / 1 Hz | Tool Help plus `GetProcessTimes` creation `FILETIME` selected | Protected processes may be inaccessible | PID paired with creation time; new identity always warms up | Medium; measured | `/proc/<pid>/stat` start time | `proc_pidinfo` candidate | Windows implemented V0.0.6 |
-| Parent PID | `MetricValue<ProcessId>` | opaque | Normal / lifecycle | `PROCESSENTRY32W.th32ParentProcessID` selected | Enumeration itself needs no elevation | Cached snapshot value; parent identity is not inferred | Part of Tool Help enumeration | `/proc/<pid>/stat` | `proc_pidinfo` candidate | Windows implemented V0.0.6 |
-| Process name | cached UTF-8 string | text | Normal / creation | `PROCESSENTRY32W.szExeFile` selected | Gaps only when identity cannot be opened | UTF-16 to UTF-8 once per identity | Low when cached | `/proc/<pid>/comm` | `proc_name` candidate | Windows implemented V0.0.6 |
-| Executable path | cached UTF-8 string / unavailable | text | Slow / 30 s and creation lifecycle | `QueryFullProcessImageNameW` selected | Access may be denied | Resolve once; access denial is terminal for identity; transient failures retry only on slow tier | Bounded slow-tier work | `/proc/<pid>/exe` | `proc_pidpath` candidate | Windows implemented V0.0.6 |
-| Process CPU | `MetricValue<Ratio>` | fraction of total machine capacity | Normal / 1 Hz | `GetProcessTimes` selected | Limited-query access may fail | CPU-time delta / measured wall interval / active logical CPU count | Medium across all accessible processes | `/proc/<pid>/stat` | `proc_pid_rusage` candidate | Windows implemented V0.0.6 |
-| Process working set | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GetProcessMemoryInfo` selected | Limited-query access may fail | Gauge; no delta | Medium across all accessible processes | `/proc/<pid>/statm` or `status` | `proc_pid_rusage` candidate | Windows implemented V0.0.6 |
-| Process I/O read | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.ReadTransferCount` selected | Limited-query access may fail | Per-identity cumulative byte delta / measured seconds | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` candidate | Windows implemented V0.0.6 |
-| Process I/O write | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.WriteTransferCount` selected | Limited-query access may fail | Same as process read | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` candidate | Windows implemented V0.0.6 |
+| Process identity | `ProcessIdentity` (PID + creation token) | opaque | Normal / 1 Hz | `EnumProcesses` plus cached `GetProcessTimes` creation `FILETIME` | Protected processes may be inaccessible | PID paired with creation time; new identity always warms up | Medium; measured | `/proc/<pid>/stat` start time | `proc_pid_rusage` start time | Windows/Linux/macOS implemented |
+| Parent PID | `MetricValue<ProcessId>` | opaque | Normal / lifecycle | Slow-tier Tool Help metadata snapshot | Enumeration itself needs no elevation | Cached snapshot value; parent identity is not inferred | Slow-tier only | `/proc/<pid>/stat` | `proc_pidinfo` BSD info | Windows/Linux/macOS implemented |
+| Process name | cached UTF-8 string | text | Normal / creation | Slow-tier `PROCESSENTRY32W.szExeFile` | Gaps only when identity cannot be opened | UTF-16 to UTF-8 once per identity | Low when cached | `/proc/<pid>/comm` | `proc_name` | Windows/Linux/macOS implemented |
+| Executable path | cached UTF-8 string / unavailable | text | Slow / 30 s and creation lifecycle | `QueryFullProcessImageNameW` selected | Access may be denied | Resolve on slow tier; unavailable remains explicit | Bounded slow-tier work | `/proc/<pid>/exe` | `proc_pidpath` | Windows/Linux/macOS implemented |
+| Process CPU | `MetricValue<Ratio>` | fraction of total machine capacity | Normal / 1 Hz | `GetProcessTimes` selected | Limited-query access may fail | CPU-time delta / measured wall interval / active logical CPU count | Medium across all accessible processes | `/proc/<pid>/stat` | `proc_pid_rusage` | Windows/Linux/macOS implemented |
+| Process working set | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GetProcessMemoryInfo` selected | Limited-query access may fail | Gauge; no delta | Medium across all accessible processes | `/proc/<pid>/status` | `proc_pid_rusage` resident size | Windows/Linux/macOS implemented |
+| Process I/O read | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.ReadTransferCount` selected | Limited-query access may fail | Per-identity cumulative byte delta / measured seconds | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes read | Windows/Linux/macOS implemented |
+| Process I/O write | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.WriteTransferCount` selected | Limited-query access may fail | Same as process read | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes written | Windows/Linux/macOS implemented |
 | GPU engine/memory | `MetricValue<Ratio>` plus two `MetricValue<ByteCount>` gauges | fraction `[0,1]`, bytes | Fast / 1 Hz | Persistent PDH `GPU Engine(*)` and `GPU Adapter Memory(*)` queries | None observed | Busiest physical engine after per-engine process summation; dedicated/shared bytes summed | Optional bounded PDH arrays; measured with provider | DRM/sysfs/vendor candidates | Metal/IOKit candidate | Windows implemented V0.14; capability gated |
 | Foreground application/GPU correlation | `MetricValue<ProcessIdentity>` plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Fast / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | Current `(PID, creation token)` plus maximum matching current-PID engine usage; correlation only | Optional; no title or content read | Desktop/session candidates | Workspace/accessibility candidates | Windows implemented V0.14; privacy gated |
 | DPC/ISR responsiveness | two `MetricValue<Ratio>` plus `MetricValue<double>` | fractions `[0,1]`, DPC/s | Fast / 1 Hz | Persistent PDH `Processor Information(_Total)` DPC/interrupt counters | None observed | Percentages divided by 100 and clamped; nonnegative rate gauge | Optional bounded PDH query | `/proc/interrupts`/trace candidates | Instruments candidate | Windows implemented V0.14; context only |
@@ -101,10 +101,31 @@ contract. Portable parser tests also run on Windows. A separate hosted step buil
 desktop target and runs a bounded diagnostic smoke under Xvfb. Reused pseudo-file buffers avoid
 reallocating provider scratch storage on each observation. A native all-tier benchmark retains direct-v1
 timing/RSS aggregates and fails if P95 exceeds 250 ms, any observation exceeds one second, the process
-inventory is empty, or a provider sample fails. CI also creates a TGZ engineering preview, extracts it,
-and launches the packaged executable under Xvfb. This is engineering evidence only: BlackBox does not
-yet claim Linux product support, background-shell behavior, physical client behavior, or representative
-cross-distribution compatibility.
+inventory is empty, or a provider sample fails. CI creates TGZ and native DEB/RPM engineering
+previews, validates their desktop/RPATH/package metadata, extracts them, and launches the packaged
+executable under Xvfb. The Linux platform layer also uses the session D-Bus notification service
+through a bounded asynchronous queue and requests global shortcut registration through
+`org.freedesktop.portal.GlobalShortcuts`; unavailable services remain explicit and a missing tray
+host keeps the window reachable. This is engineering evidence only: BlackBox does not claim physical
+Linux product qualification.
+
+## macOS system/process engineering provider
+
+The macOS-only `MacosTelemetryProvider` uses the same caller-owned snapshot and capability contract.
+Mach host CPU ticks provide cumulative busy/total counters; `host_statistics64` plus
+`sysctlbyname("hw.memsize")` provide physical-memory gauges; and `hw.logicalcpu` reports capacity.
+The process collector enumerates bounded PIDs with libproc, keys each identity by PID plus the
+microsecond process start token from `proc_pid_rusage`, and collects cumulative CPU time, resident
+memory, and disk read/write bytes. Name, parent PID, and executable path remain metadata, with path
+resolution limited to slow-tier requests. Access races and protected identities stay per-process
+gaps instead of failing the provider. Disk, network, GPU, event, power, platform-shell, and crash
+metrics are explicitly unsupported.
+
+`blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry, and
+the native libproc boundary. Hosted Apple Silicon and Intel jobs build/test the complete desktop
+graph, exercise the real-host provider contract, collect 64 bounded benchmark observations, and
+create an unsigned TGZ engineering preview. That evidence does not qualify physical client behavior,
+background services, signing, notarization, or product support.
 
 ## Deterministic mock scenarios
 
@@ -175,9 +196,19 @@ A controlled 64 MiB TCP loopback fixture validates the exclusion policy: the tra
 
 ### Enumeration and identity
 
-BlackBox selects one `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` walk per normal observation. `PROCESSENTRY32W` supplies PID, parent PID, and base executable name. Each PID is opened with `PROCESS_QUERY_LIMITED_INFORMATION`; `GetProcessTimes` creation `FILETIME` becomes the creation token. No time series or metadata cache is keyed by PID alone. PID reuse, exit, and later reappearance therefore establish new counter baselines and cannot join unrelated processes. Microsoft documents that Tool Help returns process name/PID/parent PID, while process access checks still apply when BlackBox opens an individual process. Sources: [CreateToolhelp32Snapshot](https://learn.microsoft.com/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot), [Process32First](https://learn.microsoft.com/windows/win32/api/tlhelp32/nf-tlhelp32-process32first), and [process access rights](https://learn.microsoft.com/windows/win32/procthread/process-security-and-access-rights).
+Normal-tier collection uses bounded PSAPI `EnumProcesses` PID discovery and reuses identity-bound
+handles opened with limited-query plus synchronize rights. Each cached handle must still refer to a
+live process object, and `GetProcessTimes` creation `FILETIME` must match the cached identity before
+reuse; PID recycling therefore cannot join unrelated processes. Parent PID and base executable name
+are refreshed with Tool Help only on the independent slow tier, alongside executable paths. The
+8,192-PID enumeration fails closed if the fixed buffer fills instead of silently returning an
+incomplete inventory.
 
-The Release comparison on the validation host enumerated 286 processes with all three candidates. PSAPI `EnumProcesses` averaged 0.017 ms but provides only PID values. PDH `Process(*)\\ID Process` averaged 2.265 ms and returned 287 instances, including its aggregate/special instance; process instance names are not durable identities. Tool Help averaged 4.263 ms, but supplies the lifecycle metadata BlackBox needs without a second enumeration source. Tool Help plus all per-process queries was therefore selected as the simplest identity-correct path.
+On the same validation host, the untouched all-tier path averaged 11.366 ms (P95 13.660 ms); the
+normal-tier PSAPI/identity-handle implementation averaged 3.246 ms (P95 3.633 ms, P99 4.181 ms), a
+roughly 71% average reduction while preserving full creation-token identity. The final warm sample
+reused 192 live handles and explicitly reported 132 inaccessible identities. Tool Help remains the
+metadata source, but no longer taxes every normal observation. Sources: [EnumProcesses](https://learn.microsoft.com/windows/win32/api/psapi/nf-psapi-enumprocesses), [CreateToolhelp32Snapshot](https://learn.microsoft.com/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot), and [process access rights](https://learn.microsoft.com/windows/win32/procthread/process-security-and-access-rights).
 
 ### Counters and availability
 
@@ -187,7 +218,13 @@ Protected and system processes are expected gaps, not whole-provider failures. O
 
 ### Metadata, cadence, and bounds
 
-Base name and parent PID are converted/cached once when a `(PID, creation_token)` first appears. Executable paths use `QueryFullProcessImageNameW`, which accepts limited-query handles on supported Windows versions. Path resolution runs on an independent 30-second slow tier; the collector's initial observation includes that tier, while a process born later may wait until the next slow observation. Success and access denial are terminal for that identity; only transient failures retry on a future slow tier. Normal one-second samples do not perform path queries. Source: [QueryFullProcessImageNameW](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-queryfullprocessimagenamew).
+Base name and parent PID are refreshed from the slow-tier Tool Help snapshot. Executable paths use
+`QueryFullProcessImageNameW`, which accepts limited-query handles on supported Windows versions.
+Path resolution runs on that same independent 30-second tier; the collector's initial observation
+includes it, while a process born later may wait until the next slow observation. Success and access
+denial are terminal for that identity; only transient failures retry on a future slow tier. Normal
+one-second samples perform neither Tool Help nor path queries. Source:
+[QueryFullProcessImageNameW](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-queryfullprocessimagenamew).
 
 The native metadata cache holds active identities only and is capped at 8,192. The portable collector cache retains exited metadata for the configured history so recorded frames remain resolvable, also capped at 8,192; it evicts the oldest inactive entry if full and never evicts an active entry merely to admit another. Process time series use a parallel `CircularRecorder<ProcessFrame>` and never enter `SystemSample` or the UI's 300-system-sample copy. A global 600,000-process-entry history budget yields 2,000 rows/frame at the default 300 frames and 500 rows/frame at 1,200 frames (250 ms for five minutes). Excess rows are omitted from history with an observable truncation count; the current active view remains complete.
 

@@ -1,0 +1,70 @@
+#include "core/clock.hpp"
+#include "telemetry/macos/macos_telemetry_provider.hpp"
+#include "telemetry/provider.hpp"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <unistd.h>
+
+namespace core = blackbox::core;
+namespace macos = blackbox::telemetry::macos;
+namespace telemetry = blackbox::telemetry;
+
+TEST_CASE("macOS provider exposes native CPU memory and process evidence",
+          "[telemetry][macos][integration]") {
+    core::SystemMonotonicClock clock;
+    macos::MacosTelemetryProvider provider{clock};
+    telemetry::RawTelemetrySnapshot snapshot;
+
+    const auto result = provider.sample({}, snapshot);
+    CHECK(result.sequence == 1U);
+    CHECK(result.status == telemetry::ProviderSampleStatus::complete);
+    CHECK(snapshot.system.cpu_time.has_value());
+    CHECK(snapshot.system.cpu_time.value.total_ticks >=
+          snapshot.system.cpu_time.value.busy_ticks);
+    CHECK(snapshot.system.logical_processor_count.has_value());
+    CHECK(snapshot.system.logical_processor_count.value >= 1U);
+    REQUIRE(snapshot.system.memory_total.has_value());
+    REQUIRE(snapshot.system.memory_available.has_value());
+    CHECK(snapshot.system.memory_total.value.value >=
+          snapshot.system.memory_available.value.value);
+    CHECK_FALSE(snapshot.processes.empty());
+    CHECK(telemetry::validate_provider_snapshot_contract(
+              provider.capabilities(), {}, snapshot) ==
+          telemetry::ProviderContractViolation::none);
+}
+
+TEST_CASE("macOS process evidence identifies the current executable",
+          "[telemetry][macos][process][integration]") {
+    core::SystemMonotonicClock clock;
+    macos::MacosTelemetryProvider provider{clock};
+    telemetry::RawTelemetrySnapshot snapshot;
+    REQUIRE(provider.sample({}, snapshot).status ==
+            telemetry::ProviderSampleStatus::complete);
+
+    const auto own_pid = static_cast<std::uint32_t>(::getpid());
+    const auto process = std::find_if(
+        snapshot.processes.begin(), snapshot.processes.end(),
+        [own_pid](const telemetry::RawProcessCounters& value) {
+            return value.identity.pid.value == own_pid;
+        });
+    REQUIRE(process != snapshot.processes.end());
+    CHECK(process->identity.creation_token != 0U);
+    CHECK(process->cpu_time.has_value());
+    CHECK(process->working_set.has_value());
+    CHECK(process->disk_read_bytes.has_value());
+    CHECK(process->disk_write_bytes.has_value());
+
+    const auto metadata = std::find_if(
+        snapshot.process_metadata.begin(), snapshot.process_metadata.end(),
+        [identity = process->identity](const telemetry::ProcessInfo& value) {
+            return value.identity == identity;
+        });
+    REQUIRE(metadata != snapshot.process_metadata.end());
+    CHECK(metadata->name.has_value());
+    CHECK_FALSE(metadata->name.value.empty());
+    CHECK(metadata->executable_path.has_value());
+    CHECK_FALSE(metadata->executable_path.value.empty());
+}

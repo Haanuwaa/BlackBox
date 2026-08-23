@@ -204,6 +204,15 @@ TEST_CASE("multi-monitor layout selects the greatest visible work area", "[ui][m
     CHECK(ui::choose_display_work_area(100, 100, 1100, 700, displays.data(), displays.size()) == 0U);
 }
 
+TEST_CASE("product navigation wraps before labels can clip",
+          "[ui][dpi][accessibility][navigation][layout]") {
+    CHECK(ui::navigation_column_count(1'100.0F) == 6U);
+    CHECK(ui::navigation_column_count(700.0F) == 3U);
+    CHECK(ui::navigation_column_count(360.0F) == 2U);
+    CHECK(ui::navigation_column_count(
+              std::numeric_limits<float>::quiet_NaN()) == 2U);
+}
+
 TEST_CASE("high contrast palette preserves maximum text contrast", "[ui][accessibility][high-contrast]") {
     const auto palette = ui::accessibility_palette(true, true);
     CHECK(palette.background[0] == 0.0F);

@@ -53,10 +53,18 @@ bootstrapping the tool, so the dependency registry and frontend are reproducible
 
 `.github/workflows/linux-compatibility.yml` is a separate engineering matrix for Ubuntu 24.04,
 Debian 13, and Fedora 43. Each container builds/tests the complete Linux desktop graph, exercises
-the no-tray shell/autostart contract, measures 64 real provider samples, packages the TGZ, and
-smoke-tests both the build-tree and extracted executable under Xvfb. Its direct-v1 reports compare
-package bytes, provider P95, and maximum observed process cardinality. Passing this workflow is a
-cross-distribution engineering result; it is not physical Linux product qualification.
+the shell/autostart/notification/portal-shortcut boundaries, measures 64 real provider samples,
+and creates a TGZ plus a native DEB or RPM. The package verifier checks desktop integration,
+application icon, executable layout, private-library RPATH, native package metadata, extraction,
+and launch under Xvfb. A dedicated packaged-app job still identifies the SDL Wayland driver under
+Weston. Its direct-v1 reports compare package bytes, provider P95, and maximum observed process
+cardinality. Passing this workflow is cross-distribution engineering evidence; it is not physical
+Linux product qualification.
+
+`.github/workflows/macos.yml` builds and tests the complete native graph on hosted Apple Silicon and
+Intel macOS runners, executes the real Mach/libproc provider contract and 64-sample benchmark, and
+creates an unsigned TGZ engineering preview. This validates the telemetry and composition boundary;
+it does not qualify background services, signing/notarization, or physical macOS product behavior.
 
 `.github/workflows/quality.yml` adds isolated dependency/SBOM, dependency-review, CodeQL, MSVC
 native-analysis, Windows ASan, Linux UBSan, native-fuzz, and coverage jobs. Run the local policy,

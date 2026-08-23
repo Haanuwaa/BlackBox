@@ -34,6 +34,7 @@ struct BackgroundShellDiagnostics {
     bool running{};
     bool tray_available{};
     bool window_visible{true};
+    bool notifications_available{};
     bool notifications_enabled{true};
     std::uint64_t commands_dispatched{};
     std::uint64_t notifications_sent{};

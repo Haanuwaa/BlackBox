@@ -39,6 +39,11 @@ function(blackbox_add_windows_version_resource target_name file_description)
     target_sources(${target_name} PRIVATE "${resource_file}")
 endfunction()
 
+set(BLACKBOX_RUNTIME_INSTALL_DESTINATION ".")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(BLACKBOX_RUNTIME_INSTALL_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
+
 add_library(blackbox_core STATIC
     core/incident.cpp
     core/logger.cpp
@@ -130,6 +135,20 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     blackbox_set_project_warnings(blackbox_telemetry_linux)
 endif()
 
+if(APPLE)
+    find_library(BLACKBOX_LIBPROC_LIBRARY proc REQUIRED)
+    add_library(blackbox_telemetry_macos STATIC
+        telemetry/macos/macos_process_collector.cpp
+        telemetry/macos/macos_telemetry_provider.cpp
+    )
+    add_library(BlackBox::TelemetryMacos ALIAS blackbox_telemetry_macos)
+    target_include_directories(blackbox_telemetry_macos PUBLIC ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_telemetry_macos PUBLIC cxx_std_23)
+    target_link_libraries(blackbox_telemetry_macos PUBLIC BlackBox::Telemetry)
+    target_link_libraries(blackbox_telemetry_macos PRIVATE ${BLACKBOX_LIBPROC_LIBRARY})
+    blackbox_set_project_warnings(blackbox_telemetry_macos)
+endif()
+
 add_library(blackbox_platform INTERFACE)
 add_library(BlackBox::Platform ALIAS blackbox_platform)
 target_include_directories(blackbox_platform INTERFACE ${PROJECT_SOURCE_DIR}/src)
@@ -137,14 +156,19 @@ target_compile_features(blackbox_platform INTERFACE cxx_std_23)
 target_link_libraries(blackbox_platform INTERFACE BlackBox::Core)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(BLACKBOX_DBUS REQUIRED IMPORTED_TARGET dbus-1)
     add_library(blackbox_platform_linux STATIC
         platform/linux/linux_background_shell.cpp
+        platform/linux/linux_global_hotkey_manager.cpp
     )
     add_library(BlackBox::PlatformLinux ALIAS blackbox_platform_linux)
     target_include_directories(blackbox_platform_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_platform_linux PUBLIC cxx_std_23)
     target_link_libraries(blackbox_platform_linux PUBLIC BlackBox::Platform)
-    target_link_libraries(blackbox_platform_linux PRIVATE SDL3::SDL3)
+    target_link_libraries(blackbox_platform_linux PRIVATE
+        SDL3::SDL3
+        PkgConfig::BLACKBOX_DBUS)
     blackbox_set_project_warnings(blackbox_platform_linux)
 endif()
 
@@ -208,7 +232,12 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
     target_compile_features(blackbox_dataset_tool PRIVATE cxx_std_23)
     target_link_libraries(blackbox_dataset_tool PRIVATE BlackBox::Storage)
     blackbox_set_project_warnings(blackbox_dataset_tool)
-    install(TARGETS blackbox_dataset_tool RUNTIME DESTINATION .)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set_property(TARGET blackbox_dataset_tool PROPERTY INSTALL_RPATH
+            "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/blackbox")
+    endif()
+    install(TARGETS blackbox_dataset_tool
+        RUNTIME DESTINATION "${BLACKBOX_RUNTIME_INSTALL_DESTINATION}")
 
     # Development-only wall-clock campaign helper. It operates exclusively on
     # the runner's isolated archive and is intentionally absent from packages.
@@ -231,7 +260,12 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
             BlackBox::Storage
         )
         blackbox_set_project_warnings(blackbox_dogfood_tool)
-        install(TARGETS blackbox_dogfood_tool RUNTIME DESTINATION .)
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set_property(TARGET blackbox_dogfood_tool PROPERTY INSTALL_RPATH
+                "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/blackbox")
+        endif()
+        install(TARGETS blackbox_dogfood_tool
+            RUNTIME DESTINATION "${BLACKBOX_RUNTIME_INSTALL_DESTINATION}")
 
         add_executable(blackbox_offline_ml_tool app/offline_ml_tool.cpp)
         blackbox_add_windows_version_resource(blackbox_offline_ml_tool
@@ -353,12 +387,13 @@ if(BLACKBOX_BUILD_APP)
     blackbox_copy_address_sanitizer_runtime(blackbox)
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set_property(TARGET blackbox PROPERTY INSTALL_RPATH "$ORIGIN")
+        set_property(TARGET blackbox PROPERTY INSTALL_RPATH
+            "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/blackbox")
         install(TARGETS blackbox
             RUNTIME_DEPENDENCY_SET blackbox_linux_runtime
-            RUNTIME DESTINATION .)
+            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
         install(RUNTIME_DEPENDENCY_SET blackbox_linux_runtime
-            DESTINATION .
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/blackbox"
             PRE_EXCLUDE_REGEXES
                 "^ld-linux.*"
                 "^lib(c|dl|gcc_s|m|pthread|rt|stdc\\+\\+)\\.so.*"
@@ -382,13 +417,26 @@ if(BLACKBOX_BUILD_APP)
             endif()
         endif()
     endif()
-    install(FILES
-        ${PROJECT_SOURCE_DIR}/README.md
-        ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
-        ${PROJECT_SOURCE_DIR}/ROADMAP.md
-        DESTINATION docs
-    )
-    install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/ DESTINATION docs)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        install(FILES
+            ${PROJECT_SOURCE_DIR}/README.md
+            ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
+            ${PROJECT_SOURCE_DIR}/ROADMAP.md
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/blackbox")
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/blackbox")
+        install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.Haanuwaa.BlackBox.desktop
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+        install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.Haanuwaa.BlackBox.svg
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps")
+    else()
+        install(FILES
+            ${PROJECT_SOURCE_DIR}/README.md
+            ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
+            ${PROJECT_SOURCE_DIR}/ROADMAP.md
+            DESTINATION docs)
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/ DESTINATION docs)
+    endif()
 
     if(WIN32)
         target_sources(blackbox PRIVATE app/windows/blackbox.manifest)
@@ -399,6 +447,7 @@ if(BLACKBOX_BUILD_APP)
         set_property(TARGET blackbox PROPERTY WIN32_EXECUTABLE TRUE)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="Windows")
     elseif(APPLE)
+        target_link_libraries(blackbox PRIVATE BlackBox::TelemetryMacos)
         target_compile_definitions(blackbox PRIVATE BLACKBOX_PLATFORM_NAME="macOS")
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(blackbox PRIVATE

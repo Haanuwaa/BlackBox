@@ -174,6 +174,7 @@ int main() {
         checksum += raw.processes.size();
     }
     const auto native = timing.summary();
+    const auto collector_diagnostics = collector.diagnostics();
     std::fprintf(stderr,
                  "sizeof_process_sample=%zu\nsizeof_process_frame=%zu\n"
                  "actual_enumerated=%u\nactual_sampled=%u\nactual_inaccessible=%u\n"
@@ -193,6 +194,14 @@ int main() {
                  static_cast<long long>(native.p95.count()),
                  static_cast<long long>(native.p99.count()),
                  collector.cache_size());
+    std::fprintf(stderr,
+                 "native_last_handles_opened=%llu\n"
+                 "native_last_handles_reused=%llu\n"
+                 "native_last_handle_open_failures=%llu\n",
+                 static_cast<unsigned long long>(collector_diagnostics.handles_opened),
+                 static_cast<unsigned long long>(collector_diagnostics.handles_reused),
+                 static_cast<unsigned long long>(
+                     collector_diagnostics.handle_open_failures));
 
     for (const std::size_t scale : {50U, 200U, 500U}) {
         telemetry::ProcessTelemetryNormalizer normalizer;

@@ -7,6 +7,14 @@
 
 namespace blackbox::telemetry::windows {
 
+struct WindowsProcessCollectorDiagnostics {
+    std::uint64_t handles_opened{};
+    std::uint64_t handles_reused{};
+    std::uint64_t handle_open_failures{};
+    friend constexpr bool operator==(const WindowsProcessCollectorDiagnostics&,
+                                     const WindowsProcessCollectorDiagnostics&) = default;
+};
+
 class WindowsProcessCollector final {
 public:
     WindowsProcessCollector() noexcept;
@@ -19,6 +27,7 @@ public:
                                        bool resolve_paths,
                                        RawTelemetrySnapshot& destination);
     [[nodiscard]] std::size_t cache_size() const noexcept;
+    [[nodiscard]] WindowsProcessCollectorDiagnostics diagnostics() const noexcept;
 
 private:
     struct State;

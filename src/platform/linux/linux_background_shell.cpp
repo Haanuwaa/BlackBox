@@ -2,18 +2,22 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_tray.h>
+#include <dbus/dbus.h>
 
 #include <array>
 #include <cerrno>
+#include <condition_variable>
 #include <cstdlib>
 #include <fcntl.h>
 #include <fstream>
 #include <iterator>
 #include <mutex>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <thread>
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -80,6 +84,71 @@ namespace {
     return ::fsync(descriptor) == 0;
 }
 
+struct PendingNotification {
+    std::string title{};
+    std::string message{};
+};
+
+[[nodiscard]] bool append_string(DBusMessageIter& destination,
+                                 const char* value) noexcept {
+    return dbus_message_iter_append_basic(
+               &destination, DBUS_TYPE_STRING, &value) != FALSE;
+}
+
+[[nodiscard]] bool send_notification(DBusConnection* connection,
+                                     const PendingNotification& notification) noexcept {
+    if (connection == nullptr) return false;
+    DBusMessage* request = dbus_message_new_method_call(
+        "org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+        "org.freedesktop.Notifications", "Notify");
+    if (request == nullptr) return false;
+
+    DBusMessageIter values{};
+    dbus_message_iter_init_append(request, &values);
+    const char* application = "BlackBox";
+    const char* icon = "io.github.Haanuwaa.BlackBox";
+    const char* title = notification.title.c_str();
+    const char* body = notification.message.c_str();
+    dbus_uint32_t replaces_id{};
+    dbus_int32_t timeout_milliseconds = 5'000;
+    bool valid = append_string(values, application) &&
+                 dbus_message_iter_append_basic(
+                     &values, DBUS_TYPE_UINT32, &replaces_id) != FALSE &&
+                 append_string(values, icon) && append_string(values, title) &&
+                 append_string(values, body);
+
+    DBusMessageIter actions{};
+    if (valid) {
+        valid = dbus_message_iter_open_container(
+                    &values, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING_AS_STRING,
+                    &actions) != FALSE;
+        if (valid) {
+            valid = dbus_message_iter_close_container(&values, &actions) != FALSE;
+        }
+    }
+    DBusMessageIter hints{};
+    if (valid) {
+        valid = dbus_message_iter_open_container(
+                    &values, DBUS_TYPE_ARRAY, "{sv}", &hints) != FALSE;
+        if (valid) {
+            valid = dbus_message_iter_close_container(&values, &hints) != FALSE;
+        }
+    }
+    if (valid) {
+        valid = dbus_message_iter_append_basic(
+                    &values, DBUS_TYPE_INT32, &timeout_milliseconds) != FALSE;
+    }
+
+    DBusMessage* reply = valid
+        ? dbus_connection_send_with_reply_and_block(connection, request, 750, nullptr)
+        : nullptr;
+    dbus_message_unref(request);
+    if (reply == nullptr) return false;
+    const bool success = dbus_message_get_type(reply) != DBUS_MESSAGE_TYPE_ERROR;
+    dbus_message_unref(reply);
+    return success;
+}
+
 } // namespace
 
 struct LinuxBackgroundShell::NativeState {
@@ -120,6 +189,94 @@ struct LinuxBackgroundShell::NativeState {
         } catch (...) {
             // Native desktop callbacks cannot unwind into SDL.
         }
+    }
+
+    [[nodiscard]] bool start_notifications() noexcept {
+        static_cast<void>(dbus_threads_init_default());
+        DBusError error{};
+        dbus_error_init(&error);
+        notification_connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
+        if (dbus_error_is_set(&error)) dbus_error_free(&error);
+        if (notification_connection == nullptr) return false;
+        dbus_connection_set_exit_on_disconnect(notification_connection, FALSE);
+        dbus_error_init(&error);
+        const bool service_available = dbus_bus_name_has_owner(
+            notification_connection, "org.freedesktop.Notifications", &error) != FALSE;
+        if (dbus_error_is_set(&error)) dbus_error_free(&error);
+        if (!service_available) {
+            dbus_connection_close(notification_connection);
+            dbus_connection_unref(notification_connection);
+            notification_connection = nullptr;
+            return false;
+        }
+        notification_worker = std::jthread{
+            [this](const std::stop_token stop_token) { notification_loop(stop_token); }};
+        return true;
+    }
+
+    void stop_notifications() noexcept {
+        if (notification_worker.joinable()) {
+            notification_worker.request_stop();
+            notification_condition.notify_all();
+            notification_worker.join();
+        }
+        if (notification_connection != nullptr) {
+            dbus_connection_close(notification_connection);
+            dbus_connection_unref(notification_connection);
+            notification_connection = nullptr;
+        }
+        const std::scoped_lock lock{mutex};
+        diagnostics.notifications_dropped += notification_size;
+        notification_head = 0U;
+        notification_size = 0U;
+        diagnostics.notifications_available = false;
+    }
+
+    void notification_loop(const std::stop_token stop_token) noexcept {
+        while (!stop_token.stop_requested()) {
+            PendingNotification pending{};
+            {
+                std::unique_lock lock{mutex};
+                notification_condition.wait(
+                    lock, stop_token, [this] { return notification_size != 0U; });
+                if (stop_token.stop_requested()) break;
+                pending = std::move(notifications[notification_head]);
+                notification_head = (notification_head + 1U) % notifications.size();
+                --notification_size;
+            }
+            const bool sent = send_notification(notification_connection, pending);
+            const std::scoped_lock lock{mutex};
+            if (sent) ++diagnostics.notifications_sent;
+            else ++diagnostics.notifications_dropped;
+        }
+    }
+
+    [[nodiscard]] bool queue_notification(std::string_view title,
+                                          std::string_view message) noexcept {
+        if (!notifications_enabled || notification_connection == nullptr ||
+            title.empty() || title.size() > 128U || message.empty() ||
+            message.size() > 1'024U || title.find('\0') != std::string_view::npos ||
+            message.find('\0') != std::string_view::npos) {
+            const std::scoped_lock lock{mutex};
+            ++diagnostics.notifications_dropped;
+            return false;
+        }
+        try {
+            const std::scoped_lock lock{mutex};
+            if (notification_size == notifications.size()) {
+                ++diagnostics.notifications_dropped;
+                return false;
+            }
+            const auto tail = (notification_head + notification_size) % notifications.size();
+            notifications[tail] = PendingNotification{std::string{title}, std::string{message}};
+            ++notification_size;
+        } catch (...) {
+            const std::scoped_lock lock{mutex};
+            ++diagnostics.notifications_dropped;
+            return false;
+        }
+        notification_condition.notify_one();
+        return true;
     }
 
     static void SDLCALL tray_callback(void* userdata, SDL_TrayEntry* entry) {
@@ -205,6 +362,7 @@ struct LinuxBackgroundShell::NativeState {
     LinuxBackgroundShellOptions options{};
     BackgroundShellCallback callback{};
     mutable std::mutex mutex{};
+    std::condition_variable_any notification_condition{};
     BackgroundShellDiagnostics diagnostics{};
     int lock_descriptor{-1};
     bool window_visible{true};
@@ -217,6 +375,11 @@ struct LinuxBackgroundShell::NativeState {
     SDL_TrayEntry* autostart_entry{};
     SDL_TrayEntry* notifications_entry{};
     SDL_TrayEntry* exit_entry{};
+    DBusConnection* notification_connection{};
+    std::jthread notification_worker{};
+    std::array<PendingNotification, 8U> notifications{};
+    std::size_t notification_head{};
+    std::size_t notification_size{};
 };
 
 LinuxBackgroundShell::LinuxBackgroundShell(LinuxBackgroundShellOptions options)
@@ -248,12 +411,14 @@ BackgroundShellStartResult LinuxBackgroundShell::start(BackgroundShellCallback c
     }
     native_->callback = std::move(callback);
     const bool tray_available = native_->create_tray();
+    const bool notifications_available = native_->start_notifications();
     {
         const std::scoped_lock lock{native_->mutex};
         native_->diagnostics = {};
         native_->diagnostics.running = true;
         native_->diagnostics.tray_available = tray_available;
         native_->diagnostics.window_visible = native_->window_visible;
+        native_->diagnostics.notifications_available = notifications_available;
         native_->diagnostics.notifications_enabled = native_->notifications_enabled;
     }
     return BackgroundShellStartResult::started;
@@ -261,6 +426,7 @@ BackgroundShellStartResult LinuxBackgroundShell::start(BackgroundShellCallback c
 
 void LinuxBackgroundShell::stop() noexcept {
     native_->destroy_tray();
+    native_->stop_notifications();
     if (native_->lock_descriptor >= 0) {
         static_cast<void>(::flock(native_->lock_descriptor, LOCK_UN));
         ::close(native_->lock_descriptor);
@@ -312,10 +478,9 @@ bool LinuxBackgroundShell::notifications_enabled() const noexcept {
     return native_->notifications_enabled;
 }
 
-bool LinuxBackgroundShell::notify(std::string_view, std::string_view) noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    ++native_->diagnostics.notifications_dropped;
-    return false;
+bool LinuxBackgroundShell::notify(const std::string_view title,
+                                  const std::string_view message) noexcept {
+    return native_->queue_notification(title, message);
 }
 
 bool LinuxBackgroundShell::set_launch_at_login(const bool enabled) noexcept {

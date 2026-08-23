@@ -1,0 +1,73 @@
+name: macOS engineering compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-provider:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure native macOS graph
+        shell: bash
+        run: >-
+          cmake -S . -B out/build/macos -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON
+          -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}"
+          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build and test native graph
+        shell: bash
+        run: |
+          cmake --build out/build/macos --parallel
+          ctest --test-dir out/build/macos --output-on-failure
+      - name: Measure native provider overhead
+        shell: bash
+        run: |
+          report="out/build/macos/macos-provider-overhead.ini"
+          ./out/build/macos/tests/blackbox_macos_provider_benchmark 64 > "$report"
+          grep -Fxq "format=1" "$report"
+          grep -Fxq "samples=64" "$report"
+          grep -Fxq "failed=0" "$report"
+          grep -Fxq "completed=1" "$report"
+          processes="$(awk -F= '$1 == "processes_max" { print $2 }' "$report")"
+          p95="$(awk -F= '$1 == "p95_us" { print $2 }' "$report")"
+          maximum="$(awk -F= '$1 == "maximum_us" { print $2 }' "$report")"
+          test -n "$processes" && test "$processes" -ge 1
+          test -n "$p95" && test "$p95" -le 250000
+          test -n "$maximum" && test "$maximum" -le 1000000
+      - name: Package unsigned engineering build
+        shell: bash
+        run: |
+          cmake --build out/build/macos --target package --parallel
+          package="$(find out/build/macos -maxdepth 1 -type f \
+            -name 'BlackBox-*-Darwin-engineering-preview.tar.gz' -print -quit)"
+          test -n "$package" && test -s "$package"
+      - name: Upload package and provider evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-macos-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            out/build/macos/BlackBox-*-Darwin-engineering-preview.tar.gz
+            out/build/macos/macos-provider-overhead.ini
+          if-no-files-found: error

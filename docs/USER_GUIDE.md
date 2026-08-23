@@ -3,6 +3,13 @@
 BlackBox records a bounded telemetry history in RAM. It writes an incident to SQLite
 only after a manual or automatic capture; ordinary recording does not stream telemetry to disk.
 
+Windows is the only production target in this pre-release. Linux DEB/RPM/TGZ and macOS TGZ outputs
+are explicitly unsupported engineering previews used to exercise platform boundaries. Linux can
+collect native telemetry, publish bounded desktop notifications, and request its configured global
+shortcut through the XDG Desktop Portal; desktop policy may require user approval or leave either
+service unavailable. macOS currently supplies native CPU/memory/process telemetry but no qualified
+tray, autostart, global-shortcut, signing, or notarization experience.
+
 ## Start and capture
 
 1. Start `blackbox.exe` as an ordinary desktop user. Administrator rights are not required.

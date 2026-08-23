@@ -14,7 +14,10 @@
 #include "telemetry/windows/windows_system_event_provider.hpp"
 #elif defined(__linux__)
 #include "platform/linux/linux_background_shell.hpp"
+#include "platform/linux/linux_global_hotkey_manager.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
+#elif defined(__APPLE__)
+#include "telemetry/macos/macos_telemetry_provider.hpp"
 #else
 #include "telemetry/mock/mock_telemetry_provider.hpp"
 #endif
@@ -238,6 +241,10 @@ ApplicationInitializationResult Application::initialize() {
     telemetry_provider_ =
         std::make_unique<telemetry::linux::LinuxTelemetryProvider>(telemetry_clock_);
     provider_name_ = "LinuxTelemetryProvider";
+#elif defined(__APPLE__)
+    telemetry_provider_ =
+        std::make_unique<telemetry::macos::MacosTelemetryProvider>(telemetry_clock_);
+    provider_name_ = "MacosTelemetryProvider";
 #else
     telemetry_provider_ = std::make_unique<telemetry::mock::MockTelemetryProvider>(
         telemetry_clock_);
@@ -396,6 +403,9 @@ ApplicationInitializationResult Application::initialize() {
     }
 #if defined(_WIN32)
     hotkey_manager_ = std::make_unique<platform::windows::WindowsGlobalHotkeyManager>();
+    static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
+#elif defined(__linux__)
+    hotkey_manager_ = std::make_unique<platform::linux::LinuxGlobalHotkeyManager>();
     static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
 #endif
     dashboard_state_.hotkey_status = hotkey_status_;
@@ -1541,7 +1551,11 @@ void Application::refresh_background_shell_if_due() {
     background_status_text_ = shell.tray_available ? "Tray active" : "Tray unavailable";
     background_status_text_ += shell.window_visible ? " | window visible" : " | window hidden";
 #if defined(__linux__)
-    background_status_text_ += " | notifications unavailable";
+    background_status_text_ += !shell.notifications_available
+                                   ? " | notifications unavailable"
+                                   : shell.notifications_enabled
+                                       ? " | notifications on"
+                                       : " | notifications quiet";
 #else
     background_status_text_ += shell.notifications_enabled
                                    ? " | notifications on"

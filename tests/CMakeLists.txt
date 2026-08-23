@@ -148,9 +148,28 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
     if(BLACKBOX_BUILD_APP)
         target_sources(blackbox_tests PRIVATE
-            platform/linux_background_shell_tests.cpp)
+            platform/linux_background_shell_tests.cpp
+            platform/linux_global_hotkey_manager_tests.cpp)
         target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformLinux)
     endif()
+endif()
+
+if(APPLE)
+    target_sources(blackbox_tests PRIVATE
+        telemetry/macos_telemetry_provider_tests.cpp)
+    target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryMacos)
+
+    add_executable(blackbox_macos_provider_benchmark
+        benchmarks/macos_provider_benchmark.cpp)
+    target_compile_features(blackbox_macos_provider_benchmark PRIVATE cxx_std_23)
+    target_link_libraries(blackbox_macos_provider_benchmark PRIVATE
+        BlackBox::TelemetryMacos)
+    blackbox_set_project_warnings(blackbox_macos_provider_benchmark)
+    add_test(
+        NAME macos_native_provider_overhead_contract
+        COMMAND blackbox_macos_provider_benchmark 16)
+    set_tests_properties(macos_native_provider_overhead_contract
+        PROPERTIES LABELS "macos;performance")
 endif()
 
 if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)

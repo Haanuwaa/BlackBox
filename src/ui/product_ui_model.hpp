@@ -64,6 +64,7 @@ enum class IncidentArchivePresentation : std::uint8_t {
 [[nodiscard]] float scaled_ui_metric(float logical_pixels, float dpi) noexcept;
 [[nodiscard]] OnboardingLayout onboarding_layout(float viewport_width,
                                                   float viewport_height) noexcept;
+[[nodiscard]] std::size_t navigation_column_count(float available_width) noexcept;
 [[nodiscard]] std::size_t choose_display_work_area(
     int window_x, int window_y, int window_width, int window_height,
     const DisplayWorkArea* displays, std::size_t display_count) noexcept;

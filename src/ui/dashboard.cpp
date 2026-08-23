@@ -23,8 +23,12 @@ void render_metric_unavailable(MetricDisplayStatus status);
 
 void render_product_header(const DashboardState& state, ProductUiState& product) {
     const auto visual = product_visual_style(state.accessibility_high_contrast);
+    const auto available_width = ImGui::GetContentRegionAvail().x;
+    const auto columns = navigation_column_count(available_width);
+    const auto rows = (6U + columns - 1U) / columns;
+    const auto header_height = 72.0F + static_cast<float>(rows) * 38.0F;
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
-    if (ImGui::BeginChild("Product header", ImVec2{0.0F, 104.0F},
+    if (ImGui::BeginChild("Product header", ImVec2{0.0F, header_height},
                           ImGuiChildFlags_Borders)) {
         ImGui::SetWindowFontScale(1.28F);
         ImGui::TextColored(ui_color(visual.accent), "BLACKBOX");
@@ -35,8 +39,13 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
 
         constexpr const char* page_names[]{"Live", "Incidents", "Detail", "Patterns",
                                             "Settings", "Diagnostics"};
+        const auto spacing = ImGui::GetStyle().ItemSpacing.x;
+        const auto button_width = std::max(
+            72.0F, (ImGui::GetContentRegionAvail().x -
+                    spacing * static_cast<float>(columns - 1U)) /
+                       static_cast<float>(columns));
         for (std::size_t index = 0U; index < std::size(page_names); ++index) {
-            if (index != 0U) ImGui::SameLine();
+            if (index != 0U && index % columns != 0U) ImGui::SameLine();
             const auto selected = product.page == static_cast<ProductPage>(index);
             ImGui::PushID(static_cast<int>(index));
             if (selected) {
@@ -48,7 +57,7 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
                                           ? ui_color(visual.background)
                                           : ImVec4{1.0F, 1.0F, 1.0F, 1.0F});
             }
-            if (ImGui::Button(page_names[index], ImVec2{0.0F, 30.0F})) {
+            if (ImGui::Button(page_names[index], ImVec2{button_width, 30.0F})) {
                 product.page = static_cast<ProductPage>(index);
             }
             if (selected) ImGui::PopStyleColor(3);
@@ -422,11 +431,38 @@ void render_incident_viewer(IncidentViewerState& state, DashboardCommand& comman
     }
 
     if (!content.detail) {
-        ImGui::TextDisabled("Select an incident to inspect its timeline and processes.");
+        ImGui::SeparatorText("No incident selected");
+        ImGui::TextWrapped(
+            "Choose a saved incident to inspect its timeline, likely contributors, and the uncertainty attached to each explanation.");
+        if (ImGui::Button("Browse saved incidents")) {
+            product.page = ProductPage::incidents;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Return to live recorder")) {
+            product.page = ProductPage::live;
+        }
         return;
     }
     const auto& detail = *content.detail;
     ImGui::SeparatorText("Incident detail");
+    if (ImGui::TreeNodeEx("How to read this result",
+                          ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::BeginTable("Evidence reading guide", 3,
+                              ImGuiTableFlags_BordersInnerV |
+                                  ImGuiTableFlags_SizingStretchSame)) {
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("OBSERVATION");
+            ImGui::TextWrapped("Recorded measurements and exact event timing.");
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("INFERENCE");
+            ImGui::TextWrapped("A statistical explanation that fits those observations.");
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("UNCERTAINTY");
+            ImGui::TextWrapped("Missing evidence and plausible alternatives remain visible.");
+            ImGui::EndTable();
+        }
+        ImGui::TreePop();
+    }
     ImGui::BeginChild("Incident explanation", ImVec2{-1.0F, 218.0F},
                       ImGuiChildFlags_Borders);
     const auto& headline_analysis = detail.analysis;
@@ -1185,6 +1221,8 @@ DashboardCommand render_dashboard(const DashboardState& state,
                                        ? "Ready"
                                        : "Temporarily unavailable");
                     row("Storage", state.storage_status.c_str());
+                    row("Shortcut", state.hotkey_status.c_str());
+                    row("Background", state.background_status.c_str());
                     row("Privacy", "Local unless you export");
                     ImGui::EndTable();
                 }
@@ -1197,7 +1235,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
             }
             ImGui::EndChild();
             ImGui::Separator();
-            if (ImGui::Button("Open BlackBox", ImVec2{-FLT_MIN, 0.0F})) {
+            if (ImGui::Button("Continue to live recorder", ImVec2{-FLT_MIN, 0.0F})) {
                 product.onboarding_open = false;
                 command.action = DashboardAction::complete_onboarding;
                 ImGui::CloseCurrentPopup();
@@ -1209,7 +1247,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
         const auto visual = product_visual_style(state.accessibility_high_contrast);
         const bool recording = state.recorder_status == "Recording";
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
-        if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 144.0F},
+        if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 164.0F},
                               ImGuiChildFlags_Borders)) {
         ImGui::TextDisabled("RECORDER STATUS");
         if (recording && state.incident_capture_enabled) {
@@ -1224,6 +1262,7 @@ DashboardCommand render_dashboard(const DashboardState& state,
         }
         ImGui::TextDisabled("Hotkey %s  |  Archive %s", state.hotkey_status.c_str(),
                             state.storage_status.c_str());
+        ImGui::TextDisabled("Background %s", state.background_status.c_str());
         if (!state.incident_capture_enabled) ImGui::BeginDisabled();
         ImGui::PushStyleColor(ImGuiCol_Button, ui_color(visual.accent));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui_color(visual.accent_hovered));

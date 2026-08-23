@@ -22,6 +22,8 @@ option(BLACKBOX_ENABLE_UNDEFINED_SANITIZER "Instrument BlackBox targets with Und
 option(BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS "Run MSVC native code analysis while compiling" OFF)
 option(BLACKBOX_ENABLE_COVERAGE "Instrument BlackBox targets for compiler-native coverage" OFF)
 option(BLACKBOX_BUILD_FUZZERS "Build bounded libFuzzer entry points" OFF)
+set(BLACKBOX_LINUX_PACKAGE_GENERATORS "TGZ" CACHE STRING
+    "Semicolon-separated Linux engineering package generators (TGZ, DEB, RPM)")
 set(BLACKBOX_SOURCE_REVISION "auto" CACHE STRING
     "Source identity embedded in Windows executables: auto, local-uncommitted, or 40 lowercase hex")
 
@@ -177,10 +179,18 @@ if(WIN32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
         "Unsupported Linux engineering preview of the BlackBox computer flight recorder")
-    set(CPACK_GENERATOR "TGZ")
+    set(CPACK_GENERATOR "${BLACKBOX_LINUX_PACKAGE_GENERATORS}")
     string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" BLACKBOX_PACKAGE_PROCESSOR)
     set(CPACK_PACKAGE_FILE_NAME
         "BlackBox-${PROJECT_VERSION}-linux-${BLACKBOX_PACKAGE_PROCESSOR}-engineering-preview")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Hanuwa <hanuwa@aol.com>")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+    set(CPACK_RPM_PACKAGE_LICENSE "LicenseRef-Proprietary")
+    set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
+    set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 else()
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
         "Unsupported engineering build of the BlackBox computer flight recorder")

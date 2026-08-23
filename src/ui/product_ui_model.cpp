@@ -27,6 +27,13 @@ OnboardingLayout onboarding_layout(const float viewport_width,
             available_width < 560.0F || available_height < 480.0F};
 }
 
+std::size_t navigation_column_count(const float available_width) noexcept {
+    if (!std::isfinite(available_width) || available_width <= 0.0F) return 2U;
+    if (available_width < 560.0F) return 2U;
+    if (available_width < 860.0F) return 3U;
+    return 6U;
+}
+
 std::size_t choose_display_work_area(
     const int window_x, const int window_y, const int window_width,
     const int window_height, const DisplayWorkArea* displays,
