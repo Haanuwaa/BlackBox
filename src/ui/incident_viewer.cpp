@@ -187,7 +187,10 @@ std::string format_utc_milliseconds(const std::int64_t epoch_milliseconds) {
     const auto day = floor<days>(timestamp);
     const year_month_day date{day};
     const hh_mm_ss time{timestamp - day};
-    char text[40]{};
+    // Keep room for the full signed chrono year range as well as the normal
+    // four-digit product representation; truncation must never produce an
+    // apparently valid timestamp.
+    char text[64]{};
     std::snprintf(text, sizeof(text), "%04d-%02u-%02u %02lld:%02lld:%02lld.%03lld UTC",
                   static_cast<int>(date.year()), static_cast<unsigned>(date.month()),
                   static_cast<unsigned>(date.day()),
