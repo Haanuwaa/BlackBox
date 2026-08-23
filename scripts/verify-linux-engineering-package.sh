@@ -36,20 +36,7 @@ test -s "$desktop"
 test -s "$icon"
 desktop-file-validate "$desktop" >&2
 dynamic_section="$(readelf -d "$executable")"
-private_library_rpath=''
-for library_root in lib lib64; do
-  candidate="$extract/usr/$library_root/blackbox"
-  if [ -d "$candidate" ] &&
-      find "$candidate" -maxdepth 1 -type f -name '*.so*' -print -quit | grep -q .; then
-    private_library_rpath="\$ORIGIN/../$library_root/blackbox"
-    break
-  fi
-done
-if [ -z "$private_library_rpath" ]; then
-  echo "Native package is missing its private runtime libraries" >&2
-  exit 1
-fi
-if ! grep -Fq "$private_library_rpath" <<<"$dynamic_section"; then
+if ! grep -Eq '\$ORIGIN/\.\./lib(64)?/blackbox' <<<"$dynamic_section"; then
   echo "Native package executable is missing its private-library RPATH" >&2
   exit 1
 fi
