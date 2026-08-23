@@ -68,7 +68,6 @@ template <std::size_t Capacity>
         result.bytes[Capacity - 2U] = '.';
         result.bytes[Capacity - 1U] = '.';
     }
-    result.bytes[result.size] = '\0';
     return result;
 }
 
