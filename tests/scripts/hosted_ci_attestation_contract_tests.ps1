@@ -26,6 +26,8 @@ foreach ($script in @($writer, $verifier)) {
 
 $windowsWorkflow = [IO.File]::ReadAllText((Join-Path $SourceRoot '.github\workflows\windows.yml'))
 $qualityWorkflow = [IO.File]::ReadAllText((Join-Path $SourceRoot '.github\workflows\quality.yml'))
+$linuxCompatibilityWorkflow = [IO.File]::ReadAllText(
+    (Join-Path $SourceRoot '.github\workflows\linux-compatibility.yml'))
 
 foreach ($workflow in @($windowsWorkflow, $qualityWorkflow)) {
     if ($workflow -match '(?m)^\s*VCPKG_ROOT:\s*\$\{\{\s*github\.workspace\s*\}\}[/\\]vcpkg') {
@@ -36,6 +38,22 @@ foreach ($workflow in @($windowsWorkflow, $qualityWorkflow)) {
         $workflow, '(?m)^\s*VCPKG_ROOT:\s*\$\{\{\s*github\.workspace\s*\}\}-vcpkg\s*$').Count
     if ($declaredRoots -eq 0 -or $isolatedRoots -ne $declaredRoots) {
         throw 'Hosted workflows must bootstrap mutable dependencies outside the checkout.'
+    }
+}
+foreach ($clause in @(
+    'image: ubuntu:24.04',
+    'image: debian:13',
+    'image: fedora:43',
+    'VCPKG_ROOT: ${{ github.workspace }}-vcpkg-${{ matrix.id }}',
+    '-DBLACKBOX_SOURCE_REVISION="${{ github.sha }}"',
+    'blackbox_linux_provider_benchmark 64',
+    'desktop_report="$(pwd)/$build/linux-desktop-smoke.ini"',
+    'package_report="$(pwd)/$build/linux-package-smoke.ini"',
+    'grep -Fxq "source_revision=$GITHUB_SHA" "$desktop_report"',
+    'grep -Fxq "source_revision=$GITHUB_SHA" "$package_report"',
+    'BlackBox-linux-compatibility-summary-${{ github.sha }}')) {
+    if (-not $linuxCompatibilityWorkflow.Contains($clause)) {
+        throw "Linux compatibility workflow lacks its evidence contract: $clause"
     }
 }
 foreach ($clause in @(

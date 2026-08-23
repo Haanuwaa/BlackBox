@@ -69,6 +69,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON
+          -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}"
           -DBLACKBOX_WARNINGS_AS_ERRORS=ON
       - name: Build and test native graph
         shell: bash
@@ -97,6 +98,7 @@ jobs:
             "$build/src/blackbox" --background-diagnostic-seconds=2 \
             --diagnostic-report="$desktop_report"
           grep -Fxq "platform=Linux" "$desktop_report"
+          grep -Fxq "source_revision=$GITHUB_SHA" "$desktop_report"
           grep -Fxq "completed=1" "$desktop_report"
           grep -Fxq "failed_samples=0" "$desktop_report"
 
@@ -119,6 +121,7 @@ jobs:
             "$executable" --background-diagnostic-seconds=2 \
             --diagnostic-report="$package_report"
           grep -Fxq "platform=Linux" "$package_report"
+          grep -Fxq "source_revision=$GITHUB_SHA" "$package_report"
           grep -Fxq "completed=1" "$package_report"
           grep -Fxq "failed_samples=0" "$package_report"
 
