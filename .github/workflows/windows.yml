@@ -97,6 +97,17 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # vcpkg detects SDL video backends when its first configure runs, so these
+      # packages must exist before even the portable graph primes the cache.
+      - name: Install native Linux desktop dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            xvfb \
+            libx11-dev libxext-dev libxrandr-dev libxrender-dev \
+            libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxcursor-dev libxinerama-dev libxkbcommon-dev
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -119,15 +130,6 @@ jobs:
         run: |
           cmake --build out/build/linux-headless --parallel
           ctest --test-dir out/build/linux-headless --output-on-failure
-      - name: Install native Linux desktop dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes \
-            xvfb \
-            libx11-dev libxext-dev libxrandr-dev libxrender-dev \
-            libxfixes-dev libxi-dev libxss-dev libxtst-dev \
-            libxcursor-dev libxinerama-dev libxkbcommon-dev
       - name: Configure native Linux desktop graph
         shell: bash
         run: >-

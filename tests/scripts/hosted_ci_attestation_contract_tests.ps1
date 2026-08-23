@@ -41,12 +41,25 @@ foreach ($workflow in @($windowsWorkflow, $qualityWorkflow)) {
 foreach ($clause in @(
     'preset: windows-vs2026-release',
     'os: windows-2025',
+    '- name: Install native Linux desktop dependencies',
+    '- name: Configure portable headless graph',
+    'SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software',
     'needs: [build-test-package, headless-collection, linux-boundary]',
     '-WorkflowKey windows -OutputDirectory out/hosted-ci/windows',
     'BlackBox-hosted-ci-windows-${{ github.sha }}')) {
     if (-not $windowsWorkflow.Contains($clause)) {
         throw "Windows workflow lacks its hosted evidence contract: $clause"
     }
+}
+$linuxDependencies = $windowsWorkflow.IndexOf(
+    '- name: Install native Linux desktop dependencies',
+    [StringComparison]::Ordinal)
+$linuxFirstConfigure = $windowsWorkflow.IndexOf(
+    '- name: Configure portable headless graph',
+    [StringComparison]::Ordinal)
+if ($linuxDependencies -lt 0 -or $linuxFirstConfigure -lt 0 -or
+    $linuxDependencies -gt $linuxFirstConfigure) {
+    throw 'Linux desktop dependencies must be installed before vcpkg primes its SDL cache.'
 }
 foreach ($clause in @(
     '- dependency-policy-sbom', '- dependency-review', '- codeql', '- msvc-static-analysis',
