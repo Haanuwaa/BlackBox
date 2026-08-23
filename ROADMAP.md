@@ -1918,6 +1918,11 @@ one-host engineering tracks are now implemented:
   requires separate keyboard-only onboarding plus focus-visibility/increased-text observations before
   its existing 100/125/150/200%, high-contrast, tray, capture, and navigation cases can pass.
 - [x] Execute and retain the new three-distribution hosted matrix on the exact implementation revision.
+- [x] Add actual SDL video-driver identity to direct-v1 diagnostics and a dedicated packaged-app
+  Wayland job under a headless Weston compositor, including the visible-window safety invariant when
+  no tray host is available.
+- [ ] Execute and retain the Wayland job on the exact implementation revision; physical GNOME/KDE
+  tray, shortcut, DPI, accessibility, and compositor behavior remain outside hosted headless proof.
 - [ ] Execute the strengthened physical Windows accessibility/DPI matrix on qualifying real clients;
   authored cases and deterministic rasters do not satisfy this gate.
 
@@ -1943,6 +1948,16 @@ Hosted Linux compatibility evidence (2026-08-23):
   identity under container Git ownership. Portable environment access, absolute evidence paths, exact
   SHA injection/assertion, and a workflow regression contract now protect those boundaries.
 
+The exact-revision overnight attempt on `2ded4de87cbccc9e212311e81289109521c9215f` completed its full
+eight-hour application duration with 28,779 collections, 479 process checkpoints, zero checkpoint
+gaps, zero partial/failed samples, and 31 completed incidents, but failed closed with 22 dropped ticks
+across 16 deadline misses. The retained
+`out/soaks/overnight-v1-2ded4de-20260823.partial/` directory is diagnostic-only and receives no release
+credit. Scheduling diagnostics now retain a bounded exact event sequence with UTC nanosecond time,
+collection index, deadline overrun duration, dropped-tick count, and explicit overflow; semantic
+verifier tests reject missing, unordered, malformed, or aggregate-inconsistent detail while the
+zero-drop gate remains unchanged.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -1951,12 +1966,13 @@ Hosted Linux compatibility evidence (2026-08-23):
 
 ## Exact next milestone
 
-Proceed to **isolated integration after the frozen overnight campaign**: retain the current campaign's
-result without changing its executable, then integrate this completed branch, rebuild one clean
-revision, and start the next exact-revision campaign. The 32-image onboarding/page raster set is
-reviewed and its automated contracts pass; execute the strengthened physical Windows accessibility/
-DPI matrix only with a qualifying operator and real client. macOS remains behind the proven Linux
-desktop boundary, and runtime ML remains behind representative held-out value.
+Proceed to **scheduling/Wayland qualification and a fresh exact-revision overnight**: retain the failed
+`2ded4de` campaign, complete the zero-drop scheduling stress rehearsal, execute the new packaged
+Wayland job, integrate one clean revision, and start a replacement overnight campaign from that exact
+Release executable. The 32-image onboarding/page raster set is reviewed and its automated contracts
+pass; execute the strengthened physical Windows accessibility/DPI matrix only with a qualifying
+operator and real client. macOS remains behind physical Linux desktop qualification, and runtime ML
+remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.

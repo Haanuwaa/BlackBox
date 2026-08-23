@@ -203,16 +203,19 @@ TEST_CASE("monotonic schedule skips elapsed ticks without catch-up bursts",
 
     const auto on_time = telemetry::advance_schedule(scheduled, scheduled + 100ms, 1s);
     CHECK(on_time.next_deadline == scheduled + 1s);
+    CHECK(on_time.deadline_overrun == 0ns);
     CHECK(on_time.dropped_ticks == 0U);
     CHECK_FALSE(on_time.deadline_missed);
 
     const auto exact_boundary = telemetry::advance_schedule(scheduled, scheduled + 1s, 1s);
     CHECK(exact_boundary.next_deadline == scheduled + 2s);
+    CHECK(exact_boundary.deadline_overrun == 0ns);
     CHECK(exact_boundary.dropped_ticks == 1U);
     CHECK_FALSE(exact_boundary.deadline_missed);
 
     const auto stalled = telemetry::advance_schedule(scheduled, scheduled + 3200ms, 1s);
     CHECK(stalled.next_deadline == scheduled + 4s);
+    CHECK(stalled.deadline_overrun == 2200ms);
     CHECK(stalled.dropped_ticks == 3U);
     CHECK(stalled.deadline_missed);
 }
@@ -422,7 +425,13 @@ TEST_CASE("cooperative shutdown joins a collection already in progress",
 
     CHECK_FALSE(collector.running());
     CHECK(elapsed < 1s);
-    CHECK(collector.diagnostics().collection_count == 1U);
+    const auto diagnostics = collector.diagnostics();
+    CHECK(diagnostics.collection_count == 1U);
+    REQUIRE(diagnostics.scheduling_drop_event_count == 1U);
+    CHECK(diagnostics.scheduling_drop_event_overflow == 0U);
+    CHECK(diagnostics.scheduling_drop_events[0].collection_index == 1U);
+    CHECK(diagnostics.scheduling_drop_events[0].dropped_ticks >= 1U);
+    CHECK(diagnostics.scheduling_drop_events[0].deadline_overrun >= 19ms);
 }
 
 TEST_CASE("collector schedules slow metadata independently from normal counters",

@@ -158,6 +158,9 @@ collections=10
 failed_samples=0
 dropped_samples=0
 deadline_misses=0
+scheduling_drop_event_count=0
+scheduling_drop_event_overflow=0
+scheduling_drop_events=none
 collector_worker_failures=0
 snapshot_failures=0
 capture_queue_rejections=0
@@ -457,6 +460,26 @@ try {
     Write-Manifest $unexpectedAutomatic
     Expect-Failure { & $verify -CampaignDirectory $unexpectedAutomatic | Out-Null } `
         'hash-consistent automatic detection in isolated soak'
+
+    $missingDropDetails = Join-Path $root 'missing-drop-details'
+    Copy-Item -LiteralPath $valid -Destination $missingDropDetails -Recurse
+    Set-Field (Join-Path $missingDropDetails 'app-report.ini') `
+        'scheduling_drop_event_count' '1'
+    Write-Manifest $missingDropDetails
+    Expect-Failure { & $verify -CampaignDirectory $missingDropDetails | Out-Null } `
+        'hash-consistent missing scheduling drop details'
+
+    $contradictoryDropDetails = Join-Path $root 'contradictory-drop-details'
+    Copy-Item -LiteralPath $valid -Destination $contradictoryDropDetails -Recurse
+    $dropReport = Join-Path $contradictoryDropDetails 'app-report.ini'
+    Set-Field $dropReport 'dropped_samples' '2'
+    Set-Field $dropReport 'deadline_misses' '1'
+    Set-Field $dropReport 'scheduling_drop_event_count' '1'
+    Set-Field $dropReport 'scheduling_drop_events' `
+        '10:1700000000000000000:200000000:1'
+    Write-Manifest $contradictoryDropDetails
+    Expect-Failure { & $verify -CampaignDirectory $contradictoryDropDetails | Out-Null } `
+        'hash-consistent contradictory scheduling drop details'
 
     $extra = Join-Path $root 'extra'
     Copy-Item -LiteralPath $valid -Destination $extra -Recurse

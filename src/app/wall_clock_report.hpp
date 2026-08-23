@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <filesystem>
@@ -8,6 +10,14 @@
 namespace blackbox::app {
 
 inline constexpr std::uint32_t wall_clock_report_format_version = 1U;
+inline constexpr std::size_t wall_clock_scheduling_drop_event_capacity = 256U;
+
+struct WallClockSchedulingDropEvent {
+    std::uint64_t collection_index{};
+    std::uint64_t utc_unix_nanoseconds{};
+    std::uint64_t deadline_overrun_nanoseconds{};
+    std::uint64_t dropped_ticks{};
+};
 
 enum class WallClockReportErrorCode : std::uint8_t {
     invalid_report,
@@ -26,6 +36,7 @@ struct WallClockReportError {
 struct WallClockReport {
     std::string application_version{};
     std::string platform{};
+    std::string video_driver{};
     std::string source_revision{};
     bool completed{};
     std::uint64_t requested_runtime_seconds{};
@@ -37,6 +48,11 @@ struct WallClockReport {
     std::uint64_t dropped_samples{};
     std::uint64_t late_samples{};
     std::uint64_t deadline_misses{};
+    std::array<WallClockSchedulingDropEvent,
+               wall_clock_scheduling_drop_event_capacity>
+        scheduling_drop_events{};
+    std::size_t scheduling_drop_event_count{};
+    std::uint64_t scheduling_drop_event_overflow{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};
     std::uint64_t provider_recoveries{};
@@ -99,6 +115,7 @@ struct WallClockReport {
     std::int64_t archive_schema_version{};
 
     bool tray_available{};
+    bool window_visible{true};
     std::uint64_t notifications_dropped{};
     std::uint64_t explorer_restarts{};
     std::uint64_t tray_readd_failures{};

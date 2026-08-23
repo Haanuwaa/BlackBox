@@ -33,6 +33,29 @@ void append(std::ostringstream& output, const std::string_view name,
     output << name << '=' << value << '\n';
 }
 
+[[nodiscard]] bool valid_scheduling_drop_events(
+    const WallClockReport& report) noexcept {
+    if (report.scheduling_drop_event_count >
+        report.scheduling_drop_events.size()) {
+        return false;
+    }
+    std::uint64_t previous_collection{};
+    std::uint64_t previous_timestamp{};
+    for (std::size_t index = 0U;
+         index < report.scheduling_drop_event_count; ++index) {
+        const auto& event = report.scheduling_drop_events[index];
+        if (event.collection_index == 0U || event.utc_unix_nanoseconds == 0U ||
+            event.dropped_ticks == 0U ||
+            event.collection_index <= previous_collection ||
+            event.utc_unix_nanoseconds < previous_timestamp) {
+            return false;
+        }
+        previous_collection = event.collection_index;
+        previous_timestamp = event.utc_unix_nanoseconds;
+    }
+    return true;
+}
+
 void append(std::ostringstream& output, const std::string_view name,
             const bool value) {
     output << name << '=' << (value ? 1 : 0) << '\n';
@@ -48,10 +71,12 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
             destination.filename().empty() || destination.extension() != ".ini" ||
             !safe_identifier(report.application_version) ||
             !safe_identifier(report.platform) ||
+            !safe_identifier(report.video_driver) ||
             !safe_identifier(report.source_revision) ||
             report.requested_runtime_seconds == 0U ||
             report.requested_runtime_seconds > 7U * 24U * 60U * 60U ||
-            report.capture_interval_seconds > 24U * 60U * 60U) {
+            report.capture_interval_seconds > 24U * 60U * 60U ||
+            !valid_scheduling_drop_events(report)) {
             return std::unexpected{error(
                 WallClockReportErrorCode::invalid_report,
                 "wall-clock report requires bounded values and an absolute .ini destination")};
@@ -74,6 +99,7 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "format", wall_clock_report_format_version);
         append(output, "application_version", report.application_version);
         append(output, "platform", report.platform);
+        append(output, "video_driver", report.video_driver);
         append(output, "source_revision", report.source_revision);
         append(output, "completed", report.completed);
         append(output, "requested_runtime_seconds", report.requested_runtime_seconds);
@@ -84,6 +110,25 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "dropped_samples", report.dropped_samples);
         append(output, "late_samples", report.late_samples);
         append(output, "deadline_misses", report.deadline_misses);
+        append(output, "scheduling_drop_event_count",
+               report.scheduling_drop_event_count);
+        append(output, "scheduling_drop_event_overflow",
+               report.scheduling_drop_event_overflow);
+        output << "scheduling_drop_events=";
+        if (report.scheduling_drop_event_count == 0U) {
+            output << "none";
+        } else {
+            for (std::size_t index = 0U;
+                 index < report.scheduling_drop_event_count; ++index) {
+                if (index != 0U) output << ';';
+                const auto& event = report.scheduling_drop_events[index];
+                output << event.collection_index << ':'
+                       << event.utc_unix_nanoseconds << ':'
+                       << event.deadline_overrun_nanoseconds << ':'
+                       << event.dropped_ticks;
+            }
+        }
+        output << '\n';
         append(output, "resume_events", report.resume_events);
         append(output, "resume_skipped_samples", report.resume_skipped_samples);
         append(output, "provider_recoveries", report.provider_recoveries);
@@ -145,6 +190,7 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "archive_size_bytes", report.archive_size_bytes);
         append(output, "archive_schema_version", report.archive_schema_version);
         append(output, "tray_available", report.tray_available);
+        append(output, "window_visible", report.window_visible);
         append(output, "notifications_dropped", report.notifications_dropped);
         append(output, "explorer_restarts", report.explorer_restarts);
         append(output, "tray_readd_failures", report.tray_readd_failures);

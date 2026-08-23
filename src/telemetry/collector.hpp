@@ -13,6 +13,7 @@
 #include "telemetry/provider.hpp"
 
 #include <chrono>
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstddef>
@@ -64,10 +65,22 @@ validate_recorder_configuration(RecorderConfiguration configuration) noexcept;
 
 struct ScheduleAdvance {
     core::MonotonicTimePoint next_deadline{};
+    std::chrono::nanoseconds deadline_overrun{};
     std::uint64_t dropped_ticks{};
     bool deadline_missed{};
     friend constexpr bool operator==(const ScheduleAdvance&, const ScheduleAdvance&) = default;
 };
+
+struct SchedulingDropEvent {
+    core::MonotonicTimePoint observed_at{};
+    std::chrono::nanoseconds deadline_overrun{};
+    std::uint64_t collection_index{};
+    std::uint64_t dropped_ticks{};
+    friend constexpr bool operator==(const SchedulingDropEvent&,
+                                     const SchedulingDropEvent&) = default;
+};
+
+inline constexpr std::size_t scheduling_drop_event_capacity = 256U;
 
 [[nodiscard]] ScheduleAdvance advance_schedule(
     core::MonotonicTimePoint scheduled_start,
@@ -97,6 +110,10 @@ struct CollectorDiagnostics {
     std::uint64_t dropped_samples{};
     std::uint64_t late_samples{};
     std::uint64_t deadline_misses{};
+    std::array<SchedulingDropEvent, scheduling_drop_event_capacity>
+        scheduling_drop_events{};
+    std::size_t scheduling_drop_event_count{};
+    std::uint64_t scheduling_drop_event_overflow{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};
     std::chrono::nanoseconds last_resume_gap{};

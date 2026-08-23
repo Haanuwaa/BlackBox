@@ -135,6 +135,8 @@ private:
     bool high_contrast_enabled_{};
     bool animations_enabled_{true};
     ApplicationDiagnosticOptions diagnostic_options_{};
+    core::MonotonicTimePoint diagnostic_monotonic_anchor_{};
+    std::chrono::system_clock::time_point diagnostic_utc_anchor_{};
     platform::BackgroundShellDiagnostics final_shell_diagnostics_{};
     platform::CrashDiagnosticsSnapshot final_crash_diagnostics_{};
     bool diagnostic_started_{};

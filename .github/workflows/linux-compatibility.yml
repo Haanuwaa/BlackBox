@@ -39,8 +39,9 @@ jobs:
               build-essential cmake ninja-build git curl ca-certificates zip unzip tar \
               pkg-config python3 file binutils xvfb xauth \
               libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev \
-              libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
-              libxkbcommon-dev libgl1-mesa-dev libasound2-dev libpulse-dev \
+               libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
+               libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+               libgl1-mesa-dev libasound2-dev libpulse-dev \
               libudev-dev libdbus-1-dev
           else
             dnf install --assumeyes \
@@ -49,8 +50,9 @@ jobs:
               xorg-x11-server-Xvfb xorg-x11-xauth \
               libX11-devel libXext-devel libXrandr-devel libXrender-devel \
               libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel \
-              libXcursor-devel libXinerama-devel libxkbcommon-devel \
-              mesa-libGL-devel alsa-lib-devel pulseaudio-libs-devel \
+               libXcursor-devel libXinerama-devel libxkbcommon-devel \
+               wayland-devel wayland-protocols-devel libdecor-devel \
+               mesa-libGL-devel alsa-lib-devel pulseaudio-libs-devel \
               systemd-devel dbus-devel
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,7 +99,8 @@ jobs:
           xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
             "$build/src/blackbox" --background-diagnostic-seconds=2 \
             --diagnostic-report="$desktop_report"
-          grep -Fxq "platform=Linux" "$desktop_report"
+           grep -Fxq "platform=Linux" "$desktop_report"
+           grep -Fxq "video_driver=x11" "$desktop_report"
           grep -Fxq "source_revision=$GITHUB_SHA" "$desktop_report"
           grep -Fxq "completed=1" "$desktop_report"
           grep -Fxq "failed_samples=0" "$desktop_report"
@@ -120,7 +123,8 @@ jobs:
           xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
             "$executable" --background-diagnostic-seconds=2 \
             --diagnostic-report="$package_report"
-          grep -Fxq "platform=Linux" "$package_report"
+           grep -Fxq "platform=Linux" "$package_report"
+           grep -Fxq "video_driver=x11" "$package_report"
           grep -Fxq "source_revision=$GITHUB_SHA" "$package_report"
           grep -Fxq "completed=1" "$package_report"
           grep -Fxq "failed_samples=0" "$package_report"
@@ -162,6 +166,72 @@ jobs:
             out/build/linux-${{ matrix.id }}/linux-desktop-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-package-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
+           if-no-files-found: error
+
+  wayland-session:
+    needs: [distro-package-telemetry]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install headless Wayland runtime
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            weston dbus-daemon libwayland-client0 libxkbcommon0 libdecor-0-0
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: BlackBox-linux-ubuntu-${{ github.sha }}
+          path: out/linux-wayland
+      - name: Qualify packaged Wayland runtime and safe no-tray fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(find out/linux-wayland -maxdepth 1 -type f \
+            -name 'BlackBox-*-linux-*-engineering-preview.tar.gz' -print -quit)"
+          test -n "$package" && test -s "$package"
+          extract="out/linux-wayland/package"
+          mkdir -p "$extract"
+          tar -xzf "$package" -C "$extract"
+          executable="$(find "$extract" -type f -name blackbox -perm -u+x -print -quit)"
+          test -n "$executable"
+
+          runtime="$RUNNER_TEMP/blackbox-wayland-runtime"
+          config="$RUNNER_TEMP/blackbox-wayland-config"
+          mkdir -p "$runtime" "$config"
+          chmod 700 "$runtime"
+          export XDG_RUNTIME_DIR="$runtime"
+          weston_log="$(pwd)/out/linux-wayland/weston.log"
+          weston --backend=headless-backend.so --socket=wayland-blackbox \
+            --idle-time=0 --log="$weston_log" &
+          weston_pid=$!
+          trap 'kill "$weston_pid" 2>/dev/null || true; wait "$weston_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 50); do
+            test -S "$runtime/wayland-blackbox" && break
+            kill -0 "$weston_pid"
+            sleep 0.1
+          done
+          test -S "$runtime/wayland-blackbox"
+
+          report="$(pwd)/out/linux-wayland/linux-wayland-smoke.ini"
+          env XDG_CONFIG_HOME="$config" WAYLAND_DISPLAY=wayland-blackbox \
+            SDL_VIDEODRIVER=wayland SDL_RENDER_DRIVER=software \
+            "$executable" --background-diagnostic-seconds=2 \
+            --diagnostic-report="$report"
+          grep -Fxq "platform=Linux" "$report"
+          grep -Fxq "video_driver=wayland" "$report"
+          grep -Fxq "source_revision=$GITHUB_SHA" "$report"
+          grep -Fxq "completed=1" "$report"
+          grep -Fxq "failed_samples=0" "$report"
+          tray="$(awk -F= '$1 == "tray_available" { print $2 }' "$report")"
+          visible="$(awk -F= '$1 == "window_visible" { print $2 }' "$report")"
+          test "$tray" = 1 || test "$visible" = 1
+      - name: Upload Wayland qualification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-linux-wayland-${{ github.sha }}
+          path: |
+            out/linux-wayland/linux-wayland-smoke.ini
+            out/linux-wayland/weston.log
           if-no-files-found: error
 
   compare-distributions:

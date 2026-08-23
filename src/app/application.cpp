@@ -421,6 +421,10 @@ int Application::run() {
     bool running = true;
     const auto diagnostic_started_at = telemetry_clock_.now();
     diagnostic_started_ = diagnostic_options_.runtime > 0s;
+    if (diagnostic_started_) {
+        diagnostic_monotonic_anchor_ = diagnostic_started_at;
+        diagnostic_utc_anchor_ = std::chrono::system_clock::now();
+    }
     const auto diagnostic_exit_at = diagnostic_started_
                                         ? diagnostic_started_at + diagnostic_options_.runtime
                                         : core::MonotonicTimePoint::max();

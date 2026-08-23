@@ -10,6 +10,7 @@
 #include <implot.h>
 
 #include <chrono>
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -96,6 +97,12 @@ void Application::write_diagnostic_report() noexcept {
   WallClockReport report{};
   report.application_version = std::string{core::version};
   report.platform = BLACKBOX_PLATFORM_NAME;
+  if (const auto* video_driver = SDL_GetCurrentVideoDriver();
+      video_driver != nullptr) {
+    report.video_driver = video_driver;
+  } else {
+    report.video_driver = "unavailable";
+  }
   report.source_revision = std::string{core::source_revision};
   report.completed = diagnostic_completed_;
   report.requested_runtime_seconds =
@@ -115,6 +122,23 @@ void Application::write_diagnostic_report() noexcept {
     report.dropped_samples = values.dropped_samples;
     report.late_samples = values.late_samples;
     report.deadline_misses = values.deadline_misses;
+    report.scheduling_drop_event_count =
+        std::min(values.scheduling_drop_event_count,
+                 report.scheduling_drop_events.size());
+    report.scheduling_drop_event_overflow =
+        values.scheduling_drop_event_overflow;
+    for (std::size_t index = 0U;
+         index < report.scheduling_drop_event_count; ++index) {
+      const auto& source = values.scheduling_drop_events[index];
+      const auto utc = diagnostic_utc_anchor_ +
+                       (source.observed_at - diagnostic_monotonic_anchor_);
+      const auto utc_nanoseconds = std::chrono::duration_cast<
+          std::chrono::nanoseconds>(utc.time_since_epoch()).count();
+      report.scheduling_drop_events[index] = WallClockSchedulingDropEvent{
+          source.collection_index,
+          utc_nanoseconds > 0 ? static_cast<std::uint64_t>(utc_nanoseconds) : 0U,
+          nanoseconds(source.deadline_overrun), source.dropped_ticks};
+    }
     report.resume_events = values.resume_events;
     report.resume_skipped_samples = values.resume_skipped_samples;
     report.provider_recoveries = values.provider_recoveries;
@@ -204,6 +228,7 @@ void Application::write_diagnostic_report() noexcept {
   }
 #endif
   report.tray_available = final_shell_diagnostics_.tray_available;
+  report.window_visible = final_shell_diagnostics_.window_visible;
   report.notifications_dropped = final_shell_diagnostics_.notifications_dropped;
   report.explorer_restarts = final_shell_diagnostics_.explorer_restarts;
   report.tray_readd_failures = final_shell_diagnostics_.tray_readd_failures;

@@ -102,6 +102,10 @@ ScheduleAdvance advance_schedule(
     ScheduleAdvance result{};
     result.next_deadline = scheduled_start + interval;
     result.deadline_missed = collection_finished > result.next_deadline;
+    if (result.deadline_missed) {
+        result.deadline_overrun = nonnegative_duration(
+            collection_finished - result.next_deadline);
+    }
     if (interval <= std::chrono::nanoseconds::zero() ||
         result.next_deadline > collection_finished) {
         return result;
@@ -547,6 +551,18 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
             ++diagnostics_.collection_count;
             diagnostics_.provider_status = status;
             diagnostics_.dropped_samples += schedule.dropped_ticks;
+            if (schedule.dropped_ticks != 0U) {
+                if (diagnostics_.scheduling_drop_event_count <
+                    diagnostics_.scheduling_drop_events.size()) {
+                    diagnostics_.scheduling_drop_events[
+                        diagnostics_.scheduling_drop_event_count++] =
+                        SchedulingDropEvent{finished, schedule.deadline_overrun,
+                                            diagnostics_.collection_count,
+                                            schedule.dropped_ticks};
+                } else {
+                    ++diagnostics_.scheduling_drop_event_overflow;
+                }
+            }
             if (status == ProviderSampleStatus::partial) {
                 ++diagnostics_.partial_samples;
             } else if (status == ProviderSampleStatus::temporarily_failed) {

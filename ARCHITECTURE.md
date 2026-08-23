@@ -204,7 +204,7 @@ Collection timing uses a fixed 256-entry array. Recording is constant-time and a
 
 `telemetry::TelemetryCollector` owns the provider-to-normalizer scheduling loop and writes only normalized `SystemSample` values to the core recorder. Its `std::jthread` starts from monotonic deadlines and uses cooperative stop-aware waits. If collection reaches or passes a later scheduled tick, every elapsed tick is counted as dropped and the deadline advances directly to the first future tick; the provider is never polled in a catch-up burst. Exceptions become explicit unavailable samples, while provider status changes are logged only on transitions.
 
-The default configuration is one second for five minutes, or 300 samples. Positive intervals and histories are required, capacity uses ceiling division, and a configuration epoch is capped at 86,400 system samples (about 11.2 MiB of current sample payload). The same configuration contract accepts 500 ms and 250 ms intervals. Diagnostics retain bounded 256-observation windows for collection time and scheduling jitter and count collections, partial/failing samples, late starts, deadline misses, dropped ticks, ring overwrites, and utilization.
+The default configuration is one second for five minutes, or 300 samples. Positive intervals and histories are required, capacity uses ceiling division, and a configuration epoch is capped at 86,400 system samples (about 11.2 MiB of current sample payload). The same configuration contract accepts 500 ms and 250 ms intervals. Diagnostics retain bounded 256-observation windows for collection time and scheduling jitter and count collections, partial/failing samples, late starts, deadline misses, dropped ticks, ring overwrites, and utilization. A separate fixed 256-event scheduling buffer records only drop episodes: the exact monotonic observation, collection index, deadline overrun, and dropped-tick count. It allocates nothing and performs no I/O on the collector path; overflow is explicit rather than silently replacing older evidence.
 
 The app remains the lifecycle composition root: it owns the provider before the collector, starts collection after initialization, and stops/joins the collector before destroying UI resources. The UI copies at most 300 chronological samples at 4 Hz into fixed display arrays, never retains the recorder mutex, and has no telemetry dependency. The collector target operates with application, UI, SQLite, storage, and analysis targets absent and contains no recording-time file-write path.
 
@@ -472,6 +472,15 @@ exit commands on the application thread. XDG autostart uses one exact, atomicall
 Linux desktop notifications remain explicitly unavailable rather than adding a shell command or
 network dependency; failed notification attempts are counted. The Linux platform target may use
 SDL, but core, telemetry, normalization, recorder, storage, and analysis remain SDL-free.
+
+Linux window-system selection remains SDL-owned. The application reports SDL's actual initialized
+video-driver identifier in downstream diagnostic evidence; it never infers support from environment
+variables. Hosted X11 smokes force and assert `x11`, while the Wayland engineering leg runs the
+extracted package in a headless Weston compositor, forces and asserts `wayland`, and proves that a
+missing tray cannot make the application unreachable. This qualifies window creation, rendering,
+collection, shutdown, and packaging through the Wayland backend only. StatusNotifier/tray hosts,
+desktop notifications, global shortcuts, compositor-specific DPI/accessibility behavior, and
+GNOME/KDE session integration still require physical desktop evidence before a Linux support claim.
 
 Close-to-tray is conditional on a confirmed tray icon, preventing an unreachable background
 process. Exit first stops the shell from producing commands, then unregisters the global hotkey,
@@ -807,6 +816,11 @@ enter `TelemetryProvider -> Normalizer -> Recorder`, and no compatibility/migrat
 The wall-clock qualification path is likewise explicit and downstream. A bounded hidden diagnostic
 run may schedule ordinary incident requests and, after the normal shutdown order drains the writer,
 the composition root flattens aggregate diagnostics into one path-free direct-format-v1 report.
+For each retained dropped-tick episode, the composition root translates the collector's monotonic
+observation through one diagnostic-start clock anchor and publishes its UTC Unix-nanosecond timestamp,
+collection index, deadline overrun, and dropped-tick count. The verifier checks ordering, bounds, and
+agreement with aggregate counters. This evidence improves failure diagnosis but does not relax the
+zero-drop or zero-deadline-miss release gates.
 Telemetry, core, storage, UI, and platform modules do not depend on that report. The campaign runner
 redirects the existing settings boundaries to a fresh isolated schema-v1 archive, checkpoints only
 process aggregates, and publishes evidence through a same-volume directory rename. Its development-

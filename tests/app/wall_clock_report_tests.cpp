@@ -22,6 +22,7 @@ namespace {
     app::WallClockReport report{};
     report.application_version = "0.15.0";
     report.platform = "Windows";
+    report.video_driver = "windows";
     report.source_revision = "local-uncommitted";
     report.completed = true;
     report.requested_runtime_seconds = 30U;
@@ -63,11 +64,15 @@ TEST_CASE("wall-clock report publishes a path-free direct-v1 artifact atomically
     const std::string contents{std::istreambuf_iterator<char>{input}, {}};
     CHECK(contents.starts_with(
         "format=1\napplication_version=0.15.0\nplatform=Windows\n"
-        "source_revision=local-uncommitted\n"));
+        "video_driver=windows\nsource_revision=local-uncommitted\n"));
     CHECK(contents.find("completed=1\n") != std::string::npos);
     CHECK(contents.find("collections=30\n") != std::string::npos);
+    CHECK(contents.find("scheduling_drop_event_count=0\n") != std::string::npos);
+    CHECK(contents.find("scheduling_drop_event_overflow=0\n") != std::string::npos);
+    CHECK(contents.find("scheduling_drop_events=none\n") != std::string::npos);
     CHECK(contents.find("ring_overwritten_samples=20\n") != std::string::npos);
     CHECK(contents.find("writer_succeeded=2\n") != std::string::npos);
+    CHECK(contents.find("window_visible=1\n") != std::string::npos);
     CHECK(contents.find("automatic_detection_enabled=0\n") != std::string::npos);
     CHECK(contents.find("automatic_detector_triggers=0\n") != std::string::npos);
     CHECK(contents.find("automatic_captures_started=0\n") != std::string::npos);
@@ -105,5 +110,26 @@ TEST_CASE("wall-clock report rejects unsafe identity duration and destination",
     const auto unbounded = app::write_wall_clock_report(directory / "report.ini", report);
     REQUIRE_FALSE(unbounded.has_value());
     CHECK(unbounded.error().code == app::WallClockReportErrorCode::invalid_report);
+
+    report = valid_report();
+    report.scheduling_drop_event_count = 2U;
+    report.scheduling_drop_events[0] = {10U, 1'700'000'000'000'000'000U,
+                                        200'000'000U, 1U};
+    report.scheduling_drop_events[1] = {15U, 1'700'000'005'000'000'000U,
+                                        1'200'000'000U, 2U};
+    const auto event_destination = directory / "events.ini";
+    REQUIRE(app::write_wall_clock_report(event_destination, report).has_value());
+    std::ifstream events{event_destination, std::ios::binary};
+    const std::string event_contents{std::istreambuf_iterator<char>{events}, {}};
+    CHECK(event_contents.find(
+              "scheduling_drop_events=10:1700000000000000000:200000000:1;"
+              "15:1700000005000000000:1200000000:2\n") != std::string::npos);
+    events.close();
+
+    report.scheduling_drop_events[1].collection_index = 9U;
+    const auto unordered = app::write_wall_clock_report(
+        directory / "unordered.ini", report);
+    REQUIRE_FALSE(unordered.has_value());
+    CHECK(unordered.error().code == app::WallClockReportErrorCode::invalid_report);
     std::filesystem::remove_all(directory);
 }

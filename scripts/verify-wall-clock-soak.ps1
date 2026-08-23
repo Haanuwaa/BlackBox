@@ -63,6 +63,63 @@ function Read-Double($Fields, [string]$Name) {
     return $value
 }
 
+function Assert-SchedulingDropEvidence($Fields) {
+    $drops = Read-UInt $Fields 'dropped_samples'
+    $misses = Read-UInt $Fields 'deadline_misses'
+    $count = Read-UInt $Fields 'scheduling_drop_event_count'
+    $overflow = Read-UInt $Fields 'scheduling_drop_event_overflow'
+    $encoded = Require-Field $Fields 'scheduling_drop_events'
+    if ($count -gt 256) {
+        throw 'Scheduling drop evidence exceeds its fixed collector capacity.'
+    }
+    if ($count -eq 0) {
+        if ($encoded -cne 'none' -or $drops -ne 0 -or $misses -ne 0 -or
+            $overflow -ne 0) {
+            throw 'Empty scheduling drop evidence contradicts scheduling counters.'
+        }
+        return
+    }
+    if ($encoded -ceq 'none') {
+        throw 'Scheduling drop evidence is missing its event records.'
+    }
+    $records = @($encoded.Split(';'))
+    if ([uint64]$records.Count -ne $count) {
+        throw 'Scheduling drop evidence count does not match its event records.'
+    }
+    [uint64]$previousCollection = 0
+    [uint64]$previousTimestamp = 0
+    [uint64]$recordedDrops = 0
+    foreach ($record in $records) {
+        $parts = $record.Split(':')
+        if ($parts.Count -ne 4) {
+            throw 'A scheduling drop event is malformed.'
+        }
+        [uint64[]]$values = @(0, 0, 0, 0)
+        for ($index = 0; $index -lt 4; ++$index) {
+            [uint64]$parsedValue = 0
+            if (-not [uint64]::TryParse(
+                    $parts[$index], [Globalization.NumberStyles]::None,
+                    $invariant, [ref]$parsedValue)) {
+                throw 'A scheduling drop event contains a non-unsigned value.'
+            }
+            $values[$index] = $parsedValue
+        }
+        if ($values[0] -le $previousCollection -or
+            $values[1] -lt $previousTimestamp -or $values[1] -eq 0 -or
+            $values[3] -eq 0) {
+            throw 'Scheduling drop events are not ordered, timestamped, and nonzero.'
+        }
+        $previousCollection = $values[0]
+        $previousTimestamp = $values[1]
+        $recordedDrops += $values[3]
+    }
+    if (($overflow -eq 0 -and $recordedDrops -ne $drops) -or
+        ($overflow -ne 0 -and ($count -ne 256 -or $recordedDrops -gt $drops)) -or
+        $misses -gt ($count + $overflow)) {
+        throw 'Scheduling drop event details contradict aggregate scheduling counters.'
+    }
+}
+
 function Require-Zero($Fields, [string[]]$Names) {
     foreach ($name in $Names) {
         if ((Read-UInt $Fields $name) -ne 0) {
@@ -387,6 +444,7 @@ if ((Require-Field $report 'archive_healthy') -cne '1' -or
     (Require-Field $report 'archive_schema_version') -cne '1') {
     throw 'The app report does not prove a healthy direct-v1 archive.'
 }
+Assert-SchedulingDropEvidence $report
 Require-Zero $report @('failed_samples', 'dropped_samples', 'deadline_misses',
                         'collector_worker_failures', 'snapshot_failures',
                         'capture_queue_rejections', 'event_worker_failures',
