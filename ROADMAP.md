@@ -1872,11 +1872,11 @@ security workflows. Their downloaded direct-v1 attestations independently verify
 writer at `out/hosted-ci/949e919b014beff5062c3cc1caa54e1bd45ef26d/{windows,quality}`.
 
 A fresh exact-revision overnight campaign started from that frozen Release executable at
-`out/soaks/overnight-v1-949e919-20260822.partial`. It stopped without publication after 17,285
-elapsed seconds (about 4 hours 48 minutes), 288 process checkpoints, and zero sampling gaps. No
-process remains active and the stale `state=running` checkpoint cannot be treated as completed
-evidence. The retained `.partial` directory remains diagnostic-only; a fresh exact-revision campaign
-is required after integration.
+`out/soaks/overnight-v1-949e919-20260822.partial`. It was deliberately stopped as revision-obsolete
+without publication after 19,206 elapsed seconds (about 5 hours 20 minutes), 320 process checkpoints,
+and zero sampling gaps. No process remains active and the stale `state=running` checkpoint cannot be
+treated as completed evidence. The retained `.partial` directory remains diagnostic-only; a fresh
+exact-revision campaign is required after integration.
 
 The resource-aware project audit is published in `docs/PROJECT_AUDIT_2026-08-22.md`. Its actionable
 one-host engineering tracks are now implemented:
