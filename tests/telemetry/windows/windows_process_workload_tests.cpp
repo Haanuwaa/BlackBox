@@ -174,7 +174,10 @@ TEST_CASE("Windows provider follows a short-lived CPU memory and I/O process",
     CHECK(observed_memory);
     CHECK(observed_disk_write);
 
-    REQUIRE(WaitForSingleObject(child.value.hProcess, 5'000U) == WAIT_OBJECT_0);
+    // The fixture may still be flushing its final 32 MiB write after the
+    // three-second workload deadline. Loaded hosted disks can legitimately
+    // take longer than five seconds without indicating a stuck process.
+    REQUIRE(WaitForSingleObject(child.value.hProcess, 20'000U) == WAIT_OBJECT_0);
     DWORD exit_code = 1U;
     REQUIRE(GetExitCodeProcess(child.value.hProcess, &exit_code) != 0);
     CHECK(exit_code == 0U);
