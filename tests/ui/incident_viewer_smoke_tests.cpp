@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -29,6 +30,27 @@ namespace ui = blackbox::ui;
 
 namespace {
 
+[[nodiscard]] std::optional<std::string> environment_value(const char* name) {
+#if defined(_WIN32)
+    char* raw_value{};
+    std::size_t value_size{};
+    if (_dupenv_s(&raw_value, &value_size, name) != 0) {
+        throw std::runtime_error{"cannot read UI evidence environment"};
+    }
+    const std::unique_ptr<char, decltype(&std::free)> value{raw_value, &std::free};
+    if (value_size == 0U || raw_value == nullptr || *raw_value == '\0') {
+        return std::nullopt;
+    }
+    return std::string{raw_value};
+#else
+    const char* raw_value = std::getenv(name);
+    if (raw_value == nullptr || *raw_value == '\0') {
+        return std::nullopt;
+    }
+    return std::string{raw_value};
+#endif
+}
+
 [[nodiscard]] constexpr const char* page_name(const ui::ProductPage page) noexcept {
     switch (page) {
     case ui::ProductPage::live: return "live";
@@ -42,14 +64,9 @@ namespace {
 }
 
 [[nodiscard]] std::filesystem::path evidence_directory() {
-    char* raw_value{};
-    std::size_t value_size{};
-    if (_dupenv_s(&raw_value, &value_size, "BLACKBOX_UI_EVIDENCE_DIR") != 0) {
-        throw std::runtime_error{"cannot read BLACKBOX_UI_EVIDENCE_DIR"};
-    }
-    const std::unique_ptr<char, decltype(&std::free)> value{raw_value, &std::free};
-    if (value_size == 0U || raw_value == nullptr || *raw_value == '\0') return {};
-    const std::filesystem::path directory{raw_value};
+    const auto value = environment_value("BLACKBOX_UI_EVIDENCE_DIR");
+    if (!value) return {};
+    const std::filesystem::path directory{*value};
     std::error_code issue;
     if (!directory.is_absolute() ||
         !std::filesystem::is_directory(directory, issue) || issue) {
@@ -61,17 +78,12 @@ namespace {
 
 void require_matching_evidence_revision(const std::filesystem::path& directory) {
     if (directory.empty()) return;
-    char* raw_value{};
-    std::size_t value_size{};
-    if (_dupenv_s(&raw_value, &value_size, "BLACKBOX_UI_SOURCE_REVISION") != 0) {
-        throw std::runtime_error{"cannot read BLACKBOX_UI_SOURCE_REVISION"};
-    }
-    const std::unique_ptr<char, decltype(&std::free)> value{raw_value, &std::free};
-    if (value_size == 0U || raw_value == nullptr || *raw_value == '\0') {
+    const auto value = environment_value("BLACKBOX_UI_SOURCE_REVISION");
+    if (!value) {
         throw std::runtime_error{
             "BLACKBOX_UI_SOURCE_REVISION is required when publishing UI evidence"};
     }
-    if (std::string_view{raw_value} != BLACKBOX_QUALIFICATION_SOURCE_REVISION) {
+    if (*value != BLACKBOX_QUALIFICATION_SOURCE_REVISION) {
         throw std::runtime_error{
             "UI evidence revision does not match the compiled qualification executable"};
     }
