@@ -147,6 +147,8 @@ single-host profiles, independent bundle verification, and aggregate clean-clien
 The development Linux system/process boundary is described in
 [docs/TELEMETRY.md](docs/TELEMETRY.md), and the label-free feature export plus verified baseline
 comparison workflow is documented in [docs/OFFLINE_ML.md](docs/OFFLINE_ML.md).
+The current outcome-by-outcome Windows/Linux/macOS gap map and ordered native work are maintained in
+[docs/PLATFORM_PARITY.md](docs/PLATFORM_PARITY.md).
 The bounded component record format and replaceable-sink rules are documented in
 [docs/LOGGING.md](docs/LOGGING.md).
 The same-revision hosted/UI/client/soak/signing composition contract is documented in

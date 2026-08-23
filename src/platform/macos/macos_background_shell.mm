@@ -59,7 +59,6 @@ enum class NotificationAuthorization : std::uint8_t {
     switch (status) {
     case UNAuthorizationStatusAuthorized:
     case UNAuthorizationStatusProvisional:
-    case UNAuthorizationStatusEphemeral:
         return NotificationAuthorization::authorized;
     case UNAuthorizationStatusDenied:
         return NotificationAuthorization::denied;
@@ -373,11 +372,11 @@ bool MacosBackgroundShell::notify(const std::string_view title,
         ++shared->pending;
     }
     @autoreleasepool {
-        const auto* notification_title =
+        NSString* notification_title =
             [[NSString alloc] initWithBytes:title.data()
                                      length:title.size()
                                    encoding:NSUTF8StringEncoding];
-        const auto* notification_message =
+        NSString* notification_message =
             [[NSString alloc] initWithBytes:message.data()
                                      length:message.size()
                                    encoding:NSUTF8StringEncoding];
@@ -390,7 +389,7 @@ bool MacosBackgroundShell::notify(const std::string_view title,
         auto* content = [[UNMutableNotificationContent alloc] init];
         content.title = notification_title;
         content.body = notification_message;
-        const auto* request = [UNNotificationRequest
+        UNNotificationRequest* request = [UNNotificationRequest
             requestWithIdentifier:NSUUID.UUID.UUIDString
                           content:content
                           trigger:nil];
