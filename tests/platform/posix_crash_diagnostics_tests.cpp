@@ -11,6 +11,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <signal.h>
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
