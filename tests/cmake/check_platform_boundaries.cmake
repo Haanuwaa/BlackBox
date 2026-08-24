@@ -64,7 +64,7 @@ foreach(FILE_PATH IN LISTS ANALYSIS_FILES)
 endforeach()
 
 foreach(FILE_PATH IN LISTS PLATFORM_FILES)
-    if(FILE_PATH MATCHES "/(windows|linux|macos)/")
+    if(FILE_PATH MATCHES "/(windows|linux|macos|posix)/")
         continue()
     endif()
     file(READ "${FILE_PATH}" CONTENTS)

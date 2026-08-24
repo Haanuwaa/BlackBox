@@ -205,12 +205,14 @@ CrashDiagnosticsSnapshot WindowsCrashDiagnostics::snapshot() const noexcept {
                 const auto size = iterator->file_size(filesystem_error);
                 if (filesystem_error) break;
                 if (size == 0U) continue;
-                if (result.completed_dumps != UINT64_MAX) ++result.completed_dumps;
+                if (result.completed_evidence != UINT64_MAX) {
+                    ++result.completed_evidence;
+                }
                 const auto changed = iterator->last_write_time(filesystem_error);
                 if (filesystem_error) break;
-                if (result.latest_dump.empty() || changed > newest_time) {
+                if (result.latest_evidence.empty() || changed > newest_time) {
                     newest_time = changed;
-                    result.latest_dump = iterator->path();
+                    result.latest_evidence = iterator->path();
                 }
             }
         }
@@ -218,7 +220,7 @@ CrashDiagnosticsSnapshot WindowsCrashDiagnostics::snapshot() const noexcept {
             result.status = "Crash dump inventory is temporarily unavailable";
         } else if (!impl_->installed) {
             result.status = impl_->failure;
-        } else if (result.completed_dumps == 0U) {
+        } else if (result.completed_evidence == 0U) {
             result.status = "Crash diagnostics armed; no previous crash dump";
         } else {
             result.status = "Previous crash evidence is available locally";

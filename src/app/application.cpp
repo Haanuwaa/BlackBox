@@ -16,10 +16,12 @@
 #include "platform/linux/linux_accessibility.hpp"
 #include "platform/linux/linux_background_shell.hpp"
 #include "platform/linux/linux_global_hotkey_manager.hpp"
+#include "platform/posix/posix_crash_diagnostics.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
 #elif defined(__APPLE__)
 #include "platform/macos/macos_accessibility.hpp"
 #include "platform/macos/macos_background_shell.hpp"
+#include "platform/posix/posix_crash_diagnostics.hpp"
 #include "telemetry/macos/macos_telemetry_provider.hpp"
 #else
 #include "telemetry/mock/mock_telemetry_provider.hpp"
@@ -159,6 +161,11 @@ ApplicationInitializationResult Application::initialize() {
         std::make_unique<platform::windows::WindowsCrashDiagnostics>(
             product_settings_path_.parent_path() / "crashes");
     static_cast<void>(crash_diagnostics_->install());
+#elif defined(__linux__) || defined(__APPLE__)
+    crash_diagnostics_ =
+        std::make_unique<platform::posix::PosixCrashDiagnostics>(
+            product_settings_path_.parent_path() / "crashes");
+    static_cast<void>(crash_diagnostics_->install());
 #endif
     const auto loaded_product_settings = load_product_settings(product_settings_path_);
     if (loaded_product_settings) {
@@ -209,6 +216,7 @@ ApplicationInitializationResult Application::initialize() {
         background_shell_.reset();
         background_status_text_ = "Desktop shell unavailable; close exits";
     }
+#if defined(__linux__)
     linux_accessibility_monitor_ =
         std::make_unique<platform::linux::LinuxAccessibilityMonitor>();
     if (linux_accessibility_monitor_->start()) {
@@ -216,6 +224,7 @@ ApplicationInitializationResult Application::initialize() {
     } else {
         linux_accessibility_monitor_.reset();
     }
+#endif
 #endif
 #if defined(_WIN32)
     background_shell_ = std::make_unique<platform::windows::WindowsBackgroundShell>();
@@ -792,13 +801,14 @@ void Application::request_support_bundle(
         value.storage_write_failures = dashboard_state_.storage_write_failures;
         value.recoverable_incident_available =
             dashboard_state_.archive_recoverable_incident;
-        value.previous_crash_dumps = dashboard_state_.previous_crash_dumps;
-        if (command.include_latest_crash_dump && crash_diagnostics_ != nullptr) {
+        value.previous_crash_evidence = dashboard_state_.previous_crash_evidence;
+        if (command.include_latest_crash_evidence &&
+            crash_diagnostics_ != nullptr) {
             const auto crash = crash_diagnostics_->snapshot();
-            if (!crash.latest_dump.empty()) {
-                request.consented_crash_dump = crash.latest_dump;
-                request.crash_dump_disclosure_confirmed =
-                    command.crash_dump_disclosure_confirmed;
+            if (!crash.latest_evidence.empty()) {
+                request.consented_crash_evidence = crash.latest_evidence;
+                request.crash_evidence_disclosure_confirmed =
+                    command.crash_evidence_disclosure_confirmed;
             }
         }
         support_bundle_service_.create(std::move(request));
@@ -1191,8 +1201,9 @@ void Application::refresh_dashboard_if_due() {
         const auto crash = crash_diagnostics_->snapshot();
         dashboard_state_.crash_diagnostics_available = crash.available;
         dashboard_state_.crash_diagnostics_armed = crash.armed;
-        dashboard_state_.previous_crash_dumps = crash.completed_dumps;
-        dashboard_state_.latest_crash_dump_available = !crash.latest_dump.empty();
+        dashboard_state_.previous_crash_evidence = crash.completed_evidence;
+        dashboard_state_.latest_crash_evidence_available =
+            !crash.latest_evidence.empty();
         dashboard_state_.crash_diagnostics_status = crash.status;
     }
 

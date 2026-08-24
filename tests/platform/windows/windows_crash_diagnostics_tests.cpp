@@ -77,8 +77,8 @@ TEST_CASE("Windows crash diagnostics inventories evidence and cleans normal stag
         const auto state = diagnostics.snapshot();
         CHECK(state.available);
         CHECK(state.armed);
-        CHECK(state.completed_dumps == 1U);
-        CHECK(state.latest_dump == prior);
+        CHECK(state.completed_evidence == 1U);
+        CHECK(state.latest_evidence == prior);
     }
     for (const auto& entry : std::filesystem::directory_iterator{temporary.path}) {
         CHECK(entry.path().extension() != ".partial");

@@ -9,8 +9,8 @@ namespace blackbox::platform {
 struct CrashDiagnosticsSnapshot {
     bool available{};
     bool armed{};
-    std::uint64_t completed_dumps{};
-    std::filesystem::path latest_dump{};
+    std::uint64_t completed_evidence{};
+    std::filesystem::path latest_evidence{};
     std::string status{"Crash diagnostics unavailable on this platform"};
 };
 

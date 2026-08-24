@@ -25,7 +25,7 @@ qualified.
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
 | Global incident shortcut | Native registration | XDG GlobalShortcuts portal | Open; no legacy Carbon fallback |
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
-| Crash evidence | Bounded native minidump | Open | Open |
+| Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
 | Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland | Apple Silicon and Intel passed on `52d6c8b` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
@@ -39,8 +39,8 @@ qualified.
    both hosted architectures; physical battery/sleep behavior remains a later client gate.
 4. Retain the implemented nonblocking Linux XDG Settings accessibility adapter, then add power/session
    evidence through similarly bounded native adapters.
-5. Add Linux/macOS crash evidence behind `ICrashDiagnostics`; crash publication must remain independent
-   of SQLite and safe during partial startup.
+5. Retain the implemented Linux/macOS crash evidence behind `ICrashDiagnostics`; physical crash-
+   reporter behavior and symbolication remain unqualified.
 6. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
    A passive Quartz event tap is technically available but is not equivalent to conflict-aware shortcut
    registration and must not be enabled merely to fill a table cell.

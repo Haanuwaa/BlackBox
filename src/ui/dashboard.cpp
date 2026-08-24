@@ -1646,8 +1646,8 @@ DashboardCommand render_dashboard(const DashboardState& state,
         ImGui::Spacing();
         ImGui::SeparatorText("Support and crash recovery");
         ImGui::TextWrapped("%s", state.crash_diagnostics_status.data());
-        ImGui::Text("Completed local crash dumps: %llu | handler: %s",
-                    static_cast<unsigned long long>(state.previous_crash_dumps),
+        ImGui::Text("Completed local crash evidence: %llu | handler: %s",
+                    static_cast<unsigned long long>(state.previous_crash_evidence),
                     state.crash_diagnostics_armed ? "armed" : "not armed");
         ImGui::TextWrapped("%s", state.support_bundle_status.data());
         ImGui::TextDisabled(
@@ -1655,35 +1655,35 @@ DashboardCommand render_dashboard(const DashboardState& state,
         ImGui::InputText("New support bundle directory",
                          product.support_bundle_path.data(),
                          product.support_bundle_path.size());
-        if (!state.latest_crash_dump_available) {
-            product.include_latest_crash_dump = false;
-            product.crash_dump_consent_confirmed = false;
+        if (!state.latest_crash_evidence_available) {
+            product.include_latest_crash_evidence = false;
+            product.crash_evidence_consent_confirmed = false;
             ImGui::BeginDisabled();
         }
-        ImGui::Checkbox("Include latest crash dump",
-                        &product.include_latest_crash_dump);
-        if (!state.latest_crash_dump_available) ImGui::EndDisabled();
-        if (product.include_latest_crash_dump) {
+        ImGui::Checkbox("Include latest raw crash evidence",
+                        &product.include_latest_crash_evidence);
+        if (!state.latest_crash_evidence_available) ImGui::EndDisabled();
+        if (product.include_latest_crash_evidence) {
             ImGui::TextColored(
                 ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
-                "A minidump can contain stack memory and module paths.");
-            ImGui::Checkbox("I consent to place the latest raw dump in this local bundle",
-                            &product.crash_dump_consent_confirmed);
+                "Depending on platform, crash evidence can contain memory, addresses, and module paths.");
+            ImGui::Checkbox("I consent to place the latest raw evidence in this local bundle",
+                            &product.crash_evidence_consent_confirmed);
         } else {
-            product.crash_dump_consent_confirmed = false;
+            product.crash_evidence_consent_confirmed = false;
         }
         const bool support_disabled = state.support_bundle_busy ||
-            (product.include_latest_crash_dump &&
-             !product.crash_dump_consent_confirmed);
+            (product.include_latest_crash_evidence &&
+             !product.crash_evidence_consent_confirmed);
         if (support_disabled) ImGui::BeginDisabled();
         if (ImGui::Button("Create local support bundle")) {
             command.action = DashboardAction::create_support_bundle;
             command.support_bundle_path = product.support_bundle_path.data();
-            command.include_latest_crash_dump =
-                product.include_latest_crash_dump;
-            command.crash_dump_disclosure_confirmed =
-                product.crash_dump_consent_confirmed;
-            product.crash_dump_consent_confirmed = false;
+            command.include_latest_crash_evidence =
+                product.include_latest_crash_evidence;
+            command.crash_evidence_disclosure_confirmed =
+                product.crash_evidence_consent_confirmed;
+            product.crash_evidence_consent_confirmed = false;
         }
         if (support_disabled) ImGui::EndDisabled();
 

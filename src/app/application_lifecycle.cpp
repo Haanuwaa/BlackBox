@@ -253,7 +253,7 @@ void Application::write_diagnostic_report() noexcept {
     final_crash_diagnostics_ = crash_diagnostics_->snapshot();
   }
   report.crash_diagnostics_armed = final_crash_diagnostics_.armed;
-  report.previous_crash_dumps = final_crash_diagnostics_.completed_dumps;
+  report.previous_crash_evidence = final_crash_diagnostics_.completed_evidence;
 
   const auto result =
       write_wall_clock_report(diagnostic_options_.report_path, report);

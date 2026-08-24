@@ -46,7 +46,7 @@ public:
     request.diagnostics.archive_healthy = true;
     request.diagnostics.archive_schema_version = 1;
     request.diagnostics.stored_incidents = 7U;
-    request.diagnostics.previous_crash_dumps = 2U;
+    request.diagnostics.previous_crash_evidence = 2U;
     return request;
 }
 
@@ -66,19 +66,19 @@ TEST_CASE("support bundle publishes a privacy-safe direct-v1 directory atomicall
     const auto result = app::create_support_bundle(request);
     REQUIRE(result.has_value());
     CHECK(result->files == 3U);
-    CHECK_FALSE(result->included_crash_dump);
+    CHECK_FALSE(result->included_crash_evidence);
     CHECK(std::filesystem::is_directory(destination));
     CHECK_FALSE(std::filesystem::exists(destination.string() + ".partial"));
     CHECK(std::filesystem::is_regular_file(destination / "manifest.ini"));
     CHECK(std::filesystem::is_regular_file(destination / "diagnostics.ini"));
     CHECK(std::filesystem::is_regular_file(destination / "README.txt"));
-    CHECK_FALSE(std::filesystem::exists(destination / "crash.dmp"));
+    CHECK_FALSE(std::filesystem::exists(destination / "crash-evidence.bin"));
 
     const auto manifest = read_text(destination / "manifest.ini");
     const auto diagnostics = read_text(destination / "diagnostics.ini");
     const auto readme = read_text(destination / "README.txt");
     CHECK(manifest.find("format=1\n") == 0U);
-    CHECK(manifest.find("includes_crash_dump=0") != std::string::npos);
+    CHECK(manifest.find("includes_crash_evidence=0") != std::string::npos);
     CHECK(diagnostics.find("format=1\n") == 0U);
     CHECK(diagnostics.find("collections=41") != std::string::npos);
     CHECK(diagnostics.find("process_lifecycle_enabled=1") != std::string::npos);
@@ -95,7 +95,7 @@ TEST_CASE("support bundle publishes a privacy-safe direct-v1 directory atomicall
     CHECK(repeated.error().code == app::SupportBundleErrorCode::destination_exists);
 }
 
-TEST_CASE("support bundle includes only an explicitly consented bounded crash dump",
+TEST_CASE("support bundle includes only explicitly consented bounded crash evidence",
           "[app][support][crash][privacy]") {
     TemporaryBundle temporary;
     const auto crash = temporary.root / "private-source-name.dmp";
@@ -104,32 +104,33 @@ TEST_CASE("support bundle includes only an explicitly consented bounded crash du
         output << "MDMP\0bounded fixture";
     }
     auto request = request_for(temporary.root / "with-crash");
-    request.consented_crash_dump = crash;
-    request.crash_dump_disclosure_confirmed = true;
+    request.consented_crash_evidence = crash;
+    request.crash_evidence_disclosure_confirmed = true;
 
     const auto result = app::create_support_bundle(request);
     REQUIRE(result.has_value());
     CHECK(result->files == 4U);
-    CHECK(result->included_crash_dump);
-    CHECK(read_text(result->destination / "crash.dmp") == read_text(crash));
+    CHECK(result->included_crash_evidence);
+    CHECK(read_text(result->destination / "crash-evidence.bin") == read_text(crash));
     const auto manifest = read_text(result->destination / "manifest.ini");
-    CHECK(manifest.find("includes_crash_dump=1") != std::string::npos);
-    CHECK(manifest.find("crash_dump_fingerprint=") != std::string::npos);
+    CHECK(manifest.find("includes_crash_evidence=1") != std::string::npos);
+    CHECK(manifest.find("crash_evidence_fingerprint=") != std::string::npos);
     CHECK(manifest.find("private-source-name") == std::string::npos);
     CHECK(read_text(result->destination / "diagnostics.ini").find(
               temporary.root.string()) == std::string::npos);
 
     auto missing = request_for(temporary.root / "missing-crash");
-    missing.consented_crash_dump = temporary.root / "missing.dmp";
-    missing.crash_dump_disclosure_confirmed = true;
+    missing.consented_crash_evidence = temporary.root / "missing.dmp";
+    missing.crash_evidence_disclosure_confirmed = true;
     const auto rejected = app::create_support_bundle(missing);
     REQUIRE_FALSE(rejected.has_value());
-    CHECK(rejected.error().code == app::SupportBundleErrorCode::crash_dump_invalid);
+    CHECK(rejected.error().code ==
+          app::SupportBundleErrorCode::crash_evidence_invalid);
     CHECK_FALSE(std::filesystem::exists(missing.destination));
     CHECK_FALSE(std::filesystem::exists(missing.destination.string() + ".partial"));
 
     auto unconfirmed = request_for(temporary.root / "unconfirmed-crash");
-    unconfirmed.consented_crash_dump = crash;
+    unconfirmed.consented_crash_evidence = crash;
     const auto consent_rejected = app::create_support_bundle(unconfirmed);
     REQUIRE_FALSE(consent_rejected.has_value());
     CHECK(consent_rejected.error().code ==

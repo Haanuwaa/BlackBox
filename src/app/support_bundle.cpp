@@ -24,9 +24,9 @@ constexpr std::string_view privacy_readme =
     "incident archive, telemetry samples, process rows, executable names or paths,\n"
     "annotations, settings values, hotkeys, usernames, and absolute local paths.\n"
     "\n"
-    "If crash.dmp is present, the user explicitly chose to include it. A minidump\n"
-    "can contain stack memory and module paths and must be reviewed and shared as\n"
-    "potentially personal data. Delete it before sharing if that is not acceptable.\n";
+    "If crash-evidence.bin is present, the user explicitly chose to include it.\n"
+    "Depending on platform, raw crash evidence can contain stack memory, code\n"
+    "addresses, and module paths. Review it as potentially personal data.\n";
 
 [[nodiscard]] SupportBundleError error(const SupportBundleErrorCode code,
                                        std::string message) {
@@ -79,8 +79,8 @@ constexpr std::string_view privacy_readme =
                                          "support artifact read-back failed")};
         }
         total += static_cast<std::uintmax_t>(count);
-        if (total > maximum_support_crash_dump_bytes) {
-            return std::unexpected{error(SupportBundleErrorCode::crash_dump_too_large,
+        if (total > maximum_support_crash_evidence_bytes) {
+            return std::unexpected{error(SupportBundleErrorCode::crash_evidence_too_large,
                                          "support artifact exceeds the 64 MiB bound")};
         }
         for (std::streamsize index = 0; index < count; ++index) {
@@ -164,7 +164,8 @@ void append_integer(std::ostringstream& output, const std::string_view name,
     append_integer(output, "storage_write_failures", value.storage_write_failures);
     append_boolean(output, "recoverable_incident_available",
                    value.recoverable_incident_available);
-    append_integer(output, "previous_crash_dumps", value.previous_crash_dumps);
+    append_integer(output, "previous_crash_evidence",
+                   value.previous_crash_evidence);
     return output.str();
 }
 
@@ -172,22 +173,22 @@ void append_integer(std::ostringstream& output, const std::string_view name,
     const std::filesystem::path& path) {
     std::error_code filesystem_error;
     if (path.empty() || !path.is_absolute()) {
-        return std::unexpected{error(SupportBundleErrorCode::crash_dump_invalid,
-                                     "consented crash dump path must be absolute")};
+        return std::unexpected{error(SupportBundleErrorCode::crash_evidence_invalid,
+                                     "consented crash evidence path must be absolute")};
     }
     const auto status = std::filesystem::symlink_status(path, filesystem_error);
     if (filesystem_error || status.type() != std::filesystem::file_type::regular) {
-        return std::unexpected{error(SupportBundleErrorCode::crash_dump_invalid,
-                                     "consented crash dump must be a regular non-link file")};
+        return std::unexpected{error(SupportBundleErrorCode::crash_evidence_invalid,
+                                     "consented crash evidence must be a regular non-link file")};
     }
     const auto size = std::filesystem::file_size(path, filesystem_error);
     if (filesystem_error || size == 0U) {
-        return std::unexpected{error(SupportBundleErrorCode::crash_dump_invalid,
-                                     "consented crash dump is empty or unreadable")};
+        return std::unexpected{error(SupportBundleErrorCode::crash_evidence_invalid,
+                                     "consented crash evidence is empty or unreadable")};
     }
-    if (size > maximum_support_crash_dump_bytes) {
-        return std::unexpected{error(SupportBundleErrorCode::crash_dump_too_large,
-                                     "consented crash dump exceeds the 64 MiB bound")};
+    if (size > maximum_support_crash_evidence_bytes) {
+        return std::unexpected{error(SupportBundleErrorCode::crash_evidence_too_large,
+                                     "consented crash evidence exceeds the 64 MiB bound")};
     }
     return {};
 }
@@ -229,14 +230,15 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
             return std::unexpected{error(SupportBundleErrorCode::cannot_write,
                                          "support bundle staging path cannot be inspected")};
         }
-        if (request.consented_crash_dump.has_value() !=
-            request.crash_dump_disclosure_confirmed) {
+        if (request.consented_crash_evidence.has_value() !=
+            request.crash_evidence_disclosure_confirmed) {
             return std::unexpected{error(
                 SupportBundleErrorCode::invalid_request,
-                "raw crash dump inclusion requires matching explicit disclosure consent")};
+                "raw crash evidence inclusion requires matching explicit disclosure consent")};
         }
-        if (request.consented_crash_dump) {
-            if (const auto valid = validate_crash_source(*request.consented_crash_dump);
+        if (request.consented_crash_evidence) {
+            if (const auto valid = validate_crash_source(
+                    *request.consented_crash_evidence);
                 !valid) {
                 return std::unexpected{valid.error()};
             }
@@ -261,17 +263,17 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
                               "support bundle text artifacts cannot be written"));
         }
 
-        bool included_crash_dump = false;
-        if (request.consented_crash_dump) {
-            std::filesystem::copy_file(*request.consented_crash_dump,
-                                       staging / "crash.dmp",
+        bool included_crash_evidence = false;
+        if (request.consented_crash_evidence) {
+            std::filesystem::copy_file(*request.consented_crash_evidence,
+                                       staging / "crash-evidence.bin",
                                        std::filesystem::copy_options::none,
                                        filesystem_error);
             if (filesystem_error) {
                 return fail(error(SupportBundleErrorCode::cannot_write,
-                                  "consented crash dump cannot be copied"));
+                                  "consented crash evidence cannot be copied"));
             }
-            included_crash_dump = true;
+            included_crash_evidence = true;
         }
 
         const auto diagnostics_fingerprint = fingerprint_file(staging / "diagnostics.ini");
@@ -279,8 +281,8 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
         if (!diagnostics_fingerprint) return fail(diagnostics_fingerprint.error());
         if (!readme_fingerprint) return fail(readme_fingerprint.error());
         std::optional<std::uint64_t> crash_fingerprint;
-        if (included_crash_dump) {
-            const auto fingerprint = fingerprint_file(staging / "crash.dmp");
+        if (included_crash_evidence) {
+            const auto fingerprint = fingerprint_file(staging / "crash-evidence.bin");
             if (!fingerprint) return fail(fingerprint.error());
             crash_fingerprint = *fingerprint;
         }
@@ -290,20 +292,20 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
         std::ostringstream manifest;
         manifest << "format=" << support_bundle_format_version << '\n'
                  << "generated_unix_milliseconds=" << generated << '\n'
-                 << "file_count=" << (included_crash_dump ? 4U : 3U) << '\n'
-                 << "includes_crash_dump=" << (included_crash_dump ? 1 : 0) << '\n'
+                 << "file_count=" << (included_crash_evidence ? 4U : 3U) << '\n'
+                 << "includes_crash_evidence=" << (included_crash_evidence ? 1 : 0) << '\n'
                  << "diagnostics_fingerprint=" << *diagnostics_fingerprint << '\n'
                  << "readme_fingerprint=" << *readme_fingerprint << '\n';
         if (crash_fingerprint) {
-            manifest << "crash_dump_fingerprint=" << *crash_fingerprint << '\n';
+            manifest << "crash_evidence_fingerprint=" << *crash_fingerprint << '\n';
         }
         if (!write_file(staging / "manifest.ini", manifest.str())) {
             return fail(error(SupportBundleErrorCode::cannot_write,
                               "support bundle manifest cannot be written"));
         }
 
-        const std::set<std::string> expected = included_crash_dump
-            ? std::set<std::string>{"README.txt", "crash.dmp", "diagnostics.ini",
+        const std::set<std::string> expected = included_crash_evidence
+            ? std::set<std::string>{"README.txt", "crash-evidence.bin", "diagnostics.ini",
                                     "manifest.ini"}
             : std::set<std::string>{"README.txt", "diagnostics.ini", "manifest.ini"};
         std::set<std::string> observed;
@@ -315,7 +317,8 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
             const auto name = iterator->path().filename().string();
             const auto size = iterator->file_size(filesystem_error);
             if (filesystem_error || size == 0U ||
-                size > maximum_support_crash_dump_bytes || !observed.insert(name).second) {
+                size > maximum_support_crash_evidence_bytes ||
+                !observed.insert(name).second) {
                 filesystem_error = std::make_error_code(std::errc::invalid_argument);
                 break;
             }
@@ -337,7 +340,7 @@ std::expected<SupportBundleResult, SupportBundleError> create_support_bundle(
         }
         return SupportBundleResult{request.destination,
                                    static_cast<std::uint64_t>(expected.size()), bytes,
-                                   included_crash_dump};
+                                   included_crash_evidence};
     } catch (const std::exception& exception) {
         return std::unexpected{error(SupportBundleErrorCode::cannot_write,
                                      exception.what())};

@@ -806,12 +806,22 @@ analysis, then publishes it by rename. Clean shutdown removes the unused staging
 only an `ICrashDiagnostics` snapshot, completed dumps are never deleted automatically, and raw dump
 content never enters core domain types.
 
+Linux and macOS use one POSIX implementation under the same platform boundary. Installation creates
+one mode-0600 `.crash.partial` file and writes its canonical direct-v1 header before registering fatal
+signal handlers. The signal path appends one fixed 40-byte event using only bounded scalar encoding and
+async-signal-safe write/flush/close/rename operations, then re-raises the signal with its default
+disposition. The record contains signal/code, PID, UTC time, and fault address only: it performs no
+allocation, stack walk, symbol/path lookup, database/UI call, or second file open. Clean shutdown restores
+prior handlers and removes only its unused staging file. This provides deterministic local crash evidence
+without misrepresenting the record as a Windows minidump.
+
 Support-bundle generation belongs to `app` and runs on its own single-request worker. It consumes a
 fixed aggregate diagnostics value assembled by the composition root, not a recorder/archive object,
 incident, process row, settings object, log stream, or arbitrary status string. Direct-format-v1
 artifacts stage in a sibling directory, validate an exact bounded regular-file set, and publish by
-same-volume rename. The default allowlist excludes local paths and evidence; the newest raw minidump
-is copied only after a separate UI consent and source link/size validation. There is no uploader or
+same-volume rename. The default allowlist excludes local paths and evidence; the newest raw platform
+crash evidence is copied as neutral `crash-evidence.bin` only after separate UI consent and source
+link/size validation. There is no uploader or
 network dependency. These downstream services cannot block or become dependencies of collection.
 
 The V0.17 quality graph is also downstream build infrastructure, not a runtime layer. Sanitizer,

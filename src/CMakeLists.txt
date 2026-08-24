@@ -167,6 +167,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
         platform/linux/linux_accessibility.cpp
         platform/linux/linux_background_shell.cpp
         platform/linux/linux_global_hotkey_manager.cpp
+        platform/posix/posix_crash_diagnostics.cpp
     )
     add_library(BlackBox::PlatformLinux ALIAS blackbox_platform_linux)
     target_include_directories(blackbox_platform_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
@@ -186,6 +187,7 @@ if(APPLE AND BLACKBOX_BUILD_APP)
     add_library(blackbox_platform_macos STATIC
         platform/macos/macos_accessibility.mm
         platform/macos/macos_background_shell.mm
+        platform/posix/posix_crash_diagnostics.cpp
     )
     add_library(BlackBox::PlatformMacos ALIAS blackbox_platform_macos)
     target_include_directories(blackbox_platform_macos PUBLIC ${PROJECT_SOURCE_DIR}/src)

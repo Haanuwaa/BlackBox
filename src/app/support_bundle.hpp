@@ -14,7 +14,7 @@
 namespace blackbox::app {
 
 inline constexpr std::uint32_t support_bundle_format_version = 1U;
-inline constexpr std::uintmax_t maximum_support_crash_dump_bytes = 64ULL << 20U;
+inline constexpr std::uintmax_t maximum_support_crash_evidence_bytes = 64ULL << 20U;
 
 struct SupportDiagnostics {
     std::string application_version{};
@@ -57,29 +57,29 @@ struct SupportDiagnostics {
     std::uint64_t storage_write_successes{};
     std::uint64_t storage_write_failures{};
     bool recoverable_incident_available{};
-    std::uint64_t previous_crash_dumps{};
+    std::uint64_t previous_crash_evidence{};
 };
 
 struct SupportBundleRequest {
     std::filesystem::path destination{};
     SupportDiagnostics diagnostics{};
-    std::optional<std::filesystem::path> consented_crash_dump{};
-    bool crash_dump_disclosure_confirmed{};
+    std::optional<std::filesystem::path> consented_crash_evidence{};
+    bool crash_evidence_disclosure_confirmed{};
 };
 
 struct SupportBundleResult {
     std::filesystem::path destination{};
     std::uint64_t files{};
     std::uint64_t bytes{};
-    bool included_crash_dump{};
+    bool included_crash_evidence{};
 };
 
 enum class SupportBundleErrorCode : std::uint8_t {
     invalid_request,
     destination_exists,
     staging_exists,
-    crash_dump_invalid,
-    crash_dump_too_large,
+    crash_evidence_invalid,
+    crash_evidence_too_large,
     cannot_write,
     cannot_publish,
 };

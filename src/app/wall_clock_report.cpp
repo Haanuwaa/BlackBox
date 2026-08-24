@@ -201,7 +201,8 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "session_locks", report.session_locks);
         append(output, "session_unlocks", report.session_unlocks);
         append(output, "crash_diagnostics_armed", report.crash_diagnostics_armed);
-        append(output, "previous_crash_dumps", report.previous_crash_dumps);
+        append(output, "previous_crash_evidence",
+               report.previous_crash_evidence);
 
         {
             std::ofstream stream{staging, std::ios::binary | std::ios::trunc};

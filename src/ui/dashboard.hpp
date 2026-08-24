@@ -51,8 +51,8 @@ struct ProductUiState {
     std::array<char, product_path_capacity + 1U> export_path{};
     std::array<char, product_path_capacity + 1U> failed_export_path{};
     std::array<char, product_path_capacity + 1U> support_bundle_path{};
-    bool include_latest_crash_dump{};
-    bool crash_dump_consent_confirmed{};
+    bool include_latest_crash_evidence{};
+    bool crash_evidence_consent_confirmed{};
     std::uint64_t retention_incidents{500U};
     bool restore_confirmed{};
     bool retention_confirmed{};
@@ -152,8 +152,8 @@ struct DashboardCommand {
     std::string export_path{};
     std::string failed_export_path{};
     std::string support_bundle_path{};
-    bool include_latest_crash_dump{};
-    bool crash_dump_disclosure_confirmed{};
+    bool include_latest_crash_evidence{};
+    bool crash_evidence_disclosure_confirmed{};
 };
 
 struct ProcessRow {
@@ -355,8 +355,8 @@ struct DashboardState {
     std::string archive_maintenance_status{"Not checked"};
     bool crash_diagnostics_available{};
     bool crash_diagnostics_armed{};
-    bool latest_crash_dump_available{};
-    std::uint64_t previous_crash_dumps{};
+    bool latest_crash_evidence_available{};
+    std::uint64_t previous_crash_evidence{};
     std::string crash_diagnostics_status{"Crash diagnostics unavailable"};
     bool support_bundle_busy{};
     std::string support_bundle_status{"Support bundle service is stopped"};

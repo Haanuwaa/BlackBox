@@ -19,7 +19,8 @@ process's memory or the user's files.
   identities, Event Log messages, and payloads are never collected.
 - User labels, notes, feedback, recurrence overrides, and personalized observations.
 - Archive/configuration paths and local account path components.
-- Minidump stack memory, module paths, and incidental in-process strings.
+- Raw crash evidence: Windows minidump stack memory/module paths/incidental strings, or a POSIX
+  signal record's code address.
 - Dogfood ballots, session/operator pseudonyms, and hardware-profile descriptions.
 
 Aggregate counters such as dropped samples or archive byte totals are lower sensitivity, but may
@@ -33,8 +34,8 @@ still reveal product usage and are treated as local data.
 | RAM recorder to immutable incident | race, unbounded copying, accidental capture outside window | fixed rings, short locks, bounded snapshot windows, immutable value handoff |
 | Incident writer to SQLite | partial commit, lock/full/corrupt archive, silent loss | transaction-per-incident, FULL durability, bounded retry, one visible recovery slot, no silent replacement |
 | UI/maintenance to filesystem | path mistakes, overwrite, destructive action, render blocking | new-destination rules, confirmations, maintenance workers, validated restore safety copy |
-| Crash handler to dump directory | deadlock/re-entry, incomplete evidence, private memory disclosure | pre-opened unique file, single guarded handler, minimal dump, `.partial` publication, no upload |
-| Support bundle to recipient | accidental disclosure of incidents, paths, or raw memory | fixed allowlisted diagnostics schema, no archive/settings/log inclusion, optional dump requires explicit consent |
+| Crash handler to evidence directory | deadlock/re-entry, incomplete evidence, private memory/address disclosure | pre-opened unique file, single guarded handler, minimal platform record, `.partial` publication, no upload |
+| Support bundle to recipient | accidental disclosure of incidents, paths, raw memory, or addresses | fixed allowlisted diagnostics schema, no archive/settings/log inclusion, optional raw evidence requires explicit consent |
 | Offline corpus/evaluation | unconsented collection, label leakage, held-out reuse, operator bias, accidental runtime coupling | mandatory direct-v1 session consent attestation, offline-only target, independent ballots, fingerprints, exclusive one-shot attempt |
 
 ## Data minimization and user control
@@ -48,8 +49,9 @@ automatic deletion remains prohibited.
 
 The privacy-safe support bundle is an allowlist, not a redaction pass. Free-form status/error strings,
 logs, process rows, archive paths, and settings are never admitted to `diagnostics.ini`, avoiding the
-fragility of trying to scrub arbitrary text. A raw minidump is the only high-sensitivity optional
-artifact and has a separate confirmation.
+fragility of trying to scrub arbitrary text. Raw platform crash evidence is the only sensitive optional
+artifact and has a separate confirmation; the fixed POSIX record contains no stack or module path, but
+its fault address is still treated as potentially sensitive.
 
 Dogfood truth review is also allowlist-based. Its default ordinal-only directory contains normalized
 incident values and stable process ordinals but blank PID/name fields; it excludes executable paths,
@@ -74,7 +76,8 @@ bounds, and integrity checks pass.
 
 ## Residual risks
 
-- `MiniDumpNormal` can contain personal data even though it is smaller than a full-memory dump.
+- `MiniDumpNormal` can contain personal data even though it is smaller than a full-memory dump; POSIX
+  signal evidence can expose a code address even though it contains no memory or path.
 - SQLite and dump files rely on the user's filesystem permissions and are not encrypted by BlackBox.
   Device encryption and account security are outside the application.
 - Process names, optional paths, lifecycle timing/identity, timestamps, notes, and event evidence may expose activity to anyone

@@ -25,6 +25,15 @@ The default directory is `crashes` beside `product-settings.ini` (normally
 `%LOCALAPPDATA%\BlackBox\crashes`). A completed minidump can contain thread stacks, module names,
 module paths, and fragments of process memory. Treat every `.dmp` as potentially personal data.
 
+On Linux and macOS, the same composition boundary pre-opens one mode-0600 `.crash.partial` record and
+installs bounded handlers for fatal POSIX signals. The handler appends exactly one canonical 40-byte
+event to its prewritten direct-v1 header using async-signal-safe calls, flushes, closes, and renames the
+64-byte record. It stores only signal/code, process ID, UTC seconds/nanoseconds, and a fault address;
+it does not allocate, walk a stack, resolve a module, call SQLite/UI, or open another file. The signal
+is then re-raised with its default disposition so native crash reporting remains possible. A real
+child-process probe validates publication on both hosted platforms. This small signal record is useful
+crash evidence, not a Windows minidump or a substitute for physical crash-reporter qualification.
+
 ## Local support bundle
 
 The Diagnostics page creates a new directory selected by the user. Bundle creation runs on a
@@ -44,21 +53,23 @@ It excludes incident rows, telemetry samples, process lists, executable names or
 annotations, feedback, settings values, the hotkey, usernames, archive/configuration locations, and
 all other absolute paths. BlackBox has no automatic upload path.
 
-The newest `crash.dmp` is included only when all of these are true:
+The newest raw crash-evidence file is included only when all of these are true:
 
 1. completed crash evidence exists;
-2. the user enables **Include latest crash dump**;
-3. the adjacent raw-dump consent is checked; and
+2. the user enables **Include latest raw crash evidence**;
+3. the adjacent raw-evidence consent is checked; and
 4. the source is an absolute, non-link, nonempty regular file no larger than 64 MiB.
 
 The source filename and source path are not written into the bundle. The copied file is always named
-`crash.dmp`. Consent creates a local copy only; sharing remains a separate user action.
+`crash-evidence.bin`. The manifest uses the neutral direct-v1
+`includes_crash_evidence` and `crash_evidence_fingerprint` fields. Consent creates a local copy only;
+sharing remains a separate user action.
 
 ## Failure and retention semantics
 
 - Failed support publication leaves only the visibly suffixed `.partial` directory for inspection.
   It cannot masquerade as a completed bundle.
-- Completed bundles and completed crash dumps have no automatic retention or upload policy.
+- Completed bundles and completed crash evidence have no automatic retention or upload policy.
 - A crash during support-bundle creation does not affect the archive or collector. The partial bundle
   can be removed explicitly after inspection.
 - Support bundles use one direct v1 contract. There is no pre-release migration or legacy reader.

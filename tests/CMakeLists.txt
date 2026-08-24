@@ -147,11 +147,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         telemetry/linux_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
     if(BLACKBOX_BUILD_APP)
+        add_executable(blackbox_posix_crash_probe
+            fixtures/posix_crash_probe.cpp)
+        target_compile_features(blackbox_posix_crash_probe PRIVATE cxx_std_23)
+        target_link_libraries(blackbox_posix_crash_probe PRIVATE
+            BlackBox::PlatformLinux)
+        blackbox_set_project_warnings(blackbox_posix_crash_probe)
         target_sources(blackbox_tests PRIVATE
             platform/linux_accessibility_tests.cpp
             platform/linux_background_shell_tests.cpp
-            platform/linux_global_hotkey_manager_tests.cpp)
+            platform/linux_global_hotkey_manager_tests.cpp
+            platform/posix_crash_diagnostics_tests.cpp)
         target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformLinux)
+        add_dependencies(blackbox_tests blackbox_posix_crash_probe)
     endif()
 endif()
 
@@ -161,9 +169,17 @@ if(APPLE)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryMacos)
 
     if(BLACKBOX_BUILD_APP)
+        add_executable(blackbox_posix_crash_probe
+            fixtures/posix_crash_probe.cpp)
+        target_compile_features(blackbox_posix_crash_probe PRIVATE cxx_std_23)
+        target_link_libraries(blackbox_posix_crash_probe PRIVATE
+            BlackBox::PlatformMacos)
+        blackbox_set_project_warnings(blackbox_posix_crash_probe)
         target_sources(blackbox_tests PRIVATE
-            platform/macos_background_shell_tests.cpp)
+            platform/macos_background_shell_tests.cpp
+            platform/posix_crash_diagnostics_tests.cpp)
         target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformMacos)
+        add_dependencies(blackbox_tests blackbox_posix_crash_probe)
     endif()
 
     add_executable(blackbox_macos_provider_benchmark

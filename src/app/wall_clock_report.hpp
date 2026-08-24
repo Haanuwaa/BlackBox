@@ -121,7 +121,7 @@ struct WallClockReport {
     std::uint64_t session_locks{};
     std::uint64_t session_unlocks{};
     bool crash_diagnostics_armed{};
-    std::uint64_t previous_crash_dumps{};
+    std::uint64_t previous_crash_evidence{};
 };
 
 [[nodiscard]] std::expected<void, WallClockReportError> write_wall_clock_report(
