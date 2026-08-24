@@ -6,10 +6,11 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.15.0** is a pre-1.0 product milestone of the local-native Windows flight recorder.
+Version **0.17.0** is the pre-1.0 release-candidate engineering line of the local-native Windows
+flight recorder, with unsupported Linux and macOS engineering previews.
 It combines bounded configurable recording, manual/automatic capture, an evidence-first six-page
 workflow, synchronized incident timelines, guided archive recovery, privacy-safe local support
-bundles, bounded Windows crash evidence, the versioned local analysis
+bundles, bounded platform crash evidence, the versioned local analysis
 pipeline, archive browsing and labeling, explicit retention/privacy maintenance, persisted validated
 recorder profiles, bounded retry for transient incident-persistence failures, and a native Windows
 tray/background shell with close-to-tray, pause/resume, launch-at-login, lifecycle notifications,

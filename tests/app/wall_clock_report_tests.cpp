@@ -20,7 +20,7 @@ namespace {
 
 [[nodiscard]] app::WallClockReport valid_report() {
     app::WallClockReport report{};
-    report.application_version = "0.15.0";
+    report.application_version = "0.17.0";
     report.platform = "Windows";
     report.video_driver = "windows";
     report.source_revision = "local-uncommitted";
@@ -64,7 +64,7 @@ TEST_CASE("wall-clock report publishes a path-free direct-v1 artifact atomically
     std::ifstream input{destination, std::ios::binary};
     const std::string contents{std::istreambuf_iterator<char>{input}, {}};
     CHECK(contents.starts_with(
-        "format=1\napplication_version=0.15.0\nplatform=Windows\n"
+        "format=1\napplication_version=0.17.0\nplatform=Windows\n"
         "video_driver=windows\nsource_revision=local-uncommitted\n"));
     CHECK(contents.find("completed=1\n") != std::string::npos);
     CHECK(contents.find("collections=30\n") != std::string::npos);

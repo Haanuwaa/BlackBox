@@ -1,11 +1,11 @@
 # V1.0 qualification plan
 
-The current application version is 0.15.0. V1.0 is reserved for the completed product and is not
+The current application version is 0.17.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
-Roadmap headings `V0.16` and `V0.17` are engineering-stage names, not package-version promises. The
-runtime/package version intentionally remains `0.15.0` throughout those stages and changes once, to
-`1.0.0`, only for the exact candidate revision that must repeat and compose the final evidence.
+Roadmap headings `V0.16` and `V0.17` are engineering stages. The runtime/package version now follows
+the completed release-candidate engineering stage as `0.17.0`; it changes to `1.0.0` only for the
+exact final candidate revision that must repeat and compose the complete evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may
 carry that version. The final qualification chain accepts only
@@ -49,14 +49,15 @@ Linux and macOS are not supported products in V1.0. Linux readiness is an engine
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
 and smoke the native desktop. Its platform boundary now has a tray, per-user lock, and XDG
-autostart, but GPU, event, power, crash, physical-desktop, session, and installer qualification remain
-open. Its platform adapter now reads standardized contrast and reduced-motion settings asynchronously
-through XDG Settings; physical desktop behavior is unqualified. macOS has an engineering-only native
-system/process provider
-and `.app` shell with a single-instance lock, tray, ServiceManagement login item, permission-gated local
-notifications, and AppKit accessibility preferences. Native network throughput, power source, battery,
-and uptime are implemented; disk/quality/GPU/events, global shortcut, crash,
-physical-client, signing, notarization, and distribution qualification remain open.
+autostart, but GPU, event, power, physical-desktop, session, and installer qualification remain open.
+Its platform adapter now reads standardized contrast and reduced-motion settings asynchronously
+through XDG Settings; physical desktop behavior is unqualified. Linux and macOS also publish a fixed,
+bounded local POSIX signal record behind the portable crash-diagnostics boundary. macOS has an
+engineering-only native system/process provider and `.app` shell with a single-instance lock, tray,
+ServiceManagement login item, permission-gated local notifications, and AppKit accessibility
+preferences. Native network throughput, power source, battery, and uptime are implemented;
+disk/quality/GPU/events, global shortcut, physical-client, signing, notarization, and distribution
+qualification remain open.
 No platform support is claimed until a real backend lives in its OS directory, passes the same
 contracts, represents unsupported data explicitly, and meets equivalent quality gates.
 
@@ -77,9 +78,10 @@ An official V1.0 candidate must satisfy all of the following on the same source 
   `UI_QUALIFICATION.md`; every image receives manual visual review, and the separate clean-client
   keyboard/accessibility, 100/125/150/200%-DPI, mixed-scale multi-monitor, low-end, battery, and
   power-mode matrix passes on the packaged candidate.
-- The real child-process crash probe produces a bounded valid minidump; clean shutdown removes unused
-  staging, and privacy-safe/consented-dump support bundles pass exact-content and atomic-publication
-  tests. Recovery runbooks and the privacy threat model match the shipped direct-v1 behavior.
+- Real child-process crash probes produce a bounded valid Windows minidump or Linux/macOS POSIX signal
+  record; clean shutdown removes unused staging, and privacy-safe/consented-evidence support bundles
+  pass exact-content and atomic-publication tests. Recovery runbooks and the privacy threat model match
+  the shipped direct-v1 behavior.
 - Dependency policy/SBOM validation, dependency review, CodeQL, MSVC native analysis, Windows ASan,
   Linux UBSan, native fuzzing, and coverage floors pass on the same release revision. The deliberate
   crash probe remains required in ordinary graphs and is excluded only from ASan execution.

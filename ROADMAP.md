@@ -1571,7 +1571,7 @@ product.
   signed packaged evaluator, recomputes held-out output, and matches the passing one-shot fingerprints
 - [x] Pin the multi-hardware acquisition guide to all nine direct-v1 symptoms and the final client,
   V0.17, and V1 evidence instructions to the exact `BlackBox-1.0.0-windows-x64.zip`; enforce both
-  through the release-claims documentation contract while retaining explicit `0.15.0` rehearsal examples
+  through the release-claims documentation contract while retaining explicit prerelease rehearsal examples
 - [x] Bind every Windows product/qualification executable to its configure-time Git revision in the
   signed PE identity; require an exact clean HEAD before signing and reject binary/package/V0.17/V1
   evidence whose embedded revision differs from the declared release revision
@@ -1593,7 +1593,7 @@ hosted, signed-package, physical-client, and wall-clock sources do not yet all e
 revision, and V0.15.1 still lacks its consented multi-hardware corpus and passing one-shot result.
 The final runner/verifier now also require the exact `BlackBox-1.0.0-windows-x64.zip` package,
 `application_version=1.0.0` in both wall-clock reports, and `product_version=1.0.0` in the final
-ledger. The current engineering build deliberately remains `0.15.0` until those gates are real.
+ledger. The engineering line is `0.17.0`; `1.0.0` remains reserved until those gates are real.
 All five Windows product/qualification executables now derive their complete PE `VERSIONINFO` from
 that same CMake project version. A Windows runtime contract rejects blank or inconsistent string/
 numeric versions, descriptions, product identity, internal names, and original filenames, so the
@@ -1624,8 +1624,8 @@ fingerprint disagreement, and tampered source ledgers. No acceptance checkbox ab
 tooling alone.
 The qualification instructions now agree with those executable gates: application crash is present
 in the complete nine-class acquisition matrix, official interactive/final composition examples use
-the exact `1.0.0` package, and only explicitly labeled current-build smoke instructions retain the
-`0.15.0` filename. The documentation contract requires the corrected vocabulary and final package
+the exact `1.0.0` package, and only explicitly labeled current-build smoke instructions retain a
+prerelease filename. The documentation contract requires the corrected vocabulary and final package
 name and rejects a prerelease package from either final composition guide.
 The focused final-evidence/documentation contracts pass 5/5. The complete Debug graph passes 308/309
 inside the restricted process environment, and the sole HKCU launch-at-login integration passes
@@ -2051,7 +2051,7 @@ Parity follow-up implementation:
 - [x] Add Linux increased-contrast and reduced-motion preferences through XDG Settings with bounded
   asynchronous calls, coalesced visible-window refreshes, cached per-key availability, and no UI or
   collection-thread blocking.
-- [ ] Add Linux/macOS crash evidence behind the portable crash-diagnostics boundary with signal-safe
+- [x] Add Linux/macOS crash evidence behind the portable crash-diagnostics boundary with signal-safe
   or exception-safe staging, bounded atomic publication, clean-shutdown cleanup, and native probes.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
@@ -2068,9 +2068,9 @@ Parity follow-up implementation:
 ## Exact next milestone
 
 Allow the active **fresh exact-revision overnight qualification** on frozen `main` to complete and
-verify before integration. Keep parity work isolated meanwhile. After publication releases `main`,
-integrate the completed platform slice, rebuild and run every hosted graph on the resulting clean
-revision, then implement Linux/macOS crash evidence on a new isolated revision. Execute the strengthened
+verify before integration. Keep the completed `0.17.0` parity work isolated meanwhile. After
+publication releases `main`, integrate the platform slice and rebuild and run every hosted graph on
+the resulting clean revision. Then execute the strengthened
 physical Windows matrix and physical GNOME/KDE/macOS desktop qualification only with qualifying
 operators and real clients. Runtime ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/

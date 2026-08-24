@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.15.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.17.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 

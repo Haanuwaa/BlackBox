@@ -56,7 +56,7 @@ jobs:
           test "$(plutil -extract CFBundleIdentifier raw "$bundle/Contents/Info.plist")" = \
             "io.github.Haanuwaa.BlackBox"
           test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Contents/Info.plist")" = \
-            "0.15.0"
+            "0.17.0"
           test "$(plutil -extract LSMinimumSystemVersion raw "$bundle/Contents/Info.plist")" = \
             "13.0"
       - name: Measure native provider overhead
