@@ -2,15 +2,19 @@
 
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/macos/macos_process_collector.hpp"
+#include "telemetry/network_interface_tracker.hpp"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/ps/IOPSKeys.h>
 #include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOBlockStorageDriver.h>
 #include <mach/host_info.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
 #include <net/if.h>
+#include <netinet/tcp_var.h>
 #include <ifaddrs.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
@@ -52,10 +56,26 @@ template <typename T>
     return true;
 }
 
+[[nodiscard]] bool dictionary_unsigned(const CFDictionaryRef dictionary,
+                                       const CFStringRef key,
+                                       std::uint64_t& destination) noexcept {
+    const auto value = static_cast<CFTypeRef>(CFDictionaryGetValue(dictionary, key));
+    if (value == nullptr || CFGetTypeID(value) != CFNumberGetTypeID()) return false;
+    std::int64_t signed_value{};
+    if (CFNumberGetValue(static_cast<CFNumberRef>(value), kCFNumberSInt64Type,
+                         &signed_value) == 0 ||
+        signed_value < 0) {
+        return false;
+    }
+    destination = static_cast<std::uint64_t>(signed_value);
+    return true;
+}
+
 } // namespace
 
 struct MacosTelemetryProvider::NativeState {
     static constexpr std::size_t maximum_network_interfaces = 128U;
+    static constexpr std::size_t maximum_disk_devices = 128U;
 
     [[nodiscard]] bool read_cpu(RawTelemetrySnapshot& destination) noexcept {
         host_cpu_load_info_data_t info{};
@@ -167,6 +187,7 @@ struct MacosTelemetryProvider::NativeState {
                 static_cast<std::uint64_t>(identity),
                 static_cast<std::uint64_t>(data->ifi_ibytes),
                 static_cast<std::uint64_t>(data->ifi_obytes)};
+            active_interface_ids[count - 1U] = static_cast<std::uint64_t>(identity);
         }
         freeifaddrs(addresses);
         if (!valid) return false;
@@ -175,6 +196,94 @@ struct MacosTelemetryProvider::NativeState {
             std::span<const IoEntityCounters>{network_interfaces.data(), count});
         destination.system.network_receive_bytes = aggregate.first;
         destination.system.network_transmit_bytes = aggregate.second;
+        const auto state = interface_tracker.update(
+            std::span<const std::uint64_t>{active_interface_ids.data(), count});
+        if (!state) return false;
+        destination.system.network_quality.connectivity =
+            MetricValue<NetworkConnectivityLevel>::available(
+                state->active_interfaces == 0U
+                    ? NetworkConnectivityLevel::disconnected
+                    : NetworkConnectivityLevel::local);
+        destination.system.network_quality.active_interfaces =
+            MetricValue<std::uint64_t>::available(state->active_interfaces);
+        destination.system.network_quality.interface_change_counter =
+            MetricValue<std::uint64_t>::available(state->change_counter);
+        return aggregate.first.has_value() && aggregate.second.has_value();
+    }
+
+    [[nodiscard]] static bool read_tcp_quality(
+        RawTelemetrySnapshot& destination) noexcept {
+        tcpstat statistics{};
+        std::size_t size = sizeof(statistics);
+        if (sysctlbyname("net.inet.tcp.stats", &statistics, &size, nullptr, 0U) != 0 ||
+            size < offsetof(tcpstat, tcps_sndrexmitpack) +
+                       sizeof(statistics.tcps_sndrexmitpack) ||
+            statistics.tcps_sndtotal < statistics.tcps_sndrexmitpack) {
+            return false;
+        }
+        std::uint64_t failures = statistics.tcps_conndrops;
+        if (!add_ticks(failures, statistics.tcps_timeoutdrop, failures) ||
+            !add_ticks(failures, statistics.tcps_persistdrop, failures) ||
+            !add_ticks(failures, statistics.tcps_keepdrops, failures)) {
+            return false;
+        }
+        auto& quality = destination.system.network_quality;
+        quality.tcp_out_segments = MetricValue<std::uint64_t>::available(
+            static_cast<std::uint64_t>(statistics.tcps_sndtotal) -
+            static_cast<std::uint64_t>(statistics.tcps_sndrexmitpack));
+        quality.tcp_retransmitted_segments =
+            MetricValue<std::uint64_t>::available(
+                statistics.tcps_sndrexmitpack);
+        quality.tcp_failed_connections =
+            MetricValue<std::uint64_t>::available(failures);
+        quality.tcp_established_resets = MetricValue<std::uint64_t>::unavailable(
+            MetricStatus::unsupported);
+        return true;
+    }
+
+    [[nodiscard]] bool read_disks(RawTelemetrySnapshot& destination) noexcept {
+        io_iterator_t iterator{};
+        auto* matching = IOServiceMatching(kIOBlockStorageDriverClass);
+        if (matching == nullptr ||
+            IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) !=
+                KERN_SUCCESS) {
+            return false;
+        }
+        std::size_t count{};
+        bool valid{true};
+        while (const auto service = IOIteratorNext(iterator)) {
+            if (count == disk_devices.size()) {
+                IOObjectRelease(service);
+                valid = false;
+                break;
+            }
+            const auto property = IORegistryEntryCreateCFProperty(
+                service, CFSTR(kIOBlockStorageDriverStatisticsKey),
+                kCFAllocatorDefault, 0U);
+            std::uint64_t identity{};
+            std::uint64_t read_bytes{};
+            std::uint64_t write_bytes{};
+            const bool entry_valid =
+                IORegistryEntryGetRegistryEntryID(service, &identity) == KERN_SUCCESS &&
+                identity != 0U && property != nullptr &&
+                CFGetTypeID(property) == CFDictionaryGetTypeID() &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsBytesReadKey),
+                                    read_bytes) &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsBytesWrittenKey),
+                                    write_bytes);
+            if (property != nullptr) CFRelease(property);
+            IOObjectRelease(service);
+            if (!entry_valid) continue;
+            disk_devices[count++] = IoEntityCounters{identity, read_bytes, write_bytes};
+        }
+        IOObjectRelease(iterator);
+        if (!valid || count == 0U) return false;
+        const auto aggregate = disk_tracker.update(
+            std::span<const IoEntityCounters>{disk_devices.data(), count});
+        destination.system.disk_read_bytes = aggregate.first;
+        destination.system.disk_write_bytes = aggregate.second;
         return aggregate.first.has_value() && aggregate.second.has_value();
     }
 
@@ -242,7 +351,11 @@ struct MacosTelemetryProvider::NativeState {
 
     MacosProcessCollector process_collector{};
     std::array<IoEntityCounters, maximum_network_interfaces> network_interfaces{};
+    std::array<std::uint64_t, maximum_network_interfaces> active_interface_ids{};
     IoCounterTracker<maximum_network_interfaces> network_tracker{};
+    NetworkInterfaceTracker<maximum_network_interfaces> interface_tracker{};
+    std::array<IoEntityCounters, maximum_disk_devices> disk_devices{};
+    IoCounterTracker<maximum_disk_devices> disk_tracker{};
 };
 
 MacosTelemetryProvider::MacosTelemetryProvider(
@@ -257,6 +370,22 @@ ProviderSampleResult MacosTelemetryProvider::sample(
     destination.reset(clock_.now(), request.tiers);
     destination.system.network_receive_bytes = temporary<ByteCount>();
     destination.system.network_transmit_bytes = temporary<ByteCount>();
+    destination.system.disk_read_bytes = temporary<ByteCount>();
+    destination.system.disk_write_bytes = temporary<ByteCount>();
+    destination.system.network_quality.connectivity =
+        temporary<NetworkConnectivityLevel>();
+    destination.system.network_quality.active_interfaces =
+        temporary<std::uint64_t>();
+    destination.system.network_quality.interface_change_counter =
+        temporary<std::uint64_t>();
+    destination.system.network_quality.tcp_out_segments =
+        temporary<std::uint64_t>();
+    destination.system.network_quality.tcp_retransmitted_segments =
+        temporary<std::uint64_t>();
+    destination.system.network_quality.tcp_failed_connections =
+        temporary<std::uint64_t>();
+    destination.system.network_quality.tcp_established_resets =
+        MetricValue<std::uint64_t>::unavailable(MetricStatus::unsupported);
     destination.system.power_source = temporary<PowerSource>();
     destination.system.battery_fraction = temporary<Ratio>();
     destination.system.battery_saver =
@@ -272,6 +401,10 @@ ProviderSampleResult MacosTelemetryProvider::sample(
         if (native_state_ == nullptr || !native_state_->read_cpu(destination)) ++failed;
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_network(destination)) ++failed;
+        ++attempted;
+        if (native_state_ == nullptr || !native_state_->read_tcp_quality(destination)) ++failed;
+        ++attempted;
+        if (native_state_ == nullptr || !native_state_->read_disks(destination)) ++failed;
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_uptime(destination)) ++failed;
     }
@@ -305,7 +438,10 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.process_cpu = true;
     result.process_memory = true;
     result.process_disk_io = true;
+    result.disk_throughput = true;
     result.network_usage = true;
+    result.network_connectivity = true;
+    result.network_transport_quality = true;
     result.power_status = true;
     result.system_uptime = true;
     return result;

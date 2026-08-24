@@ -26,6 +26,16 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(snapshot.system.disk_write_bytes.has_value());
   CHECK(snapshot.system.network_receive_bytes.has_value());
   CHECK(snapshot.system.network_transmit_bytes.has_value());
+  CHECK(snapshot.system.network_quality.connectivity.has_value());
+  CHECK(snapshot.system.network_quality.active_interfaces.has_value());
+  CHECK(snapshot.system.network_quality.interface_change_counter.has_value());
+  CHECK(snapshot.system.network_quality.tcp_out_segments.has_value());
+  CHECK(snapshot.system.network_quality.tcp_retransmitted_segments.has_value());
+  CHECK(snapshot.system.network_quality.tcp_failed_connections.has_value());
+  CHECK(snapshot.system.network_quality.tcp_established_resets.has_value());
+  CHECK(snapshot.system.power_source.has_value());
+  CHECK(snapshot.system.system_uptime.has_value());
+  CHECK(snapshot.system.system_uptime.value.value >= 0.0);
   CHECK_FALSE(snapshot.processes.empty());
   CHECK(snapshot.processes.size() == snapshot.process_metadata.size());
   CHECK(telemetry::validate_provider_snapshot_contract(provider.capabilities(),
@@ -36,6 +46,7 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   const auto second_result = provider.sample(request, second);
   CHECK(second_result.status == telemetry::ProviderSampleStatus::complete);
   CHECK(second_result.sequence == result.sequence + 1U);
+  CHECK(second.system.network_quality.interface_change_counter.has_value());
   CHECK(telemetry::validate_provider_snapshot_contract(provider.capabilities(),
                                                        request, second) ==
         telemetry::ProviderContractViolation::none);

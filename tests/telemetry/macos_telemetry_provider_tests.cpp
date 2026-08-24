@@ -32,10 +32,23 @@ TEST_CASE("macOS provider exposes native system and process evidence",
           snapshot.system.memory_available.value.value);
     CHECK(snapshot.system.network_receive_bytes.has_value());
     CHECK(snapshot.system.network_transmit_bytes.has_value());
+    CHECK(snapshot.system.disk_read_bytes.has_value());
+    CHECK(snapshot.system.disk_write_bytes.has_value());
+    CHECK(snapshot.system.network_quality.connectivity.has_value());
+    CHECK(snapshot.system.network_quality.active_interfaces.has_value());
+    CHECK(snapshot.system.network_quality.interface_change_counter.has_value());
+    CHECK(snapshot.system.network_quality.tcp_out_segments.has_value());
+    CHECK(snapshot.system.network_quality.tcp_retransmitted_segments.has_value());
+    CHECK(snapshot.system.network_quality.tcp_failed_connections.has_value());
+    CHECK(snapshot.system.network_quality.tcp_established_resets.status ==
+          telemetry::MetricStatus::unsupported);
     CHECK(snapshot.system.power_source.has_value());
     CHECK(snapshot.system.system_uptime.has_value());
     CHECK(snapshot.system.system_uptime.value.value >= 0.0);
     CHECK(provider.capabilities().network_usage);
+    CHECK(provider.capabilities().disk_throughput);
+    CHECK(provider.capabilities().network_connectivity);
+    CHECK(provider.capabilities().network_transport_quality);
     CHECK(provider.capabilities().power_status);
     CHECK(provider.capabilities().system_uptime);
     CHECK_FALSE(snapshot.processes.empty());

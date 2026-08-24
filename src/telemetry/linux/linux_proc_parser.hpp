@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -40,6 +41,31 @@ struct ProcBlockSnapshot {
                                    const ProcBlockSnapshot &) = default;
 };
 
+struct ProcTcpSnapshot {
+  std::uint64_t out_segments{};
+  std::uint64_t retransmitted_segments{};
+  std::uint64_t failed_connections{};
+  std::uint64_t established_resets{};
+  friend constexpr bool operator==(const ProcTcpSnapshot &,
+                                   const ProcTcpSnapshot &) = default;
+};
+
+enum class ProcPowerSupplyKind : std::uint8_t {
+  mains,
+  battery,
+  ups,
+  other,
+};
+
+struct ProcPowerSupplySnapshot {
+  ProcPowerSupplyKind kind{ProcPowerSupplyKind::other};
+  bool present{true};
+  std::optional<bool> online{};
+  std::optional<Ratio> capacity_fraction{};
+  friend constexpr bool operator==(const ProcPowerSupplySnapshot &,
+                                   const ProcPowerSupplySnapshot &) = default;
+};
+
 struct ProcProcessStat {
   ProcessIdentity identity{};
   ProcessId parent_pid{};
@@ -68,6 +94,15 @@ parse_sys_block_stat(std::string_view contents) noexcept;
 [[nodiscard]] std::expected<std::size_t, ProcParseError>
 parse_proc_net_dev(std::string_view contents,
                    std::span<IoEntityCounters> destination) noexcept;
+
+[[nodiscard]] std::expected<ProcTcpSnapshot, ProcParseError>
+parse_proc_net_snmp(std::string_view contents) noexcept;
+
+[[nodiscard]] std::expected<Seconds, ProcParseError>
+parse_proc_uptime(std::string_view contents) noexcept;
+
+[[nodiscard]] std::expected<ProcPowerSupplySnapshot, ProcParseError>
+parse_power_supply_uevent(std::string_view contents) noexcept;
 
 [[nodiscard]] std::expected<ProcProcessStat, ProcParseError>
 parse_proc_pid_stat(std::string_view contents,

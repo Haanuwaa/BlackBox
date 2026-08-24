@@ -1,11 +1,13 @@
 #include "telemetry/linux/linux_proc_parser.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -90,6 +92,50 @@ parse_unsigned(std::string_view token) noexcept {
     return std::unexpected{ProcParseError::invalid_number};
   }
   return value;
+}
+
+[[nodiscard]] std::expected<double, ProcParseError>
+parse_nonnegative_decimal(const std::string_view token) noexcept {
+  if (token.empty()) return std::unexpected{ProcParseError::invalid_number};
+  const auto point = token.find('.');
+  if (point != std::string_view::npos &&
+      token.find('.', point + 1U) != std::string_view::npos) {
+    return std::unexpected{ProcParseError::invalid_number};
+  }
+  const auto whole_token = token.substr(0U, point);
+  const auto fractional_token = point == std::string_view::npos
+                                    ? std::string_view{}
+                                    : token.substr(point + 1U);
+  if (whole_token.empty() ||
+      (point != std::string_view::npos && fractional_token.empty())) {
+    return std::unexpected{ProcParseError::invalid_number};
+  }
+  const auto whole = parse_unsigned(whole_token);
+  if (!whole) return std::unexpected{whole.error()};
+  if (*whole > 9'007'199'254'740'991ULL || fractional_token.size() > 9U) {
+    return std::unexpected{ProcParseError::overflow};
+  }
+  double fraction{};
+  double divisor{1.0};
+  for (const auto character : fractional_token) {
+    if (!std::isdigit(static_cast<unsigned char>(character))) {
+      return std::unexpected{ProcParseError::invalid_number};
+    }
+    divisor *= 10.0;
+    fraction = fraction * 10.0 + static_cast<double>(character - '0');
+  }
+  return static_cast<double>(*whole) + fraction / divisor;
+}
+
+[[nodiscard]] std::expected<std::pair<std::string_view, std::string_view>,
+                            ProcParseError>
+split_key_value(const std::string_view line) noexcept {
+  const auto separator = line.find('=');
+  if (separator == std::string_view::npos || separator == 0U ||
+      separator + 1U == line.size()) {
+    return std::unexpected{ProcParseError::missing_field};
+  }
+  return std::pair{line.substr(0U, separator), line.substr(separator + 1U)};
 }
 
 [[nodiscard]] bool processor_line(const std::string_view line) noexcept {
@@ -289,6 +335,136 @@ parse_proc_net_dev(std::string_view contents,
   }
   if (count == 0U) return std::unexpected{ProcParseError::missing_field};
   return count;
+}
+
+std::expected<ProcTcpSnapshot, ProcParseError>
+parse_proc_net_snmp(std::string_view contents) noexcept {
+  std::optional<std::array<std::string_view, 64U>> tcp_names{};
+  std::size_t tcp_name_count{};
+  std::optional<std::array<std::string_view, 64U>> tcp_values{};
+  std::size_t tcp_value_count{};
+  while (!contents.empty()) {
+    const auto line = next_line(contents);
+    if (!line.starts_with("Tcp:")) continue;
+    if (!tcp_names) {
+      tcp_names.emplace();
+      const auto count = split_fields(line.substr(4U), *tcp_names);
+      if (!count) return std::unexpected{count.error()};
+      tcp_name_count = *count;
+    } else if (!tcp_values) {
+      tcp_values.emplace();
+      const auto count = split_fields(line.substr(4U), *tcp_values);
+      if (!count) return std::unexpected{count.error()};
+      tcp_value_count = *count;
+    } else {
+      return std::unexpected{ProcParseError::duplicate_field};
+    }
+  }
+  if (!tcp_names || !tcp_values || tcp_name_count == 0U ||
+      tcp_name_count != tcp_value_count) {
+    return std::unexpected{ProcParseError::missing_field};
+  }
+
+  ProcTcpSnapshot result{};
+  std::array<bool, 4U> found{};
+  constexpr std::array<std::string_view, 4U> required{
+      "OutSegs", "RetransSegs", "AttemptFails", "EstabResets"};
+  std::array<std::uint64_t*, 4U> destinations{
+      &result.out_segments, &result.retransmitted_segments,
+      &result.failed_connections, &result.established_resets};
+  for (std::size_t field = 0U; field < tcp_name_count; ++field) {
+    for (std::size_t required_index = 0U;
+         required_index < required.size(); ++required_index) {
+      if ((*tcp_names)[field] != required[required_index]) continue;
+      if (found[required_index]) {
+        return std::unexpected{ProcParseError::duplicate_field};
+      }
+      const auto value = parse_unsigned((*tcp_values)[field]);
+      if (!value) return std::unexpected{value.error()};
+      *destinations[required_index] = *value;
+      found[required_index] = true;
+    }
+  }
+  if (std::find(found.begin(), found.end(), false) != found.end()) {
+    return std::unexpected{ProcParseError::missing_field};
+  }
+  return result;
+}
+
+std::expected<Seconds, ProcParseError>
+parse_proc_uptime(std::string_view contents) noexcept {
+  const auto line = next_line(contents);
+  while (!contents.empty()) {
+    if (!trim_horizontal(next_line(contents)).empty()) {
+      return std::unexpected{ProcParseError::invalid_number};
+    }
+  }
+  std::array<std::string_view, 3U> fields{};
+  const auto count = split_fields(line, fields);
+  if (!count) return std::unexpected{count.error()};
+  if (*count != 2U) return std::unexpected{ProcParseError::missing_field};
+  const auto uptime = parse_nonnegative_decimal(fields[0]);
+  const auto idle = parse_nonnegative_decimal(fields[1]);
+  if (!uptime) return std::unexpected{uptime.error()};
+  if (!idle) return std::unexpected{idle.error()};
+  return Seconds{*uptime};
+}
+
+std::expected<ProcPowerSupplySnapshot, ProcParseError>
+parse_power_supply_uevent(std::string_view contents) noexcept {
+  ProcPowerSupplySnapshot result{};
+  bool have_type{};
+  bool have_present{};
+  bool have_online{};
+  bool have_capacity{};
+  while (!contents.empty()) {
+    const auto line = next_line(contents);
+    if (line.empty()) continue;
+    const auto entry = split_key_value(line);
+    if (!entry) return std::unexpected{entry.error()};
+    const auto &[key, value] = *entry;
+    if (key == "POWER_SUPPLY_TYPE") {
+      if (have_type) return std::unexpected{ProcParseError::duplicate_field};
+      have_type = true;
+      if (value == "Battery") result.kind = ProcPowerSupplyKind::battery;
+      else if (value == "UPS") result.kind = ProcPowerSupplyKind::ups;
+      else if (value == "Mains" || value == "USB" || value == "USB_C" ||
+               value == "USB_PD" || value == "Wireless") {
+        result.kind = ProcPowerSupplyKind::mains;
+      } else {
+        result.kind = ProcPowerSupplyKind::other;
+      }
+    } else if (key == "POWER_SUPPLY_PRESENT") {
+      if (have_present) return std::unexpected{ProcParseError::duplicate_field};
+      const auto parsed = parse_unsigned(value);
+      if (!parsed || *parsed > 1U) {
+        return std::unexpected{parsed ? ProcParseError::invalid_relationship
+                                     : parsed.error()};
+      }
+      result.present = *parsed == 1U;
+      have_present = true;
+    } else if (key == "POWER_SUPPLY_ONLINE") {
+      if (have_online) return std::unexpected{ProcParseError::duplicate_field};
+      const auto parsed = parse_unsigned(value);
+      if (!parsed || *parsed > 1U) {
+        return std::unexpected{parsed ? ProcParseError::invalid_relationship
+                                     : parsed.error()};
+      }
+      result.online = *parsed == 1U;
+      have_online = true;
+    } else if (key == "POWER_SUPPLY_CAPACITY") {
+      if (have_capacity) return std::unexpected{ProcParseError::duplicate_field};
+      const auto parsed = parse_unsigned(value);
+      if (!parsed || *parsed > 100U) {
+        return std::unexpected{parsed ? ProcParseError::invalid_relationship
+                                     : parsed.error()};
+      }
+      result.capacity_fraction = Ratio{static_cast<double>(*parsed) / 100.0};
+      have_capacity = true;
+    }
+  }
+  if (!have_type) return std::unexpected{ProcParseError::missing_field};
+  return result;
 }
 
 std::expected<ProcProcessStat, ProcParseError>

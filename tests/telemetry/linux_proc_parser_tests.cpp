@@ -1,6 +1,7 @@
 #include "telemetry/linux/linux_proc_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include <cstdint>
 #include <array>
@@ -80,6 +81,62 @@ TEST_CASE("Linux block and network parsers preserve cumulative byte semantics",
   REQUIRE(*count == 1U);
   CHECK(interfaces[0].first_bytes == 1000U);
   CHECK(interfaces[0].second_bytes == 2000U);
+}
+
+TEST_CASE("Linux TCP uptime and power parsers preserve portable evidence semantics",
+          "[telemetry][linux]") {
+  const auto tcp = linux_telemetry::parse_proc_net_snmp(
+      "Ip: Forwarding DefaultTTL\n"
+      "Ip: 1 64\n"
+      "Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens "
+      "AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs\n"
+      "Tcp: 1 200 120000 -1 10 20 3 4 2 1000 900 12\n");
+  REQUIRE(tcp.has_value());
+  CHECK(tcp->out_segments == 900U);
+  CHECK(tcp->retransmitted_segments == 12U);
+  CHECK(tcp->failed_connections == 3U);
+  CHECK(tcp->established_resets == 4U);
+
+  const auto uptime = linux_telemetry::parse_proc_uptime("12345.67 8000.01\n");
+  REQUIRE(uptime.has_value());
+  CHECK(uptime->value == Catch::Approx{12345.67});
+
+  const auto battery = linux_telemetry::parse_power_supply_uevent(
+      "POWER_SUPPLY_NAME=BAT0\n"
+      "POWER_SUPPLY_TYPE=Battery\n"
+      "POWER_SUPPLY_PRESENT=1\n"
+      "POWER_SUPPLY_CAPACITY=73\n");
+  REQUIRE(battery.has_value());
+  CHECK(battery->kind == linux_telemetry::ProcPowerSupplyKind::battery);
+  CHECK(battery->present);
+  REQUIRE(battery->capacity_fraction.has_value());
+  CHECK(battery->capacity_fraction->value == Catch::Approx{0.73});
+
+  const auto mains = linux_telemetry::parse_power_supply_uevent(
+      "POWER_SUPPLY_TYPE=USB_C\nPOWER_SUPPLY_ONLINE=1\n");
+  REQUIRE(mains.has_value());
+  CHECK(mains->kind == linux_telemetry::ProcPowerSupplyKind::mains);
+  REQUIRE(mains->online.has_value());
+  CHECK(*mains->online);
+}
+
+TEST_CASE("Linux TCP uptime and power parsers fail closed on malformed input",
+          "[telemetry][linux]") {
+  CHECK_FALSE(linux_telemetry::parse_proc_net_snmp(
+                  "Tcp: OutSegs RetransSegs AttemptFails\nTcp: 1 2 3\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_proc_net_snmp(
+                  "Tcp: OutSegs RetransSegs AttemptFails EstabResets\n"
+                  "Tcp: 1 nope 3 4\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_proc_uptime("-1.0 2.0\n").has_value());
+  CHECK_FALSE(linux_telemetry::parse_proc_uptime("1.0\n").has_value());
+  CHECK_FALSE(linux_telemetry::parse_power_supply_uevent(
+                  "POWER_SUPPLY_TYPE=Battery\nPOWER_SUPPLY_CAPACITY=101\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_power_supply_uevent(
+                  "POWER_SUPPLY_TYPE=Battery\nPOWER_SUPPLY_TYPE=UPS\n")
+                  .has_value());
 }
 
 TEST_CASE("Linux process parsers retain stable identity memory and I O",

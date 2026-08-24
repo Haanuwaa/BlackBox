@@ -9,6 +9,7 @@ add_executable(blackbox_tests
     telemetry/incident_snapshot_builder_tests.cpp
     telemetry/linux_proc_parser_tests.cpp
     telemetry/mock_telemetry_provider_tests.cpp
+    telemetry/network_interface_tracker_tests.cpp
     telemetry/normalizer_tests.cpp
     telemetry/process_metadata_cache_tests.cpp
     telemetry/process_normalizer_tests.cpp

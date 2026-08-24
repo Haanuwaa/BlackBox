@@ -3,19 +3,25 @@
 #include "telemetry/linux/linux_proc_parser.hpp"
 #include "telemetry/linux/linux_process_collector.hpp"
 #include "telemetry/io_counter_tracker.hpp"
+#include "telemetry/network_interface_tracker.hpp"
 
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netpacket/packet.h>
 #include <span>
 #include <string>
 #include <string_view>
+#include <sys/socket.h>
 
 namespace blackbox::telemetry::linux {
 namespace {
 
 constexpr std::size_t maximum_proc_file_bytes = 1024U * 1024U;
 constexpr std::size_t maximum_io_entities = 128U;
+constexpr std::size_t maximum_power_supplies = 32U;
 
 [[nodiscard]] bool read_bounded_proc_file(const char *path,
                                           std::string &destination) {
@@ -60,6 +66,9 @@ struct LinuxTelemetryProvider::NativeState {
     system_contents.reserve(64U * 1024U);
     disk_contents.reserve(4U * 1024U);
     network_contents.reserve(64U * 1024U);
+    tcp_contents.reserve(64U * 1024U);
+    uptime_contents.reserve(256U);
+    power_contents.reserve(16U * 1024U);
   }
 
   [[nodiscard]] MetricStatus read_disks() {
@@ -112,10 +121,135 @@ struct LinuxTelemetryProvider::NativeState {
                : MetricStatus::temporarily_unavailable;
   }
 
+  [[nodiscard]] MetricStatus read_network_state(
+      RawTelemetrySnapshot &destination) noexcept {
+    ifaddrs *addresses{};
+    if (getifaddrs(&addresses) != 0 || addresses == nullptr) {
+      return MetricStatus::temporarily_unavailable;
+    }
+    std::size_t count{};
+    bool valid{true};
+    for (auto *address = addresses; address != nullptr;
+         address = address->ifa_next) {
+      if (address->ifa_addr == nullptr || address->ifa_name == nullptr ||
+          address->ifa_addr->sa_family != AF_PACKET ||
+          (address->ifa_flags & IFF_UP) == 0U ||
+          (address->ifa_flags & IFF_RUNNING) == 0U ||
+          (address->ifa_flags & IFF_LOOPBACK) != 0U) {
+        continue;
+      }
+      if (count == active_interface_ids.size()) {
+        valid = false;
+        break;
+      }
+      active_interface_ids[count++] = stable_identity(address->ifa_name);
+    }
+    freeifaddrs(addresses);
+    if (!valid) return MetricStatus::temporarily_unavailable;
+    const auto state = interface_tracker.update(
+        std::span<const std::uint64_t>{active_interface_ids.data(), count});
+    if (!state) return MetricStatus::temporarily_unavailable;
+    destination.system.network_quality.connectivity =
+        MetricValue<NetworkConnectivityLevel>::available(
+            state->active_interfaces == 0U
+                ? NetworkConnectivityLevel::disconnected
+                : NetworkConnectivityLevel::local);
+    destination.system.network_quality.active_interfaces =
+        MetricValue<std::uint64_t>::available(state->active_interfaces);
+    destination.system.network_quality.interface_change_counter =
+        MetricValue<std::uint64_t>::available(state->change_counter);
+    return MetricStatus::available;
+  }
+
+  [[nodiscard]] MetricStatus read_tcp_quality(
+      RawTelemetrySnapshot &destination) {
+    if (!read_bounded_proc_file("/proc/net/snmp", tcp_contents)) {
+      return MetricStatus::temporarily_unavailable;
+    }
+    const auto parsed = parse_proc_net_snmp(tcp_contents);
+    if (!parsed) return MetricStatus::temporarily_unavailable;
+    auto &quality = destination.system.network_quality;
+    quality.tcp_out_segments =
+        MetricValue<std::uint64_t>::available(parsed->out_segments);
+    quality.tcp_retransmitted_segments =
+        MetricValue<std::uint64_t>::available(parsed->retransmitted_segments);
+    quality.tcp_failed_connections =
+        MetricValue<std::uint64_t>::available(parsed->failed_connections);
+    quality.tcp_established_resets =
+        MetricValue<std::uint64_t>::available(parsed->established_resets);
+    return MetricStatus::available;
+  }
+
+  [[nodiscard]] MetricStatus read_uptime(RawTelemetrySnapshot &destination) {
+    if (!read_bounded_proc_file("/proc/uptime", uptime_contents)) {
+      return MetricStatus::temporarily_unavailable;
+    }
+    const auto parsed = parse_proc_uptime(uptime_contents);
+    if (!parsed) return MetricStatus::temporarily_unavailable;
+    destination.system.system_uptime = MetricValue<Seconds>::available(*parsed);
+    return MetricStatus::available;
+  }
+
+  [[nodiscard]] MetricStatus read_power(RawTelemetrySnapshot &destination) {
+    std::error_code error{};
+    const std::filesystem::path root{"/sys/class/power_supply"};
+    if (!std::filesystem::exists(root, error) || error) {
+      return MetricStatus::temporarily_unavailable;
+    }
+    bool ac_online{};
+    bool ups_online{};
+    bool battery_present{};
+    double battery_fraction_total{};
+    std::uint32_t battery_fraction_count{};
+    std::size_t supplies{};
+    for (std::filesystem::directory_iterator iterator{root, error}, end;
+         !error && iterator != end; iterator.increment(error)) {
+      if (++supplies > maximum_power_supplies) {
+        return MetricStatus::temporarily_unavailable;
+      }
+      if (!read_bounded_proc_file((iterator->path() / "uevent").c_str(),
+                                  power_contents)) {
+        return MetricStatus::temporarily_unavailable;
+      }
+      const auto parsed = parse_power_supply_uevent(power_contents);
+      if (!parsed) return MetricStatus::temporarily_unavailable;
+      if (!parsed->present) continue;
+      if (parsed->kind == ProcPowerSupplyKind::mains) {
+        ac_online = ac_online || parsed->online.value_or(false);
+      } else if (parsed->kind == ProcPowerSupplyKind::ups) {
+        ups_online = ups_online || parsed->online.value_or(false);
+      } else if (parsed->kind == ProcPowerSupplyKind::battery) {
+        battery_present = true;
+        if (parsed->capacity_fraction) {
+          battery_fraction_total += parsed->capacity_fraction->value;
+          ++battery_fraction_count;
+        }
+      }
+    }
+    if (error) return MetricStatus::temporarily_unavailable;
+    auto source = PowerSource::unknown;
+    if (ac_online) source = PowerSource::ac;
+    else if (ups_online) source = PowerSource::ups_or_short_term;
+    else if (battery_present) source = PowerSource::battery;
+    destination.system.power_source =
+        MetricValue<PowerSource>::available(source);
+    if (!battery_present) {
+      destination.system.battery_fraction =
+          MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
+    } else if (battery_fraction_count != 0U) {
+      destination.system.battery_fraction = MetricValue<Ratio>::available(
+          Ratio{battery_fraction_total /
+                static_cast<double>(battery_fraction_count)});
+    }
+    return MetricStatus::available;
+  }
+
   std::array<IoEntityCounters, maximum_io_entities> disks{};
   std::array<IoEntityCounters, maximum_io_entities> interfaces{};
+  std::array<std::uint64_t, maximum_io_entities> active_interface_ids{};
   IoCounterTracker<maximum_io_entities> disk_tracker{};
   IoCounterTracker<maximum_io_entities> network_tracker{};
+  NetworkInterfaceTracker<maximum_io_entities> interface_tracker{};
   LinuxProcessCollector process_collector{};
   MetricValue<ByteCount> disk_read{};
   MetricValue<ByteCount> disk_write{};
@@ -124,6 +258,9 @@ struct LinuxTelemetryProvider::NativeState {
   std::string system_contents{};
   std::string disk_contents{};
   std::string network_contents{};
+  std::string tcp_contents{};
+  std::string uptime_contents{};
+  std::string power_contents{};
 };
 
 LinuxTelemetryProvider::LinuxTelemetryProvider(
@@ -144,6 +281,25 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   destination.system.disk_write_bytes = temporary<ByteCount>();
   destination.system.network_receive_bytes = temporary<ByteCount>();
   destination.system.network_transmit_bytes = temporary<ByteCount>();
+  destination.system.network_quality.connectivity =
+      temporary<NetworkConnectivityLevel>();
+  destination.system.network_quality.active_interfaces =
+      temporary<std::uint64_t>();
+  destination.system.network_quality.interface_change_counter =
+      temporary<std::uint64_t>();
+  destination.system.network_quality.tcp_out_segments =
+      temporary<std::uint64_t>();
+  destination.system.network_quality.tcp_retransmitted_segments =
+      temporary<std::uint64_t>();
+  destination.system.network_quality.tcp_failed_connections =
+      temporary<std::uint64_t>();
+  destination.system.network_quality.tcp_established_resets =
+      temporary<std::uint64_t>();
+  destination.system.power_source = temporary<PowerSource>();
+  destination.system.battery_fraction = temporary<Ratio>();
+  destination.system.battery_saver =
+      MetricValue<bool>::unavailable(MetricStatus::unsupported);
+  destination.system.system_uptime = temporary<Seconds>();
   std::uint32_t attempted{};
   std::uint32_t failed{};
   auto &contents = native_state_->system_contents;
@@ -180,6 +336,22 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
     } else {
       ++failed;
     }
+    ++attempted;
+    if (native_state_ == nullptr ||
+        native_state_->read_network_state(destination) !=
+            MetricStatus::available) {
+      ++failed;
+    }
+    ++attempted;
+    if (native_state_ == nullptr ||
+        native_state_->read_tcp_quality(destination) != MetricStatus::available) {
+      ++failed;
+    }
+    ++attempted;
+    if (native_state_ == nullptr ||
+        native_state_->read_uptime(destination) != MetricStatus::available) {
+      ++failed;
+    }
   }
 
   if (request.tiers.contains(SamplingTier::normal)) {
@@ -195,6 +367,11 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
         ++failed;
       }
     } else {
+      ++failed;
+    }
+    ++attempted;
+    if (native_state_ == nullptr ||
+        native_state_->read_power(destination) != MetricStatus::available) {
       ++failed;
     }
     ++attempted;
@@ -222,6 +399,10 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
   result.process_disk_io = true;
   result.disk_throughput = true;
   result.network_usage = true;
+  result.network_connectivity = true;
+  result.network_transport_quality = true;
+  result.power_status = true;
+  result.system_uptime = true;
   return result;
 }
 
