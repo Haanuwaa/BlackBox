@@ -26,16 +26,18 @@ held-out dataset demonstrates material benefit; all intelligence stays optional 
 affect recording.
 
 Windows is the only currently supported product platform. Linux now has an engineering desktop build,
-CPU/memory/disk/network/process telemetry, a bounded provider-overhead gate, and an explicitly
+CPU/memory/disk/network/power/uptime/process telemetry, passive TCP/link-quality evidence, a bounded
+provider-overhead gate, and an explicitly
 unsupported TGZ engineering preview. A separate Ubuntu 24.04, Debian 13, and Fedora 43 hosted matrix
 builds, measures, extracts, and launches that package. The Linux platform boundary also owns a native
 SDL tray, per-user instance lock, and exact XDG autostart entry, while unavailable tray/notification
 protocols remain explicit. Linux still lacks physical desktop/accessibility/session/power/installer
 qualification and the evidence required for support.
-macOS now has an engineering-only native CPU/memory/process provider and `.app` bundle. Its platform
+macOS now has an engineering-only native CPU/memory/disk/network/power/uptime/process provider,
+passive TCP/link-quality evidence, and `.app` bundle. Its platform
 adapter adds a bounded single-instance lock, SDL menu-bar tray, current ServiceManagement login item,
 permission-aware local notifications, and AppKit contrast/reduced-motion preferences. Global shortcuts,
-broader system telemetry, crash handling, signing/notarization, and physical-client qualification remain
+remaining system telemetry, signing/notarization, and physical-client qualification remain
 open, so this is not a macOS support claim.
 
 ## Principles

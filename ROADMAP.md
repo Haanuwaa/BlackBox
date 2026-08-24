@@ -2039,7 +2039,7 @@ The cross-platform engineering and product-polish slice is complete:
   and background readiness in onboarding/Live, clearer tray discoverability, and deterministic
   keyboard/DPI/high-contrast coverage.
 
-The complete Windows Release graph now passes 334/334 tests. The platform additions preserve the
+The complete Windows Release graph now passes 338/338 tests. The platform additions preserve the
 Windows-first product boundary: Linux and macOS outputs remain unsigned, unsupported engineering
 previews until physical desktop, accessibility, lifecycle, installer, and signing qualification exists.
 
@@ -2053,6 +2053,14 @@ Parity follow-up implementation:
   collection-thread blocking.
 - [x] Add Linux/macOS crash evidence behind the portable crash-diagnostics boundary with signal-safe
   or exception-safe staging, bounded atomic publication, clean-shutdown cleanup, and native probes.
+- [x] Add strict Linux power-source, battery-capacity, and uptime gauges from bounded sysfs/proc
+  sources while keeping unavailable supplies and unsupported battery-saver state explicit.
+- [x] Add macOS cumulative physical-disk throughput from IOKit block-driver statistics with stable,
+  fixed-capacity device lifecycle handling and no Apple type crossing the provider boundary.
+- [x] Add shared Linux/macOS network-quality evidence: order-independent bounded interface-transition
+  tracking, conservative disconnected/local link state, and native cumulative TCP retransmission/
+  failure counters. Keep Internet reachability and macOS established resets explicitly unsupported
+  rather than inferring them from adjacent signals.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
 

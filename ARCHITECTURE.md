@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -951,13 +951,14 @@ are unchanged.
 
 The Linux engineering provider uses strict portable parsers for aggregate `/proc/stat` CPU ticks,
 `/proc/meminfo` physical-memory gauges, `/sys/block/*/stat` cumulative physical-device sectors,
-`/proc/net/dev` cumulative non-loopback interface bytes, and bounded `/proc/<pid>` identity,
-CPU-time, RSS, I/O, parent/name, and optional slow-tier executable-path evidence. CPU and every I/O
-channel remain cumulative counters, and memory remains a gauge, so the existing normalizer and
-recorder need no Linux branch. A fixed-capacity generic entity-lifecycle tracker is shared by the
-Windows and Linux providers; first sight/reappearance warms up, removal subtracts nothing, and a
-counter decrease invalidates only that channel for one observation. The Linux process walk is
-capped at 8,192 identities and every pseudo-file read is bounded.
+`/proc/net/dev` cumulative non-loopback interface bytes, `/proc/net/snmp` TCP counters,
+`/proc/uptime`, `/sys/class/power_supply/*/uevent`, and bounded `/proc/<pid>` identity, CPU-time,
+RSS, I/O, parent/name, and optional slow-tier executable-path evidence. CPU and every I/O or TCP
+channel remain cumulative counters, while memory, uptime, and power state remain gauges, so the
+existing normalizer and recorder need no Linux branch. Fixed-capacity lifecycle trackers cover
+counter-bearing entities and active interface membership; first sight/reappearance warms up,
+removal subtracts nothing, and a counter decrease invalidates only that channel for one observation.
+The Linux process walk is capped at 8,192 identities and every pseudo-file read is bounded.
 
 Provider scratch strings are retained inside the Linux native state so ordinary sampling clears and
 reuses capacity instead of allocating a new `/proc` or `/sys` buffer. A Linux-only benchmark exercises
@@ -971,17 +972,22 @@ contract, and the no-tray background/autostart boundary. A separate matrix build
 and package on Ubuntu 24.04, Debian 13, and Fedora 43, measures the real provider, smoke-tests both
 the build-tree and extracted package under a virtual display, and publishes comparable package-size
 and provider-latency fields. Linux remains unsupported as a product until physical desktop,
-accessibility, session, power, installer, and long-running qualification exist. GPU, event, power,
-and crash services remain explicitly unavailable rather than being inferred or supplied by another
-module. Linux desktop accessibility is a separate `platform/linux` service: requests coalesce on one
+accessibility, session, power, installer, and long-running qualification exist. GPU and event
+services remain explicitly unavailable rather than being inferred or supplied by another module;
+battery-saver state also remains unsupported because the native sources do not define it. Linux
+desktop accessibility is a separate `platform/linux` service: requests coalesce on one
 worker, portal calls are bounded, cached values retain per-key availability, and hidden operation sends
 no requests.
 
-The macOS fast tier adds only cumulative non-loopback interface bytes and sleep-inclusive uptime.
-Changing interface membership passes through the same fixed-capacity lifecycle tracker as Linux and
-Windows so arrival/removal cannot become a rate spike. Normal-tier IOKit power-source reads expose the
-current source and battery fraction when present; unsupported battery-saver state stays explicit. No
-Apple or BSD header crosses out of `telemetry/macos`.
+The macOS fast tier adds cumulative non-loopback interface bytes, IOKit block-driver byte counters,
+TCP send/retransmission/failure counters, local interface-state evidence, and sleep-inclusive uptime.
+Changing interface or block-device membership passes through fixed-capacity lifecycle trackers so
+arrival/removal cannot become a rate spike. Interface state proves only that a non-loopback interface
+is up and running; it is never promoted to an Internet-reachability claim. Apple's native TCP
+statistics do not expose an exact RFC established-reset counter, so that individual field remains
+unsupported instead of relabeling a generic drop count. Normal-tier IOKit power-source reads expose
+the current source and battery fraction when present; unsupported battery-saver state stays explicit.
+No Apple or BSD header crosses out of `telemetry/macos`.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

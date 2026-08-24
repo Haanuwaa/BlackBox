@@ -7,8 +7,9 @@ Windows is the only production target in this pre-release. Linux DEB/RPM/TGZ and
 are explicitly unsupported engineering previews used to exercise platform boundaries. Linux can
 collect native telemetry, publish bounded desktop notifications, and request its configured global
 shortcut through the XDG Desktop Portal; desktop policy may require user approval or leave either
-service unavailable. macOS currently supplies native CPU/memory/process telemetry but no qualified
-product experience. Its unsigned engineering `.app` can expose menu-bar controls, request launch at
+service unavailable. Both previews supply native CPU/memory/disk/network/power/uptime/process
+telemetry and passive local-link/TCP-quality evidence, but no qualified product experience. macOS's
+unsigned engineering `.app` can expose menu-bar controls, request launch at
 login through macOS ServiceManagement, deliver permission-gated local notifications, and follow the
 system's increased-contrast/reduced-motion preferences. Global shortcuts, signing/notarization, and
 physical-client qualification remain open.
