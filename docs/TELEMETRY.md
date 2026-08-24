@@ -114,15 +114,20 @@ Linux product qualification.
 The macOS-only `MacosTelemetryProvider` uses the same caller-owned snapshot and capability contract.
 Mach host CPU ticks provide cumulative busy/total counters; `host_statistics64` plus
 `sysctlbyname("hw.memsize")` provide physical-memory gauges; and `hw.logicalcpu` reports capacity.
+The fast tier also reads active non-loopback BSD interface byte counters and feeds their stable
+interface indexes through the fixed-capacity lifecycle tracker, so interface arrival/removal cannot
+become a false throughput spike. Sleep-inclusive monotonic uptime comes from the native continuous
+clock. The normal tier reads IOKit's current power-source snapshot and exposes battery fraction when
+the host reports a valid capacity; unavailable battery and battery-saver values remain explicit.
 The process collector enumerates bounded PIDs with libproc, keys each identity by PID plus the
 microsecond process start token from `proc_pid_rusage`, and collects cumulative CPU time, resident
 memory, and disk read/write bytes. Name, parent PID, and executable path remain metadata, with path
 resolution limited to slow-tier requests. Access races and protected identities stay per-process
-gaps instead of failing the provider. Disk, network, GPU, event, power, platform-shell, and crash
-telemetry metrics are explicitly unsupported.
+gaps instead of failing the provider. Disk, network-quality, GPU, event, CPU frequency/thermal,
+battery-saver, platform-shell, and crash telemetry metrics are explicitly unsupported.
 
-`blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry, and
-the native libproc boundary. Hosted Apple Silicon and Intel jobs build/test the complete desktop
+`blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry,
+libproc, and IOKit. Hosted Apple Silicon and Intel jobs build/test the complete desktop
 graph, exercise the real-host provider contract, collect 64 bounded benchmark observations, and
 create an unsigned TGZ engineering preview containing a native `.app` bundle. The separate macOS
 platform adapter owns the per-user instance lock, SDL menu-bar tray, current ServiceManagement login

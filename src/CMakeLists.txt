@@ -137,6 +137,8 @@ endif()
 
 if(APPLE)
     find_library(BLACKBOX_LIBPROC_LIBRARY proc REQUIRED)
+    find_library(BLACKBOX_CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+    find_library(BLACKBOX_IOKIT_FRAMEWORK IOKit REQUIRED)
     add_library(blackbox_telemetry_macos STATIC
         telemetry/macos/macos_process_collector.cpp
         telemetry/macos/macos_telemetry_provider.cpp
@@ -145,7 +147,10 @@ if(APPLE)
     target_include_directories(blackbox_telemetry_macos PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_telemetry_macos PUBLIC cxx_std_23)
     target_link_libraries(blackbox_telemetry_macos PUBLIC BlackBox::Telemetry)
-    target_link_libraries(blackbox_telemetry_macos PRIVATE ${BLACKBOX_LIBPROC_LIBRARY})
+    target_link_libraries(blackbox_telemetry_macos PRIVATE
+        ${BLACKBOX_LIBPROC_LIBRARY}
+        ${BLACKBOX_CORE_FOUNDATION_FRAMEWORK}
+        ${BLACKBOX_IOKIT_FRAMEWORK})
     blackbox_set_project_warnings(blackbox_telemetry_macos)
 endif()
 
@@ -159,6 +164,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(BLACKBOX_DBUS REQUIRED IMPORTED_TARGET dbus-1)
     add_library(blackbox_platform_linux STATIC
+        platform/linux/linux_accessibility.cpp
         platform/linux/linux_background_shell.cpp
         platform/linux/linux_global_hotkey_manager.cpp
     )

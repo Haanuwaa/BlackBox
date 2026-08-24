@@ -1,16 +1,28 @@
 #include "telemetry/macos/macos_telemetry_provider.hpp"
 
+#include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/macos/macos_process_collector.hpp"
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
 #include <mach/host_info.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/vm_statistics.h>
+#include <net/if.h>
+#include <ifaddrs.h>
+#include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <time.h>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <new>
+#include <span>
 
 namespace blackbox::telemetry::macos {
 namespace {
@@ -43,6 +55,8 @@ template <typename T>
 } // namespace
 
 struct MacosTelemetryProvider::NativeState {
+    static constexpr std::size_t maximum_network_interfaces = 128U;
+
     [[nodiscard]] bool read_cpu(RawTelemetrySnapshot& destination) noexcept {
         host_cpu_load_info_data_t info{};
         mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
@@ -125,7 +139,110 @@ struct MacosTelemetryProvider::NativeState {
         return true;
     }
 
+    [[nodiscard]] bool read_network(RawTelemetrySnapshot& destination) noexcept {
+        ifaddrs* addresses{};
+        if (getifaddrs(&addresses) != 0 || addresses == nullptr) return false;
+
+        std::size_t count{};
+        bool valid = true;
+        for (auto* address = addresses; address != nullptr; address = address->ifa_next) {
+            if (address->ifa_addr == nullptr || address->ifa_data == nullptr ||
+                address->ifa_name == nullptr ||
+                address->ifa_addr->sa_family != AF_LINK ||
+                (address->ifa_flags & IFF_UP) == 0U ||
+                (address->ifa_flags & IFF_LOOPBACK) != 0U) {
+                continue;
+            }
+            if (count == network_interfaces.size()) {
+                valid = false;
+                break;
+            }
+            const auto identity = if_nametoindex(address->ifa_name);
+            if (identity == 0U) {
+                valid = false;
+                break;
+            }
+            const auto* data = static_cast<const if_data*>(address->ifa_data);
+            network_interfaces[count++] = IoEntityCounters{
+                static_cast<std::uint64_t>(identity),
+                static_cast<std::uint64_t>(data->ifi_ibytes),
+                static_cast<std::uint64_t>(data->ifi_obytes)};
+        }
+        freeifaddrs(addresses);
+        if (!valid) return false;
+
+        const auto aggregate = network_tracker.update(
+            std::span<const IoEntityCounters>{network_interfaces.data(), count});
+        destination.system.network_receive_bytes = aggregate.first;
+        destination.system.network_transmit_bytes = aggregate.second;
+        return aggregate.first.has_value() && aggregate.second.has_value();
+    }
+
+    [[nodiscard]] bool read_power(RawTelemetrySnapshot& destination) noexcept {
+        CFTypeRef snapshot = IOPSCopyPowerSourcesInfo();
+        if (snapshot == nullptr) return false;
+
+        const CFStringRef source = IOPSGetProvidingPowerSourceType(snapshot);
+        if (source == nullptr) {
+            CFRelease(snapshot);
+            return false;
+        }
+        auto power_source = PowerSource::unknown;
+        if (CFEqual(source, CFSTR(kIOPMACPowerKey)) != 0) {
+            power_source = PowerSource::ac;
+        } else if (CFEqual(source, CFSTR(kIOPMBatteryPowerKey)) != 0) {
+            power_source = PowerSource::battery;
+        } else if (CFEqual(source, CFSTR(kIOPMUPSPowerKey)) != 0) {
+            power_source = PowerSource::ups_or_short_term;
+        }
+        destination.system.power_source =
+            MetricValue<PowerSource>::available(power_source);
+
+        CFArrayRef sources = IOPSCopyPowerSourcesList(snapshot);
+        if (sources != nullptr) {
+            const CFIndex source_count = CFArrayGetCount(sources);
+            for (CFIndex index = 0; index < source_count; ++index) {
+                const CFTypeRef handle = CFArrayGetValueAtIndex(sources, index);
+                const CFDictionaryRef description =
+                    IOPSGetPowerSourceDescription(snapshot, handle);
+                if (description == nullptr) continue;
+                const auto current = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(description, CFSTR(kIOPSCurrentCapacityKey)));
+                const auto maximum = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(description, CFSTR(kIOPSMaxCapacityKey)));
+                if (current == nullptr || maximum == nullptr ||
+                    CFGetTypeID(current) != CFNumberGetTypeID() ||
+                    CFGetTypeID(maximum) != CFNumberGetTypeID()) {
+                    continue;
+                }
+                double current_value{};
+                double maximum_value{};
+                if (CFNumberGetValue(current, kCFNumberDoubleType, &current_value) != 0 &&
+                    CFNumberGetValue(maximum, kCFNumberDoubleType, &maximum_value) != 0 &&
+                    std::isfinite(current_value) && std::isfinite(maximum_value) &&
+                    current_value >= 0.0 && maximum_value > 0.0) {
+                    destination.system.battery_fraction =
+                        MetricValue<Ratio>::available(
+                            Ratio{std::clamp(current_value / maximum_value, 0.0, 1.0)});
+                    break;
+                }
+            }
+            CFRelease(sources);
+        }
+        CFRelease(snapshot);
+        return true;
+    }
+
+    [[nodiscard]] static bool read_uptime(RawTelemetrySnapshot& destination) noexcept {
+        const auto nanoseconds = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+        destination.system.system_uptime = MetricValue<Seconds>::available(
+            Seconds{static_cast<double>(nanoseconds) / 1'000'000'000.0});
+        return true;
+    }
+
     MacosProcessCollector process_collector{};
+    std::array<IoEntityCounters, maximum_network_interfaces> network_interfaces{};
+    IoCounterTracker<maximum_network_interfaces> network_tracker{};
 };
 
 MacosTelemetryProvider::MacosTelemetryProvider(
@@ -138,6 +255,13 @@ ProviderSampleResult MacosTelemetryProvider::sample(
     const SamplingRequest request,
     RawTelemetrySnapshot& destination) {
     destination.reset(clock_.now(), request.tiers);
+    destination.system.network_receive_bytes = temporary<ByteCount>();
+    destination.system.network_transmit_bytes = temporary<ByteCount>();
+    destination.system.power_source = temporary<PowerSource>();
+    destination.system.battery_fraction = temporary<Ratio>();
+    destination.system.battery_saver =
+        MetricValue<bool>::unavailable(MetricStatus::unsupported);
+    destination.system.system_uptime = temporary<Seconds>();
     std::uint32_t attempted{};
     std::uint32_t failed{};
 
@@ -146,12 +270,18 @@ ProviderSampleResult MacosTelemetryProvider::sample(
         destination.system.logical_processor_count = temporary<std::uint32_t>();
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_cpu(destination)) ++failed;
+        ++attempted;
+        if (native_state_ == nullptr || !native_state_->read_network(destination)) ++failed;
+        ++attempted;
+        if (native_state_ == nullptr || !native_state_->read_uptime(destination)) ++failed;
     }
     if (request.tiers.contains(SamplingTier::normal)) {
         destination.system.memory_total = temporary<ByteCount>();
         destination.system.memory_available = temporary<ByteCount>();
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_memory(destination)) ++failed;
+        ++attempted;
+        if (native_state_ == nullptr || !native_state_->read_power(destination)) ++failed;
         ++attempted;
         if (native_state_ == nullptr ||
             native_state_->process_collector.collect(
@@ -175,6 +305,9 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.process_cpu = true;
     result.process_memory = true;
     result.process_disk_io = true;
+    result.network_usage = true;
+    result.power_status = true;
+    result.system_uptime = true;
     return result;
 }
 

@@ -13,6 +13,7 @@
 #include "telemetry/windows/windows_telemetry_provider.hpp"
 #include "telemetry/windows/windows_system_event_provider.hpp"
 #elif defined(__linux__)
+#include "platform/linux/linux_accessibility.hpp"
 #include "platform/linux/linux_background_shell.hpp"
 #include "platform/linux/linux_global_hotkey_manager.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
@@ -208,6 +209,13 @@ ApplicationInitializationResult Application::initialize() {
         background_shell_.reset();
         background_status_text_ = "Desktop shell unavailable; close exits";
     }
+    linux_accessibility_monitor_ =
+        std::make_unique<platform::linux::LinuxAccessibilityMonitor>();
+    if (linux_accessibility_monitor_->start()) {
+        linux_accessibility_monitor_->request_refresh();
+    } else {
+        linux_accessibility_monitor_.reset();
+    }
 #endif
 #if defined(_WIN32)
     background_shell_ = std::make_unique<platform::windows::WindowsBackgroundShell>();
@@ -370,8 +378,12 @@ ApplicationInitializationResult Application::initialize() {
     const auto accessibility = platform::windows::accessibility_preferences();
 #elif defined(__APPLE__)
     const auto accessibility = platform::macos::accessibility_preferences();
+#elif defined(__linux__)
+    const auto accessibility = linux_accessibility_monitor_ != nullptr
+        ? linux_accessibility_monitor_->snapshot().preferences
+        : platform::AccessibilityPreferences{};
 #endif
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
     high_contrast_enabled_ = accessibility.high_contrast;
     animations_enabled_ = accessibility.animations_enabled;
 #endif
@@ -1470,7 +1482,7 @@ void Application::refresh_dashboard_if_due() {
 }
 
 void Application::refresh_accessibility_if_due() {
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
     const auto now = telemetry_clock_.now();
     if (now < next_accessibility_refresh_at_) return;
     do {
@@ -1479,8 +1491,13 @@ void Application::refresh_accessibility_if_due() {
 
 #if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
-#else
+#elif defined(__APPLE__)
     const auto accessibility = platform::macos::accessibility_preferences();
+#else
+    if (linux_accessibility_monitor_ == nullptr) return;
+    linux_accessibility_monitor_->request_refresh();
+    const auto accessibility =
+        linux_accessibility_monitor_->snapshot().preferences;
 #endif
     static_cast<void>(ui::update_accessibility_style(
         high_contrast_enabled_, accessibility.high_contrast));

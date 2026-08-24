@@ -148,6 +148,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
     if(BLACKBOX_BUILD_APP)
         target_sources(blackbox_tests PRIVATE
+            platform/linux_accessibility_tests.cpp
             platform/linux_background_shell_tests.cpp
             platform/linux_global_hotkey_manager_tests.cpp)
         target_link_libraries(blackbox_tests PRIVATE BlackBox::PlatformLinux)

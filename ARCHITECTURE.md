@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, and a Wayland global-shortcut boundary through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory and process CPU/memory/I/O using Mach, sysctl, and libproc behind the same telemetry interface. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -869,8 +869,11 @@ input accessibility, multi-monitor, GPU, and power behavior remain physical rele
 than inferred properties of deterministic raster output.
 
 Accessibility preference ownership follows the same boundary. Windows and macOS expose only portable
-high-contrast and animation preferences through `platform`; the application polls them at most once
-per second while the dashboard is visible and passes state to `ui`. The UI owns the complete,
+high-contrast and animation preferences through `platform`. Linux coalesces visible-window refresh
+requests onto one owned worker and reads the standardized XDG Settings `contrast` and `reduced-motion`
+keys through the session bus; a missing portal/key remains explicit and never blocks the render or
+collector thread. The application polls cached state at most once per second while the dashboard is
+visible and passes state to `ui`. The UI owns the complete,
 reversible ImGui palette transition. Neither platform preference reads nor style changes enter the
 telemetry provider, normalizer, recorder, event collector, archive, or analysis graph. A hidden app
 does no accessibility polling; its first visible dashboard refresh catches up immediately without
@@ -960,7 +963,15 @@ the build-tree and extracted package under a virtual display, and publishes comp
 and provider-latency fields. Linux remains unsupported as a product until physical desktop,
 accessibility, session, power, installer, and long-running qualification exist. GPU, event, power,
 and crash services remain explicitly unavailable rather than being inferred or supplied by another
-module.
+module. Linux desktop accessibility is a separate `platform/linux` service: requests coalesce on one
+worker, portal calls are bounded, cached values retain per-key availability, and hidden operation sends
+no requests.
+
+The macOS fast tier adds only cumulative non-loopback interface bytes and sleep-inclusive uptime.
+Changing interface membership passes through the same fixed-capacity lifecycle tracker as Linux and
+Windows so arrival/removal cannot become a rate spike. Normal-tier IOKit power-source reads expose the
+current source and battery fraction when present; unsupported battery-saver state stays explicit. No
+Apple or BSD header crosses out of `telemetry/macos`.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

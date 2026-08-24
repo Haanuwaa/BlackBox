@@ -12,7 +12,7 @@ namespace core = blackbox::core;
 namespace macos = blackbox::telemetry::macos;
 namespace telemetry = blackbox::telemetry;
 
-TEST_CASE("macOS provider exposes native CPU memory and process evidence",
+TEST_CASE("macOS provider exposes native system and process evidence",
           "[telemetry][macos][integration]") {
     core::SystemMonotonicClock clock;
     macos::MacosTelemetryProvider provider{clock};
@@ -30,6 +30,14 @@ TEST_CASE("macOS provider exposes native CPU memory and process evidence",
     REQUIRE(snapshot.system.memory_available.has_value());
     CHECK(snapshot.system.memory_total.value.value >=
           snapshot.system.memory_available.value.value);
+    CHECK(snapshot.system.network_receive_bytes.has_value());
+    CHECK(snapshot.system.network_transmit_bytes.has_value());
+    CHECK(snapshot.system.power_source.has_value());
+    CHECK(snapshot.system.system_uptime.has_value());
+    CHECK(snapshot.system.system_uptime.value.value >= 0.0);
+    CHECK(provider.capabilities().network_usage);
+    CHECK(provider.capabilities().power_status);
+    CHECK(provider.capabilities().system_uptime);
     CHECK_FALSE(snapshot.processes.empty());
     CHECK(telemetry::validate_provider_snapshot_contract(
               provider.capabilities(), {}, snapshot) ==

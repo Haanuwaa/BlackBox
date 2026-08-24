@@ -3,6 +3,10 @@
 #include "core/logger.hpp"
 #include "core/version.hpp"
 
+#if defined(__linux__)
+#include "platform/linux/linux_accessibility.hpp"
+#endif
+
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -22,6 +26,12 @@ void Application::shutdown() noexcept {
   }
   shutdown_started_ = true;
   support_bundle_service_.stop();
+#if defined(__linux__)
+  if (linux_accessibility_monitor_ != nullptr) {
+    linux_accessibility_monitor_->stop();
+    linux_accessibility_monitor_.reset();
+  }
+#endif
   if (background_shell_ != nullptr) {
     final_shell_diagnostics_ = background_shell_->diagnostics();
     background_shell_->stop();

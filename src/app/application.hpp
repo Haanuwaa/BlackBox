@@ -32,6 +32,12 @@
 struct SDL_Renderer;
 struct SDL_Window;
 
+#if defined(__linux__)
+namespace blackbox::platform::linux {
+class LinuxAccessibilityMonitor;
+}
+#endif
+
 namespace blackbox::app {
 
 struct ApplicationDiagnosticOptions {
@@ -96,6 +102,10 @@ private:
     std::unique_ptr<platform::IGlobalHotkeyManager> hotkey_manager_{};
     std::unique_ptr<platform::IBackgroundShell> background_shell_{};
     std::unique_ptr<platform::ICrashDiagnostics> crash_diagnostics_{};
+#if defined(__linux__)
+    std::unique_ptr<platform::linux::LinuxAccessibilityMonitor>
+        linux_accessibility_monitor_{};
+#endif
     SupportBundleService support_bundle_service_{};
     std::atomic<std::uint32_t> pending_background_commands_{};
     ui::DashboardState dashboard_state_{};

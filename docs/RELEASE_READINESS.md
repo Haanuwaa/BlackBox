@@ -3,6 +3,9 @@
 The current application version is 0.15.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
+Roadmap headings `V0.16` and `V0.17` are engineering-stage names, not package-version promises. The
+runtime/package version intentionally remains `0.15.0` throughout those stages and changes once, to
+`1.0.0`, only for the exact candidate revision that must repeat and compose the final evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may
 carry that version. The final qualification chain accepts only
@@ -46,10 +49,13 @@ Linux and macOS are not supported products in V1.0. Linux readiness is an engine
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
 and smoke the native desktop. Its platform boundary now has a tray, per-user lock, and XDG
-autostart, but notification, GPU, event, power, crash, physical-desktop, accessibility, session,
-and installer qualification remain open. macOS has an engineering-only native system/process provider
+autostart, but GPU, event, power, crash, physical-desktop, session, and installer qualification remain
+open. Its platform adapter now reads standardized contrast and reduced-motion settings asynchronously
+through XDG Settings; physical desktop behavior is unqualified. macOS has an engineering-only native
+system/process provider
 and `.app` shell with a single-instance lock, tray, ServiceManagement login item, permission-gated local
-notifications, and AppKit accessibility preferences. Its broader telemetry, global shortcut, crash,
+notifications, and AppKit accessibility preferences. Native network throughput, power source, battery,
+and uptime are implemented; disk/quality/GPU/events, global shortcut, crash,
 physical-client, signing, notarization, and distribution qualification remain open.
 No platform support is claimed until a real backend lives in its OS directory, passes the same
 contracts, represents unsupported data explicitly, and meets equivalent quality gates.

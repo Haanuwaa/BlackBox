@@ -2043,6 +2043,19 @@ The complete Windows Release graph now passes 334/334 tests. The platform additi
 Windows-first product boundary: Linux and macOS outputs remain unsigned, unsupported engineering
 previews until physical desktop, accessibility, lifecycle, installer, and signing qualification exists.
 
+Parity follow-up implementation:
+
+- [x] Add macOS cumulative non-loopback network throughput, power source, optional battery fraction,
+  and sleep-inclusive uptime behind the native provider, preserving interface-churn normalization and
+  explicit unsupported status for unavailable evidence.
+- [x] Add Linux increased-contrast and reduced-motion preferences through XDG Settings with bounded
+  asynchronous calls, coalesced visible-window refreshes, cached per-key availability, and no UI or
+  collection-thread blocking.
+- [ ] Add Linux/macOS crash evidence behind the portable crash-diagnostics boundary with signal-safe
+  or exception-safe staging, bounded atomic publication, clean-shutdown cleanup, and native probes.
+- [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
+  signing/notarization, and long-run qualification before any product-support claim.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -2054,13 +2067,12 @@ previews until physical desktop, accessibility, lifecycle, installer, and signin
 
 ## Exact next milestone
 
-Proceed to **fresh exact-revision overnight qualification**: integrate this completed platform/UI slice,
-complete the Windows, Linux, macOS, and quality hosted graphs on its clean revision, rebuild the complete
-Release graph with that exact identity, repeat the zero-drop stress rehearsal, and start the replacement
-eight-hour campaign without modifying the revision afterward. The 32-image onboarding/page raster set
-and deterministic accessibility contracts pass; execute the strengthened physical Windows matrix and
-physical GNOME/KDE/macOS desktop qualification only with qualifying operators and real clients. Runtime
-ML remains behind representative held-out value.
+Allow the active **fresh exact-revision overnight qualification** on frozen `main` to complete and
+verify before integration. Keep parity work isolated meanwhile. After publication releases `main`,
+integrate the completed platform slice, rebuild and run every hosted graph on the resulting clean
+revision, then implement Linux/macOS crash evidence on a new isolated revision. Execute the strengthened
+physical Windows matrix and physical GNOME/KDE/macOS desktop qualification only with qualifying
+operators and real clients. Runtime ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.
