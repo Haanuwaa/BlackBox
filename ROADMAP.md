@@ -2075,12 +2075,21 @@ Parity follow-up implementation:
 
 ## Exact next milestone
 
-Allow the active **fresh exact-revision overnight qualification** on frozen `main` to complete and
-verify before integration. Keep the completed `0.17.0` parity work isolated meanwhile. After
-publication releases `main`, integrate the platform slice and rebuild and run every hosted graph on
-the resulting clean revision. Then execute the strengthened
-physical Windows matrix and physical GNOME/KDE/macOS desktop qualification only with qualifying
-operators and real clients. Runtime ML remains behind representative held-out value.
+The fresh exact-revision overnight qualification on frozen `main` completed and passed on
+`41851e19eaa110b0243bf04b76875a7fd9cf3a55`. Retained evidence at
+`out/soaks/overnight-v1-41851e1-20260823/` records exactly 28,800 requested seconds,
+28,800.546 observed seconds, 28,801 collections, 479 process checkpoints, zero sampling gaps,
+zero partial/failed/dropped/late/deadline samples, 31 completed and persisted scheduled incidents,
+a healthy direct-v1 archive, 0.010131% average total-machine CPU, and a 59,015,168-byte maximum
+working set. The standalone verifier revalidated the published manifest, journals, settings,
+archive, source identity, coverage, resource bounds, and counters on 2026-08-24.
+
+This evidence releases frozen `main` for the completed `0.17.0` parity stack. Integrate it, rebuild
+and run the complete Release suite, then obtain Windows, Linux, macOS, and quality/security hosted
+evidence on the resulting clean revision. After that integration gate, the next unblocked coding
+milestone is exact cross-platform disk service/latency/queue evidence plus privacy-reduced Linux/
+macOS system events. Execute physical Windows and GNOME/KDE/macOS desktop qualification only with
+qualifying operators and real clients. Runtime ML remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.

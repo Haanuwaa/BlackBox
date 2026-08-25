@@ -14,11 +14,11 @@ qualified.
 | Portable recorder, capture, schema-v1 archive, analysis, UI | Implemented | Same portable graph | Same portable graph |
 | System CPU and memory | Native | Native `/proc` | Native Mach/sysctl |
 | Process identity, CPU, RSS, and disk I/O | Native | Native `/proc` | Native libproc |
-| System disk/network throughput | Native | Native `/proc` and `/sys` | Native network; disk open |
+| System disk/network throughput | Native | Native `/proc` and `/sys` | Native BSD interfaces and IOKit block-driver statistics |
 | Disk latency/queue/service evidence | Native | Open | Open |
-| Network connectivity/transport quality | Native | Open | Open |
+| Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | GPU, foreground, and responsiveness evidence | Native, capability-gated | Open | Open |
-| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Open | Native power/battery/uptime; frequency/thermal open |
+| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime; battery saver and frequency/thermal open | Native power/battery/uptime; battery saver and frequency/thermal open |
 | Privacy-reduced symptom/system events | Native, independently gated | Open | Open |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
 | Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
@@ -27,24 +27,24 @@ qualified.
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
-| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland | Apple Silicon and Intel passed on `52d6c8b` |
+| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland passed on `49b18dc` | Apple Silicon and Intel passed on `49b18dc` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
 ## Ordered parity work
 
-1. Keep the Windows release revision and qualification evidence isolated from cross-platform edits.
-2. Retain the completed native macOS shell/bundle workflow on Apple Silicon and Intel.
-3. Retain and measure the implemented macOS network, power-source, battery, and uptime evidence on
-   both hosted architectures; physical battery/sleep behavior remains a later client gate.
-4. Retain the implemented nonblocking Linux XDG Settings accessibility adapter, then add power/session
-   evidence through similarly bounded native adapters.
-5. Retain the implemented Linux/macOS crash evidence behind `ICrashDiagnostics`; physical crash-
-   reporter behavior and symbolication remain unqualified.
-6. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
+1. Integrate the completed parity stack only after the frozen Windows qualification revision publishes
+   passing evidence, then rebuild and run every hosted graph on the clean integrated revision.
+2. Add cross-platform disk service/latency/queue evidence only where native counter semantics are
+   exact, lifecycle-safe, and cheap enough for the existing fast tier.
+3. Add privacy-reduced Linux/macOS system-event evidence behind the existing independent event
+   boundary; absence of an exact native source must remain explicit.
+4. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
+   background, notification, autostart, and package boundaries.
+5. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
    A passive Quartz event tap is technically available but is not equivalent to conflict-aware shortcut
    registration and must not be enabled merely to fill a table cell.
-7. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
+6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
    campaigns, then design signed/notarized distribution. Hosted compilation alone cannot establish
    product support.
 
@@ -61,6 +61,8 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple power-source snapshot](https://developer.apple.com/documentation/iokit/1523858-iopsgetprovidingpowersourcetype)
 - [Apple sleep-inclusive continuous time](https://developer.apple.com/documentation/driverkit/mach_continuous_time)
 - [Apple `getifaddrs` interface statistics](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html)
+- [Apple `IOBlockStorageDriver` statistics](https://developer.apple.com/documentation/kernel/ioblockstoragedriver)
+- [Linux TCP SNMP counters](https://docs.kernel.org/networking/snmp_counter.html)
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)
 - [XDG Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
 - [Apple Quartz event taps](https://developer.apple.com/documentation/coregraphics/cgevent/tapcreate%28tap%3Aplace%3Aoptions%3Aeventsofinterest%3Acallback%3Auserinfo%3A%29)
