@@ -1,5 +1,6 @@
 #include "telemetry/macos/macos_telemetry_provider.hpp"
 
+#include "telemetry/disk_quality_tracker.hpp"
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/macos/macos_process_collector.hpp"
 #include "telemetry/network_interface_tracker.hpp"
@@ -263,6 +264,10 @@ struct MacosTelemetryProvider::NativeState {
             std::uint64_t identity{};
             std::uint64_t read_bytes{};
             std::uint64_t write_bytes{};
+            std::uint64_t read_operations{};
+            std::uint64_t write_operations{};
+            std::uint64_t read_time_nanoseconds{};
+            std::uint64_t write_time_nanoseconds{};
             const bool entry_valid =
                 IORegistryEntryGetRegistryEntryID(service, &identity) == KERN_SUCCESS &&
                 identity != 0U && property != nullptr &&
@@ -272,11 +277,27 @@ struct MacosTelemetryProvider::NativeState {
                                     read_bytes) &&
                 dictionary_unsigned(static_cast<CFDictionaryRef>(property),
                                     CFSTR(kIOBlockStorageDriverStatisticsBytesWrittenKey),
-                                    write_bytes);
+                                    write_bytes) &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsReadsKey),
+                                    read_operations) &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsWritesKey),
+                                    write_operations) &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsTotalReadTimeKey),
+                                    read_time_nanoseconds) &&
+                dictionary_unsigned(static_cast<CFDictionaryRef>(property),
+                                    CFSTR(kIOBlockStorageDriverStatisticsTotalWriteTimeKey),
+                                    write_time_nanoseconds);
             if (property != nullptr) CFRelease(property);
             IOObjectRelease(service);
             if (!entry_valid) continue;
-            disk_devices[count++] = IoEntityCounters{identity, read_bytes, write_bytes};
+            disk_devices[count] = IoEntityCounters{identity, read_bytes, write_bytes};
+            disk_quality_counters[count] = DiskQualityCounters{
+                identity, read_operations, write_operations,
+                read_time_nanoseconds, write_time_nanoseconds, std::nullopt};
+            ++count;
         }
         IOObjectRelease(iterator);
         if (!valid || count == 0U) return false;
@@ -284,6 +305,9 @@ struct MacosTelemetryProvider::NativeState {
             std::span<const IoEntityCounters>{disk_devices.data(), count});
         destination.system.disk_read_bytes = aggregate.first;
         destination.system.disk_write_bytes = aggregate.second;
+        destination.system.disk_quality = disk_quality_tracker.update(
+            destination.observed_at,
+            std::span<const DiskQualityCounters>{disk_quality_counters.data(), count});
         return aggregate.first.has_value() && aggregate.second.has_value();
     }
 
@@ -355,7 +379,9 @@ struct MacosTelemetryProvider::NativeState {
     IoCounterTracker<maximum_network_interfaces> network_tracker{};
     NetworkInterfaceTracker<maximum_network_interfaces> interface_tracker{};
     std::array<IoEntityCounters, maximum_disk_devices> disk_devices{};
+    std::array<DiskQualityCounters, maximum_disk_devices> disk_quality_counters{};
     IoCounterTracker<maximum_disk_devices> disk_tracker{};
+    DiskQualityTracker<maximum_disk_devices> disk_quality_tracker{};
 };
 
 MacosTelemetryProvider::MacosTelemetryProvider(
@@ -372,6 +398,12 @@ ProviderSampleResult MacosTelemetryProvider::sample(
     destination.system.network_transmit_bytes = temporary<ByteCount>();
     destination.system.disk_read_bytes = temporary<ByteCount>();
     destination.system.disk_write_bytes = temporary<ByteCount>();
+    destination.system.disk_quality.read_latency = temporary<Seconds>();
+    destination.system.disk_quality.write_latency = temporary<Seconds>();
+    destination.system.disk_quality.service_time = temporary<Seconds>();
+    destination.system.disk_quality.queue_depth =
+        MetricValue<double>::unavailable(MetricStatus::unsupported);
+    destination.system.disk_quality.worst_device_id = temporary<std::uint64_t>();
     destination.system.network_quality.connectivity =
         temporary<NetworkConnectivityLevel>();
     destination.system.network_quality.active_interfaces =
@@ -439,6 +471,8 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.process_memory = true;
     result.process_disk_io = true;
     result.disk_throughput = true;
+    result.disk_latency = true;
+    result.disk_service_time = true;
     result.network_usage = true;
     result.network_connectivity = true;
     result.network_transport_quality = true;

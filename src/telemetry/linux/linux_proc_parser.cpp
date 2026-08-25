@@ -277,22 +277,51 @@ parse_proc_meminfo(std::string_view contents) noexcept {
 
 std::expected<ProcBlockSnapshot, ProcParseError>
 parse_sys_block_stat(const std::string_view contents) noexcept {
+  auto remaining = contents;
+  const auto line = next_line(remaining);
+  if (!remaining.empty()) return std::unexpected{ProcParseError::invalid_number};
   std::array<std::string_view, 20U> fields{};
-  const auto count = split_fields(contents, fields);
+  const auto count = split_fields(line, fields);
   if (!count) return std::unexpected{count.error()};
-  if (*count < 7U) return std::unexpected{ProcParseError::missing_field};
+  if (*count < 11U) return std::unexpected{ProcParseError::missing_field};
+  const auto read_operations = parse_unsigned(fields[0]);
   const auto read_sectors = parse_unsigned(fields[2]);
+  const auto read_milliseconds = parse_unsigned(fields[3]);
+  const auto write_operations = parse_unsigned(fields[4]);
   const auto write_sectors = parse_unsigned(fields[6]);
+  const auto write_milliseconds = parse_unsigned(fields[7]);
+  const auto weighted_milliseconds = parse_unsigned(fields[10]);
+  if (!read_operations) return std::unexpected{read_operations.error()};
   if (!read_sectors) return std::unexpected{read_sectors.error()};
+  if (!read_milliseconds) return std::unexpected{read_milliseconds.error()};
+  if (!write_operations) return std::unexpected{write_operations.error()};
   if (!write_sectors) return std::unexpected{write_sectors.error()};
+  if (!write_milliseconds) return std::unexpected{write_milliseconds.error()};
+  if (!weighted_milliseconds) return std::unexpected{weighted_milliseconds.error()};
   constexpr std::uint64_t kernel_sector_bytes = 512U;
+  constexpr std::uint64_t nanoseconds_per_millisecond = 1'000'000U;
   std::uint64_t read_bytes{};
   std::uint64_t write_bytes{};
+  std::uint64_t read_time_nanoseconds{};
+  std::uint64_t write_time_nanoseconds{};
+  std::uint64_t weighted_time_nanoseconds{};
   if (!checked_multiply(*read_sectors, kernel_sector_bytes, read_bytes) ||
-      !checked_multiply(*write_sectors, kernel_sector_bytes, write_bytes)) {
+      !checked_multiply(*write_sectors, kernel_sector_bytes, write_bytes) ||
+      !checked_multiply(*read_milliseconds, nanoseconds_per_millisecond,
+                        read_time_nanoseconds) ||
+      !checked_multiply(*write_milliseconds, nanoseconds_per_millisecond,
+                        write_time_nanoseconds) ||
+      !checked_multiply(*weighted_milliseconds, nanoseconds_per_millisecond,
+                        weighted_time_nanoseconds)) {
     return std::unexpected{ProcParseError::overflow};
   }
-  return ProcBlockSnapshot{read_bytes, write_bytes};
+  return ProcBlockSnapshot{read_bytes,
+                           write_bytes,
+                           *read_operations,
+                           *write_operations,
+                           read_time_nanoseconds,
+                           write_time_nanoseconds,
+                           weighted_time_nanoseconds};
 }
 
 std::expected<std::size_t, ProcParseError>

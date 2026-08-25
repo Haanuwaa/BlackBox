@@ -15,11 +15,11 @@ qualified.
 | System CPU and memory | Native | Native `/proc` | Native Mach/sysctl |
 | Process identity, CPU, RSS, and disk I/O | Native | Native `/proc` | Native libproc |
 | System disk/network throughput | Native | Native `/proc` and `/sys` | Native BSD interfaces and IOKit block-driver statistics |
-| Disk latency/queue/service evidence | Native | Open | Open |
+| Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | GPU, foreground, and responsiveness evidence | Native, capability-gated | Open | Open |
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime; battery saver and frequency/thermal open | Native power/battery/uptime; battery saver and frequency/thermal open |
-| Privacy-reduced symptom/system events | Native, independently gated | Open | Open |
+| Privacy-reduced symptom/system events | Native, independently gated | Identifier-free kernel device add/remove context | Identifier-free IOKit storage-media add/remove context |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
 | Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
@@ -33,18 +33,16 @@ qualified.
 
 ## Ordered parity work
 
-1. Integrate the completed parity stack only after the frozen Windows qualification revision publishes
-   passing evidence, then rebuild and run every hosted graph on the clean integrated revision.
-2. Add cross-platform disk service/latency/queue evidence only where native counter semantics are
-   exact, lifecycle-safe, and cheap enough for the existing fast tier.
-3. Add privacy-reduced Linux/macOS system-event evidence behind the existing independent event
-   boundary; absence of an exact native source must remain explicit.
-4. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
+1. Validate the V0.18 disk-quality and system-event slice on native Windows, Linux, and macOS hosted
+   graphs, then integrate the exact clean revision and freeze it for the operator-assisted 72-hour run.
+2. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
    background, notification, autostart, and package boundaries.
-5. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
+3. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
    A passive Quartz event tap is technically available but is not equivalent to conflict-aware shortcut
    registration and must not be enabled merely to fill a table cell.
-6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
+4. Research native Linux/macOS GPU, foreground, responsiveness, frequency, and thermal evidence; add
+   only sources whose semantics and collection cost satisfy the existing portable contracts.
+5. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
    campaigns, then design signed/notarized distribution. Hosted compilation alone cannot establish
    product support.
 
@@ -62,6 +60,8 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple sleep-inclusive continuous time](https://developer.apple.com/documentation/driverkit/mach_continuous_time)
 - [Apple `getifaddrs` interface statistics](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html)
 - [Apple `IOBlockStorageDriver` statistics](https://developer.apple.com/documentation/kernel/ioblockstoragedriver)
+- [Linux block-device I/O statistics](https://docs.kernel.org/admin-guide/iostats.html)
+- [Linux kernel uevent environment](https://docs.kernel.org/driver-api/driver-model/uevent.html)
 - [Linux TCP SNMP counters](https://docs.kernel.org/networking/snmp_counter.html)
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)
 - [XDG Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)

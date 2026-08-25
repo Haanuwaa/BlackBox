@@ -1,10 +1,10 @@
 # V1.0 qualification plan
 
-The current application version is 0.17.0. V1.0 is reserved for the completed product and is not
+The current application version is 0.18.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
 Roadmap headings `V0.16` and `V0.17` are engineering stages. The runtime/package version now follows
-the completed release-candidate engineering stage as `0.17.0`; it changes to `1.0.0` only for the
+the completed cross-platform evidence engineering stage as `0.18.0`; it changes to `1.0.0` only for the
 exact final candidate revision that must repeat and compose the complete evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may
@@ -126,7 +126,7 @@ canonical held-out report, and matches its calibration/report fingerprints to th
 one-shot attempt. Only its independently rechecked `v1_release_evidence_satisfied=1` ledger can close
 the evidence-composition requirement; the ledger cannot replace any retained source artifact.
 
-The current V0.15 package is portable and has no background updater or installer. It can optionally
+The current V0.18 package is portable and has no background updater or installer. It can optionally
 create one current-user Run value for launch-at-login; disabling **Start with Windows** removes it.
 Updates are side-by-side and recoverable: exit BlackBox from its tray menu, verify the new ZIP and
 signatures, extract to a new directory, and retain the prior directory until verification succeeds.

@@ -2,6 +2,7 @@
 
 #include "telemetry/linux/linux_proc_parser.hpp"
 #include "telemetry/linux/linux_process_collector.hpp"
+#include "telemetry/disk_quality_tracker.hpp"
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/network_interface_tracker.hpp"
 
@@ -71,7 +72,8 @@ struct LinuxTelemetryProvider::NativeState {
     power_contents.reserve(16U * 1024U);
   }
 
-  [[nodiscard]] MetricStatus read_disks() {
+  [[nodiscard]] MetricStatus read_disks(
+      const core::MonotonicTimePoint observed_at) {
     std::error_code error{};
     std::size_t count{};
     const std::filesystem::path root{"/sys/block"};
@@ -90,15 +92,27 @@ struct LinuxTelemetryProvider::NativeState {
       const auto parsed = parse_sys_block_stat(disk_contents);
       if (!parsed) return MetricStatus::temporarily_unavailable;
       const auto name = iterator->path().filename().string();
-      disks[count++] = IoEntityCounters{stable_identity(name),
-                                        parsed->read_bytes,
-                                        parsed->write_bytes};
+      const auto identity = stable_identity(name);
+      disks[count] = IoEntityCounters{identity,
+                                      parsed->read_bytes,
+                                      parsed->write_bytes};
+      disk_quality_counters[count] = DiskQualityCounters{
+          identity,
+          parsed->read_operations,
+          parsed->write_operations,
+          parsed->read_time_nanoseconds,
+          parsed->write_time_nanoseconds,
+          parsed->weighted_time_nanoseconds};
+      ++count;
     }
     if (error || count == 0U) return MetricStatus::temporarily_unavailable;
     const auto totals = disk_tracker.update(
         std::span<const IoEntityCounters>{disks.data(), count});
     disk_read = totals.first;
     disk_write = totals.second;
+    disk_quality = disk_quality_tracker.update(
+        observed_at,
+        std::span<const DiskQualityCounters>{disk_quality_counters.data(), count});
     return disk_read.status == MetricStatus::available &&
                    disk_write.status == MetricStatus::available
                ? MetricStatus::available
@@ -245,14 +259,17 @@ struct LinuxTelemetryProvider::NativeState {
   }
 
   std::array<IoEntityCounters, maximum_io_entities> disks{};
+  std::array<DiskQualityCounters, maximum_io_entities> disk_quality_counters{};
   std::array<IoEntityCounters, maximum_io_entities> interfaces{};
   std::array<std::uint64_t, maximum_io_entities> active_interface_ids{};
   IoCounterTracker<maximum_io_entities> disk_tracker{};
+  DiskQualityTracker<maximum_io_entities> disk_quality_tracker{};
   IoCounterTracker<maximum_io_entities> network_tracker{};
   NetworkInterfaceTracker<maximum_io_entities> interface_tracker{};
   LinuxProcessCollector process_collector{};
   MetricValue<ByteCount> disk_read{};
   MetricValue<ByteCount> disk_write{};
+  RawDiskQuality disk_quality{};
   MetricValue<ByteCount> network_receive{};
   MetricValue<ByteCount> network_transmit{};
   std::string system_contents{};
@@ -279,6 +296,11 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   destination.system.memory_available = temporary<ByteCount>();
   destination.system.disk_read_bytes = temporary<ByteCount>();
   destination.system.disk_write_bytes = temporary<ByteCount>();
+  destination.system.disk_quality.read_latency = temporary<Seconds>();
+  destination.system.disk_quality.write_latency = temporary<Seconds>();
+  destination.system.disk_quality.service_time = temporary<Seconds>();
+  destination.system.disk_quality.queue_depth = temporary<double>();
+  destination.system.disk_quality.worst_device_id = temporary<std::uint64_t>();
   destination.system.network_receive_bytes = temporary<ByteCount>();
   destination.system.network_transmit_bytes = temporary<ByteCount>();
   destination.system.network_quality.connectivity =
@@ -322,9 +344,10 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
     }
     ++attempted;
     if (native_state_ != nullptr &&
-        native_state_->read_disks() == MetricStatus::available) {
+        native_state_->read_disks(destination.observed_at) == MetricStatus::available) {
       destination.system.disk_read_bytes = native_state_->disk_read;
       destination.system.disk_write_bytes = native_state_->disk_write;
+      destination.system.disk_quality = native_state_->disk_quality;
     } else {
       ++failed;
     }
@@ -398,6 +421,9 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
   result.process_memory = true;
   result.process_disk_io = true;
   result.disk_throughput = true;
+  result.disk_latency = true;
+  result.disk_queue_depth = true;
+  result.disk_service_time = true;
   result.network_usage = true;
   result.network_connectivity = true;
   result.network_transport_quality = true;

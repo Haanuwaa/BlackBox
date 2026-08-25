@@ -69,6 +69,11 @@ TEST_CASE("Linux block and network parsers preserve cumulative byte semantics",
   REQUIRE(disk.has_value());
   CHECK(disk->read_bytes == 100U * 512U);
   CHECK(disk->write_bytes == 200U * 512U);
+  CHECK(disk->read_operations == 11U);
+  CHECK(disk->write_operations == 22U);
+  CHECK(disk->read_time_nanoseconds == 4'000'000U);
+  CHECK(disk->write_time_nanoseconds == 8'000'000U);
+  CHECK(disk->weighted_time_nanoseconds == 12'000'000U);
 
   std::array<blackbox::telemetry::IoEntityCounters, 4U> interfaces{};
   const auto count = linux_telemetry::parse_proc_net_dev(
@@ -165,9 +170,12 @@ TEST_CASE("Linux process parsers retain stable identity memory and I O",
 
 TEST_CASE("Linux extended parsers reject truncation overflow and identity mismatch",
           "[telemetry][linux]") {
-  CHECK_FALSE(linux_telemetry::parse_sys_block_stat("1 2 3").has_value());
+  CHECK_FALSE(linux_telemetry::parse_sys_block_stat("1 2 3 4 5 6 7").has_value());
   CHECK_FALSE(linux_telemetry::parse_sys_block_stat(
-                  "1 2 18446744073709551615 4 5 6 1\n")
+                  "1 2 18446744073709551615 4 5 6 1 8 0 10 11\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_sys_block_stat(
+                  "1 2 3 18446744073709551615 5 6 7 8 0 10 11\n")
                   .has_value());
   std::array<blackbox::telemetry::IoEntityCounters, 1U> interfaces{};
   CHECK_FALSE(linux_telemetry::parse_proc_net_dev(

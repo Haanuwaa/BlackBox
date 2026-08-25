@@ -1593,7 +1593,7 @@ hosted, signed-package, physical-client, and wall-clock sources do not yet all e
 revision, and V0.15.1 still lacks its consented multi-hardware corpus and passing one-shot result.
 The final runner/verifier now also require the exact `BlackBox-1.0.0-windows-x64.zip` package,
 `application_version=1.0.0` in both wall-clock reports, and `product_version=1.0.0` in the final
-ledger. The engineering line is `0.17.0`; `1.0.0` remains reserved until those gates are real.
+ledger. The engineering line is `0.18.0`; `1.0.0` remains reserved until those gates are real.
 All five Windows product/qualification executables now derive their complete PE `VERSIONINFO` from
 that same CMake project version. A Windows runtime contract rejects blank or inconsistent string/
 numeric versions, descriptions, product identity, internal names, and original filenames, so the
@@ -2061,8 +2061,32 @@ Parity follow-up implementation:
   tracking, conservative disconnected/local link state, and native cumulative TCP retransmission/
   failure counters. Keep Internet reachability and macOS established resets explicitly unsupported
   rather than inferring them from adjacent signals.
+- [x] Add exact lifecycle-safe disk quality from native cumulative sources: Linux read/write latency,
+  combined service time, and interval-average queue depth; macOS read/write latency and combined
+  service time with queue explicitly unsupported instead of estimated.
+- [x] Add privacy-reduced Linux kernel device and macOS IOMedia lifecycle context behind the existing
+  independently scheduled bounded event boundary. Discard native identifiers and payloads, suppress
+  startup inventory, expose loss diagnostics, and keep context-only events ineligible for capture.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
+
+## V0.18 — Cross-platform evidence fidelity
+
+**Objective:** Extend native engineering evidence without weakening exact semantics, privacy, or the
+portable Windows-first product graph.
+
+- [x] Derive Linux physical-device read/write latency, combined service time, and interval-average
+  queue depth from documented cumulative `/sys/block/*/stat` fields.
+- [x] Derive macOS physical-device read/write mean completion and combined service time from IOKit
+  operation/time counters; leave exact queue depth unsupported.
+- [x] Share a fixed-capacity, lifecycle-safe disk-quality delta tracker with explicit warm-up, reset,
+  churn, duplicate, overflow, and zero-operation behavior.
+- [x] Add identifier-free Linux kobject and macOS storage-media add/remove context behind the existing
+  system-event collector, with bounded queues and explicit loss diagnostics.
+- [x] Preserve direct schema V1, event/telemetry independence, native API containment, and the absence
+  of any runtime ML or compatibility path.
+- [ ] Obtain native Windows, Linux, macOS, and quality/security hosted evidence on the exact clean
+  implementation revision before integrating it into `main`.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 
@@ -2084,12 +2108,15 @@ a healthy direct-v1 archive, 0.010131% average total-machine CPU, and a 59,015,1
 working set. The standalone verifier revalidated the published manifest, journals, settings,
 archive, source identity, coverage, resource bounds, and counters on 2026-08-24.
 
-This evidence releases frozen `main` for the completed `0.17.0` parity stack. Integrate it, rebuild
-and run the complete Release suite, then obtain Windows, Linux, macOS, and quality/security hosted
-evidence on the resulting clean revision. After that integration gate, the next unblocked coding
-milestone is exact cross-platform disk service/latency/queue evidence plus privacy-reduced Linux/
-macOS system events. Execute physical Windows and GNOME/KDE/macOS desktop qualification only with
-qualifying operators and real clients. Runtime ML remains behind representative held-out value.
+This evidence released frozen `main` for the completed `0.17.0` parity stack. The V0.18 implementation
+adds exact cross-platform disk-quality evidence plus privacy-reduced Linux/macOS device-lifecycle
+context without changing direct schema V1. Its complete local Windows Release graph passes 343/343
+tests. The exact next gate is native Windows, Linux, macOS, and quality/security hosted validation of
+the clean V0.18 revision, followed by a fast-forward integration and exact-revision rebuild on `main`.
+Freeze that revision and begin the operator-assisted 72-hour campaign before further `main` changes;
+new engineering work can continue in a separate branch/worktree. Execute physical Windows and
+GNOME/KDE/macOS desktop qualification only with qualifying operators and real clients. Runtime ML
+remains behind representative held-out value.
 The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
 client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
 execution gates; local rehearsals or additional schema machinery cannot satisfy them.

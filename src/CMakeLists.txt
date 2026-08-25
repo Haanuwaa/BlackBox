@@ -101,6 +101,7 @@ add_library(blackbox_telemetry STATIC
     telemetry/event_collector.cpp
     telemetry/incident_snapshot_builder.cpp
     telemetry/linux/linux_proc_parser.cpp
+    telemetry/linux/linux_uevent_parser.cpp
     telemetry/mock/mock_telemetry_provider.cpp
     telemetry/normalizer.cpp
     telemetry/process_metadata_cache.cpp
@@ -126,6 +127,7 @@ blackbox_set_project_warnings(blackbox_telemetry)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_library(blackbox_telemetry_linux STATIC
         telemetry/linux/linux_process_collector.cpp
+        telemetry/linux/linux_system_event_provider.cpp
         telemetry/linux/linux_telemetry_provider.cpp
     )
     add_library(BlackBox::TelemetryLinux ALIAS blackbox_telemetry_linux)
@@ -141,6 +143,7 @@ if(APPLE)
     find_library(BLACKBOX_IOKIT_FRAMEWORK IOKit REQUIRED)
     add_library(blackbox_telemetry_macos STATIC
         telemetry/macos/macos_process_collector.cpp
+        telemetry/macos/macos_system_event_provider.cpp
         telemetry/macos/macos_telemetry_provider.cpp
     )
     add_library(BlackBox::TelemetryMacos ALIAS blackbox_telemetry_macos)

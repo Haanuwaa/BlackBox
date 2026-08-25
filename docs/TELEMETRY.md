@@ -22,7 +22,7 @@ This matrix separates portable domain readiness from real collection. Windows so
 | RAM utilization | `MetricValue<Ratio>` | fraction `[0,1]` | Normal / 1 Hz | Derived | None | `used / total`, with zero guard | Negligible | Derived | Derived | Domain/normalization implemented V0.0.2 |
 | Disk read throughput | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | PDH `PhysicalDisk(*)\\Disk Read Bytes/sec` selected | None observed | Per-instance lifecycle-safe cumulative aggregation, then measured-time delta | Low; measured in provider benchmark | `/sys/block/*/stat` | IOKit `IOBlockStorageDriver` Statistics | Windows/Linux/macOS implemented |
 | Disk write throughput | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | PDH `PhysicalDisk(*)\\Disk Write Bytes/sec` selected | None observed | Same as read | Low; measured in provider benchmark | `/sys/block/*/stat` | IOKit `IOBlockStorageDriver` Statistics | Windows/Linux/macOS implemented |
-| Disk latency/service time/queue | `MetricValue<Seconds>` / `MetricValue<double>` | seconds/op, requests | Fast / 1 Hz | Persistent PDH `PhysicalDisk(*)` formatted counters | None observed | Maximum valid non-`_Total` physical instance; gauge | Low; qualified with provider | `/proc/diskstats` candidate | IOKit candidate | Windows implemented V0.13 |
+| Disk latency/service time/queue | `MetricValue<Seconds>` / `MetricValue<double>` | seconds/op, requests | Fast / 1 Hz | Persistent PDH `PhysicalDisk(*)` formatted counters | None observed | Lifecycle-safe interval deltas; worst valid physical device | Low; qualified with provider | `/sys/block/*/stat` cumulative operation/time/weighted-time counters | IOKit operation and total completion-time counters; queue unavailable | Windows/Linux/macOS latency and service implemented; Linux queue implemented; macOS queue unsupported |
 | Network receive | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | `GetIfTable2` `InOctets` selected | None observed | Per-interface lifecycle-safe cumulative aggregation, then measured-time delta | Low; measured with provider | `/proc/net/dev` | `getifaddrs` interface counters | Windows/Linux/macOS implemented |
 | Network transmit | `MetricValue<BytesPerSecond>` | bytes/s | Fast / 1 Hz | `GetIfTable2` `OutOctets` selected | None observed | Same as receive | Low; measured with provider | `/proc/net/dev` | `getifaddrs` interface counters | Windows/Linux/macOS implemented |
 | Network connectivity/transitions | typed level plus interval count | level, events | Fast / 1 Hz | `GetNetworkConnectivityHint` + `GetIfTable2` | None observed | Aggregate hint and bounded lifecycle delta | Low | active non-loopback `AF_PACKET` interfaces | active non-loopback link interfaces | Windows implemented; Linux/macOS local-link evidence implemented |
@@ -68,7 +68,7 @@ It reads bounded kernel pseudo-files without administrator privileges:
 | CPU | aggregate `cpu` row in `/proc/stat` | Fast | cumulative busy and total kernel ticks |
 | Physical memory | `MemTotal` and `MemAvailable` in `/proc/meminfo` | Normal | total and available bytes |
 | Logical processors | numbered `cpuN` rows in `/proc/stat` | Fast | available count |
-| Physical-device I/O | `/sys/block/<device>/stat` entries with a native `device` link | Fast | cumulative read/write bytes |
+| Physical-device I/O | `/sys/block/<device>/stat` entries with a native `device` link | Fast | cumulative read/write bytes, operations, completion time, and weighted in-flight time |
 | Network I/O | non-loopback rows in `/proc/net/dev` | Fast | cumulative receive/transmit bytes |
 | Network state and TCP quality | `getifaddrs` plus `/proc/net/snmp` | Fast | local link level, interface transitions, cumulative TCP counters |
 | Power and uptime | `/sys/class/power_supply/*/uevent` plus `/proc/uptime` | Normal | typed source, optional battery fraction, seconds |
@@ -104,7 +104,21 @@ The process walk accepts only numeric `/proc` entries, caps each observation at 
 uses PID plus kernel start time to prevent reuse collisions, and treats exit/access races as explicit
 diagnostics or per-metric unavailability. CPU ticks are converted to cumulative nanoseconds using
 `_SC_CLK_TCK`; the shared normalizer derives rates using the measured interval. Executable paths are
-resolved only when the slow tier is requested. GPU and event telemetry remain `unsupported`.
+resolved only when the slow tier is requested. GPU telemetry remains `unsupported`.
+
+Linux disk quality uses the kernel's cumulative block accounting without relabeling adjacent fields.
+Read and write latency are their respective completion-time deltas divided by completed-operation
+deltas; combined service time divides the summed completion-time delta by summed operations. The
+interval-average in-flight queue is the weighted-I/O-time delta divided by elapsed monotonic time.
+First sight, reappearance, a counter decrease, an empty-operation interval, duplicate identity, or
+capacity overflow cannot fabricate a value. The provider selects the physical device with the worst
+valid latency, breaking ties with queue depth, and keeps each unavailable channel explicit.
+
+The independent Linux event provider listens to bounded kernel kobject uevents and accepts only
+device `add`/`remove` actions. It maps the subsystem to one broad numeric class and discards device
+paths, names, serials, modaliases, interfaces, properties, and all other payload. Queue truncation and
+kernel receive-buffer loss remain diagnostic counters. The source can add context to a later incident,
+but cannot trigger a capture or claim a symptom, affected identity, or cause.
 
 `blackbox_telemetry_linux` is built only on Linux and has no SQLite, UI, storage, analysis, or
 platform-shell dependency. Hosted Linux sanitizer and coverage builds compile it, and a native test
@@ -130,13 +144,23 @@ The fast tier also reads active non-loopback BSD interface byte counters and fee
 interface indexes through the fixed-capacity lifecycle tracker, so interface arrival/removal cannot
 become a false throughput spike. A separate fixed-capacity membership tracker records active-link
 transitions and emits only disconnected/local state; it makes no Internet-reachability claim. IOKit
-`IOBlockStorageDriver` Statistics dictionaries provide cumulative read/write bytes keyed by stable
-registry-entry identity. `net.inet.tcp.stats` provides outgoing original segments, retransmissions,
+`IOBlockStorageDriver` Statistics dictionaries provide cumulative read/write bytes, completed
+operations, and total completion times keyed by stable registry-entry identity. The shared disk
+quality tracker derives read/write mean completion time and combined service time from interval
+deltas. IOKit does not expose the exact interval queue counter used by the portable queue metric, so
+macOS reports that channel as unsupported rather than estimating it. `net.inet.tcp.stats` provides
+outgoing original segments, retransmissions,
 and connection/drop failures. Apple exposes no exact equivalent of the shared established-reset
 field, which therefore remains explicitly unsupported. Sleep-inclusive monotonic uptime comes from
 the native continuous clock. The normal tier reads IOKit's current power-source snapshot and exposes
 battery fraction when the host reports a valid capacity; unavailable battery and battery-saver
 values remain explicit.
+The independent macOS event provider consumes IOKit `IOMedia` first-match and termination
+notifications. It drains the initial inventory without emitting events and publishes only broad
+storage-media added/removed context; BSD names, registry paths, UUIDs, serials, properties, and
+payloads never cross the native boundary. This is not application crash, service, storage-retry,
+power, or general device evidence, and it cannot trigger capture.
+
 The process collector enumerates bounded PIDs with libproc, keys each identity by PID plus the
 microsecond process start token from `proc_pid_rusage`, and collects cumulative CPU time, resident
 memory, and disk read/write bytes. Name, parent PID, and executable path remain metadata, with path

@@ -18,11 +18,13 @@
 #include "platform/linux/linux_global_hotkey_manager.hpp"
 #include "platform/posix/posix_crash_diagnostics.hpp"
 #include "telemetry/linux/linux_telemetry_provider.hpp"
+#include "telemetry/linux/linux_system_event_provider.hpp"
 #elif defined(__APPLE__)
 #include "platform/macos/macos_accessibility.hpp"
 #include "platform/macos/macos_background_shell.hpp"
 #include "platform/posix/posix_crash_diagnostics.hpp"
 #include "telemetry/macos/macos_telemetry_provider.hpp"
+#include "telemetry/macos/macos_system_event_provider.hpp"
 #else
 #include "telemetry/mock/mock_telemetry_provider.hpp"
 #endif
@@ -263,15 +265,27 @@ ApplicationInitializationResult Application::initialize() {
 #elif defined(__linux__)
     telemetry_provider_ =
         std::make_unique<telemetry::linux::LinuxTelemetryProvider>(telemetry_clock_);
+    system_event_provider_ =
+        std::make_unique<telemetry::linux::LinuxSystemEventProvider>();
     provider_name_ = "LinuxTelemetryProvider";
 #elif defined(__APPLE__)
     telemetry_provider_ =
         std::make_unique<telemetry::macos::MacosTelemetryProvider>(telemetry_clock_);
+    system_event_provider_ =
+        std::make_unique<telemetry::macos::MacosSystemEventProvider>();
     provider_name_ = "MacosTelemetryProvider";
 #else
     telemetry_provider_ = std::make_unique<telemetry::mock::MockTelemetryProvider>(
         telemetry_clock_);
     provider_name_ = "MockTelemetryProvider";
+#endif
+
+#if defined(__linux__) || defined(__APPLE__)
+    auto event_configuration = telemetry::EventCollectorConfiguration{};
+    event_configuration.provider = event_provider_configuration(product_settings_);
+    event_configuration.automatic_system_event_capture = false;
+    system_event_collector_ = std::make_unique<telemetry::SystemEventCollector>(
+        *system_event_provider_, telemetry_clock_, event_configuration);
 #endif
 
     recorder_settings_path_ = default_recorder_settings_path();
@@ -927,8 +941,14 @@ void Application::apply_product_settings(
     if (system_event_collector_ != nullptr) {
         auto event_configuration = telemetry::EventCollectorConfiguration{};
         event_configuration.provider = event_provider_configuration(*validated_product);
+#if defined(_WIN32)
         event_configuration.automatic_system_event_capture =
             validated_product->automatic_detection_enabled;
+#else
+        // Linux/macOS currently expose context-only device lifecycle records.
+        // They are never eligible to trigger automatic incident capture.
+        event_configuration.automatic_system_event_capture = false;
+#endif
         system_event_collector_->reconfigure(event_configuration);
     }
     collector_->set_automatic_detection_enabled(
@@ -1050,6 +1070,7 @@ void Application::refresh_dashboard_if_due() {
         if (!product_settings_.automatic_detection_enabled) {
             dashboard_state_.automatic_event_capture_status =
                 "Disabled with automatic incident detection";
+#if defined(_WIN32)
         } else if (!event_provider_configuration(product_settings_).application_events ||
                    !event_provider_configuration(product_settings_).display_driver_events ||
                    !event_provider_configuration(product_settings_).storage_events) {
@@ -1063,6 +1084,11 @@ void Application::refresh_dashboard_if_due() {
         } else {
             dashboard_state_.automatic_event_capture_status =
                 "Partially unavailable: a Windows symptom subscription failed";
+#else
+        } else {
+            dashboard_state_.automatic_event_capture_status =
+                "Unavailable: this engineering provider records device context only";
+#endif
         }
     }
     dashboard_state_.hotkey_status = hotkey_status_;

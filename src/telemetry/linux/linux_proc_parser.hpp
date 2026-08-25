@@ -37,6 +37,11 @@ struct ProcMemorySnapshot {
 struct ProcBlockSnapshot {
   std::uint64_t read_bytes{};
   std::uint64_t write_bytes{};
+  std::uint64_t read_operations{};
+  std::uint64_t write_operations{};
+  std::uint64_t read_time_nanoseconds{};
+  std::uint64_t write_time_nanoseconds{};
+  std::uint64_t weighted_time_nanoseconds{};
   friend constexpr bool operator==(const ProcBlockSnapshot &,
                                    const ProcBlockSnapshot &) = default;
 };

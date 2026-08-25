@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     BlackBox
-    VERSION 0.17.0
+    VERSION 0.18.0
     DESCRIPTION "A lightweight native computer flight recorder"
     LANGUAGES CXX
 )

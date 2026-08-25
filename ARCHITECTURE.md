@@ -1003,3 +1003,25 @@ compares every non-internal table and index definition before accepting an exist
 same verifier runs against a read-only restore source before any safety backup or restore write.
 It does not teach older layouts, modify rejected evidence, or add work to collection, capture, or
 incident writes.
+
+## V0.18 cross-platform disk and event implementation note
+
+Cross-platform disk quality remains a native-source concern followed by one portable, fixed-capacity
+delta tracker. Linux parses cumulative operation, completion-time, and weighted-in-flight counters
+only inside `telemetry/linux`; macOS reads cumulative operation and total completion-time properties
+only inside `telemetry/macos`. Native identities and counters cross into the shared tracker as scalar
+values, while Linux and Apple headers remain confined to their platform targets. First sight,
+reappearance, counter reset, missing devices, duplicate identity, capacity exhaustion, and invalid
+elapsed time fail closed. Linux can derive exact interval-average queue depth from weighted I/O time;
+macOS cannot, so the queue channel remains explicitly unsupported. No substitute metric or platform
+branch enters normalization, recording, storage, analysis, or UI.
+
+Linux and macOS device lifecycle evidence uses the existing independent `ISystemEventProvider` and
+bounded `SystemEventCollector`, never `ITelemetryProvider` or the sampling thread. The Linux adapter
+normalizes only kernel kobject add/remove actions and one broad subsystem class. The macOS adapter
+normalizes only post-startup IOMedia match/termination notifications and one broad storage class.
+Native paths, names, registry entries, UUIDs, serials, properties, environment fields, and payloads
+are discarded before the portable event boundary. These context-only events cannot automatically
+trigger capture or claim a symptom, affected identity, or cause. Disabled or unavailable sources
+remain inert, and loss/truncation stays explicit in provider diagnostics. Direct schema V1 and every
+persisted-format version remain unchanged.

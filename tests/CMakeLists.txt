@@ -5,9 +5,11 @@ add_executable(blackbox_tests
     core/version_tests.cpp
     telemetry/collector_tests.cpp
     telemetry/collection_timing_tests.cpp
+    telemetry/disk_quality_tracker_tests.cpp
     telemetry/event_collector_tests.cpp
     telemetry/incident_snapshot_builder_tests.cpp
     telemetry/linux_proc_parser_tests.cpp
+    telemetry/linux_uevent_parser_tests.cpp
     telemetry/mock_telemetry_provider_tests.cpp
     telemetry/network_interface_tracker_tests.cpp
     telemetry/normalizer_tests.cpp
@@ -145,6 +147,7 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(blackbox_tests PRIVATE
+        telemetry/linux_system_event_provider_tests.cpp
         telemetry/linux_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
     if(BLACKBOX_BUILD_APP)
@@ -166,6 +169,7 @@ endif()
 
 if(APPLE)
     target_sources(blackbox_tests PRIVATE
+        telemetry/macos_system_event_provider_tests.cpp
         telemetry/macos_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryMacos)
 

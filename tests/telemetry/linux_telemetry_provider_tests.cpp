@@ -24,6 +24,8 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(snapshot.system.logical_processor_count.has_value());
   CHECK(snapshot.system.disk_read_bytes.has_value());
   CHECK(snapshot.system.disk_write_bytes.has_value());
+  CHECK(snapshot.system.disk_quality.queue_depth.status !=
+        telemetry::MetricStatus::unsupported);
   CHECK(snapshot.system.network_receive_bytes.has_value());
   CHECK(snapshot.system.network_transmit_bytes.has_value());
   CHECK(snapshot.system.network_quality.connectivity.has_value());
@@ -47,6 +49,9 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(second_result.status == telemetry::ProviderSampleStatus::complete);
   CHECK(second_result.sequence == result.sequence + 1U);
   CHECK(second.system.network_quality.interface_change_counter.has_value());
+  CHECK(provider.capabilities().disk_latency);
+  CHECK(provider.capabilities().disk_queue_depth);
+  CHECK(provider.capabilities().disk_service_time);
   CHECK(telemetry::validate_provider_snapshot_contract(provider.capabilities(),
                                                        request, second) ==
         telemetry::ProviderContractViolation::none);
