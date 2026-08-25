@@ -6,7 +6,7 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.17.0** is the pre-1.0 release-candidate engineering line of the local-native Windows
+Version **0.18.0** is the pre-1.0 cross-platform evidence engineering line of the local-native Windows
 flight recorder, with unsupported Linux and macOS engineering previews.
 It combines bounded configurable recording, manual/automatic capture, an evidence-first six-page
 workflow, synchronized incident timelines, guided archive recovery, privacy-safe local support
