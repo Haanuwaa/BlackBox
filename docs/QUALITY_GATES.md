@@ -21,7 +21,9 @@ not introduce migrations, compatibility adapters, or legacy fixtures.
   registration helpers and generated dependency headers. Pinned third-party packages are resolved
   before CodeQL initialization, so manual tracing observes only the subsequent six-target BlackBox
   production build. A 60-minute job timeout fails closed, and same-workflow/same-ref concurrency
-  cancels superseded runs instead of allowing obsolete scans to consume runner capacity;
+  cancels superseded runs instead of allowing obsolete scans to consume runner capacity. This trace
+  hygiene reduced the exact hosted CodeQL job from 35:19 to 15:46 (55.3%) without reducing the
+  `security-extended` query suite or production graph;
 - MSVC native `/analyze` with warnings treated as errors across product and test translation units;
 - Windows AddressSanitizer across the app and test graph;
 - Linux UndefinedBehaviorSanitizer for the portable headless graph;

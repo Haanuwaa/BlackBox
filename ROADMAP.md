@@ -2195,5 +2195,9 @@ targets but resolves pinned third-party dependencies before initializing manual 
 prevents package compilation from entering the BlackBox database while preserving every production
 translation unit. The quality workflow now cancels superseded runs for the same ref and fails a
 nonterminal CodeQL job after 60 minutes. The quality-gate contract pins dependency-before-init-before-
-build ordering, target count, query depth, cancellation, and timeout. Hosted wall-time comparison is
-required before claiming an additional speedup.
+build ordering, target count, query depth, cancellation, and timeout. On exact revision
+`74b5371fa77a252f3cfd809dde6013fee47b0c40`, hosted CodeQL job `99207157348` in quality/security run
+`33292755119` passed in 15 minutes 46 seconds, versus 35 minutes 19 seconds for the immediately
+preceding comparable job `99203200655`: a 19 minute 33 second (55.3%) reduction. The traced production
+build completed in 7:21 and analysis in 3:12; the earlier combined configure/build took 19:09 and
+analysis took 14:32. The query suite and six-target production scope were unchanged.
