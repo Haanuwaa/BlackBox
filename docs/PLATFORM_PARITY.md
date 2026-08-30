@@ -18,17 +18,17 @@ qualified.
 | Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | Foreground-application evidence | Native, capability-gated | Privacy-bounded X11 EWMH PID correlated to process creation identity; Wayland explicitly unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
-| GPU and responsiveness evidence | Native, capability-gated | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity where exposed; other drivers remain explicit | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
+| GPU and responsiveness evidence | Native counters plus non-software DXGI inventory with adapter type explicitly unknown | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity; inventory type explicitly unknown | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal open | Native power/battery/uptime and Low Power Mode; CPU frequency/thermal open |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
-| Privacy-reduced symptom/system events | Native, independently gated | Identifier-free kernel device add/remove context | Identifier-free IOKit storage-media add/remove context |
+| Privacy-reduced symptom/system events | Native, independently gated | Identifier-free device/audio/storage/display/network uevents, logind power, systemd job result class, and coredump crash marker | Identifier-free application lifecycle, audio/default, storage, display, network, and power context; general service events unsupported |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
 | Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
 | Global incident shortcut | Native registration | XDG GlobalShortcuts portal | AppKit global/local key monitor with Input Monitoring permission; passive and not conflict-aware |
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
-| Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
+| Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
 | Hosted native compiler/provider/package checks | Windows runners passed on `ddf3535` | Ubuntu, Debian, Fedora, X11, Wayland, GPU parsers/backends, and provider overhead passed on `ddf3535` | Apple Silicon and Intel Metal inventory/provider/package checks passed on `ddf3535` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
@@ -48,9 +48,9 @@ qualified.
 4. Physically validate Linux GPU coverage on AMD, NVIDIA, Intel, hybrid, permission-restricted, and
    hotplug-capable hosts. AMD and NVIDIA provide whole-system device gauges; DRM `fdinfo` supplies
    only readable foreground-client activity and is never relabeled as complete host utilization.
-   Keep macOS passive whole-system GPU utilization unsupported. Design a separate portable pressure/
-   responsiveness contract before considering Linux PSI; its CPU, memory, and I/O stall semantics
-   are not Windows DPC/ISR activity.
+   Keep macOS passive whole-system GPU utilization unsupported. Implement Linux PSI only against
+   `PRESSURE_CONTRACT.md`; macOS remains unsupported until a public cumulative-stall source with the
+   same semantics is identified. PSI is not Windows DPC/ISR activity.
 5. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
    background, notification, autostart, package, sleep/resume, and shortcut boundaries.
 6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
@@ -88,6 +88,10 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Linux AMDGPU monitoring](https://docs.kernel.org/gpu/amdgpu/thermal.html)
 - [NVIDIA NVML utilization](https://docs.nvidia.com/deploy/nvml-api/structnvmlUtilization__t.html)
 - [Linux CPUFreq sysfs policy](https://docs.kernel.org/admin-guide/pm/cpufreq.html)
+- [systemd Manager D-Bus API](https://www.freedesktop.org/software/systemd/man/org.freedesktop.systemd1.html)
+- [systemd-coredump journal identifier](https://www.freedesktop.org/software/systemd/man/systemd-coredump.html)
+- [Apple display reconfiguration callback](https://developer.apple.com/documentation/coregraphics/cgdisplayregisterreconfigurationcallback%28_%3A_%3A%29)
+- [Apple SystemConfiguration dynamic store](https://developer.apple.com/documentation/systemconfiguration/scdynamicstore)
 - [Linux platform profile](https://docs.kernel.org/userspace-api/sysfs-platform_profile.html)
 - [Linux Pressure Stall Information](https://docs.kernel.org/accounting/psi.html)
 - [Extended Window Manager Hints](https://specifications.freedesktop.org/wm/latest-single/)

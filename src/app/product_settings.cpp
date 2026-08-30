@@ -182,7 +182,7 @@ std::expected<ProductSettings, ProductSettingsError> parse_product_settings_text
             "detector_cooldown_seconds", "notifications",
             "record_foreground_application", "record_process_lifecycle",
             "record_power_and_device_events",
-            "record_audio_device_events", "record_windows_event_log_evidence",
+            "record_audio_device_events", "record_system_event_evidence",
             "archive_path", "archive_maximum_bytes", "onboarding_completed"};
         std::uint32_t format{};
         if (!fields.contains("format") ||
@@ -243,8 +243,8 @@ std::expected<ProductSettings, ProductSettingsError> parse_product_settings_text
                            settings.record_power_and_device_events) ||
             !parse_boolean(fields["record_audio_device_events"],
                            settings.record_audio_device_events) ||
-            !parse_boolean(fields["record_windows_event_log_evidence"],
-                           settings.record_windows_event_log_evidence)) {
+            !parse_boolean(fields["record_system_event_evidence"],
+                           settings.record_system_event_evidence)) {
             return std::unexpected{settings_error(
                 ProductSettingsErrorCode::invalid_format,
                 "product settings contain an invalid evidence privacy value")};
@@ -341,8 +341,8 @@ std::expected<void, ProductSettingsError> save_product_settings(
                  << settings.record_power_and_device_events << '\n'
                  << "record_audio_device_events="
                  << settings.record_audio_device_events << '\n'
-                 << "record_windows_event_log_evidence="
-                 << settings.record_windows_event_log_evidence << '\n'
+                 << "record_system_event_evidence="
+                 << settings.record_system_event_evidence << '\n'
                  << "archive_path=" << path_text(settings.archive_path) << '\n'
                  << "archive_maximum_bytes=" << settings.archive_maximum_bytes << '\n'
                  << "onboarding_completed=" << settings.onboarding_completed << '\n';
@@ -433,13 +433,13 @@ telemetry::EventProviderConfiguration event_provider_configuration(
     result.power_events = settings.record_power_and_device_events;
     result.device_events = settings.record_power_and_device_events;
     result.audio_device_events = settings.record_audio_device_events;
-    result.service_events = settings.record_windows_event_log_evidence;
-    result.defender_events = settings.record_windows_event_log_evidence;
-    result.windows_update_events = settings.record_windows_event_log_evidence;
-    result.application_events = settings.record_windows_event_log_evidence;
-    result.dns_client_events = settings.record_windows_event_log_evidence;
-    result.display_driver_events = settings.record_windows_event_log_evidence;
-    result.storage_events = settings.record_windows_event_log_evidence;
+    result.service_events = settings.record_system_event_evidence;
+    result.defender_events = settings.record_system_event_evidence;
+    result.windows_update_events = settings.record_system_event_evidence;
+    result.application_events = settings.record_system_event_evidence;
+    result.network_events = settings.record_system_event_evidence;
+    result.graphics_events = settings.record_system_event_evidence;
+    result.storage_events = settings.record_system_event_evidence;
     return result;
 }
 

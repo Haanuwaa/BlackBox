@@ -57,7 +57,7 @@ TEST_CASE("product settings defaults and all user controls round trip",
     values.record_process_lifecycle = true;
     values.record_power_and_device_events = true;
     values.record_audio_device_events = true;
-    values.record_windows_event_log_evidence = true;
+    values.record_system_event_evidence = true;
     values.archive_path = temporary.directory / "archive" / "incidents.sqlite3";
     values.archive_maximum_bytes = 512ULL << 20U;
     values.onboarding_completed = true;
@@ -170,13 +170,13 @@ TEST_CASE("product settings map independently gated event evidence",
     CHECK_FALSE(configuration.defender_events);
     CHECK_FALSE(configuration.windows_update_events);
     CHECK_FALSE(configuration.application_events);
-    CHECK_FALSE(configuration.dns_client_events);
-    CHECK_FALSE(configuration.display_driver_events);
+    CHECK_FALSE(configuration.network_events);
+    CHECK_FALSE(configuration.graphics_events);
     CHECK_FALSE(configuration.storage_events);
 
     values.record_power_and_device_events = true;
     values.record_audio_device_events = true;
-    values.record_windows_event_log_evidence = true;
+    values.record_system_event_evidence = true;
     configuration = app::event_provider_configuration(values);
     CHECK(configuration.power_events);
     CHECK(configuration.device_events);
@@ -185,7 +185,7 @@ TEST_CASE("product settings map independently gated event evidence",
     CHECK(configuration.defender_events);
     CHECK(configuration.windows_update_events);
     CHECK(configuration.application_events);
-    CHECK(configuration.dns_client_events);
-    CHECK(configuration.display_driver_events);
+    CHECK(configuration.network_events);
+    CHECK(configuration.graphics_events);
     CHECK(configuration.storage_events);
 }

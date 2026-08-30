@@ -100,12 +100,12 @@ CREATE TABLE system_extended_samples (
 CREATE TABLE system_events (
  incident_id INTEGER NOT NULL, event_index INTEGER NOT NULL, observed_ns INTEGER NOT NULL,
     source_utc_ms INTEGER, source INTEGER NOT NULL CHECK(source BETWEEN 0 AND 10),
-    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 26), level INTEGER NOT NULL CHECK(level BETWEEN 0 AND 2),
+    kind INTEGER NOT NULL CHECK(kind BETWEEN 0 AND 32), level INTEGER NOT NULL CHECK(level BETWEEN 0 AND 2),
  native_event_id INTEGER NOT NULL, detail INTEGER NOT NULL,
  has_process_identity INTEGER NOT NULL CHECK(has_process_identity IN (0,1)),
  process_pid INTEGER, process_creation_token BLOB,
- CHECK((source=10 AND kind IN (25,26) AND has_process_identity=1) OR
-       (source<>10 AND kind NOT IN (25,26) AND has_process_identity=0)),
+  CHECK((source=10 AND kind IN (31,32) AND has_process_identity=1) OR
+       (source<>10 AND kind NOT IN (31,32) AND has_process_identity=0)),
  CHECK((has_process_identity=0 AND process_pid IS NULL AND process_creation_token IS NULL) OR
        (has_process_identity=1 AND process_pid>0 AND process_creation_token IS NOT NULL AND length(process_creation_token)=8)),
  PRIMARY KEY(incident_id,event_index), FOREIGN KEY(incident_id) REFERENCES incidents(id) ON DELETE CASCADE,

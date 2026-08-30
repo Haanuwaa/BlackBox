@@ -51,6 +51,7 @@ public:
         RawTelemetrySnapshot& destination) override;
 
     [[nodiscard]] PlatformCapabilities capabilities() const noexcept override;
+    [[nodiscard]] GpuInventoryEvidence gpu_inventory() const noexcept override;
 
 private:
     static constexpr std::size_t maximum_io_entities = 128U;

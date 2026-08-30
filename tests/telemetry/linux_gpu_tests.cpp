@@ -134,7 +134,8 @@ TEST_CASE(
   const auto inventory = collector.inventory();
   REQUIRE(inventory.device_count.has_value());
   CHECK(inventory.device_count.value == 1U);
-  CHECK(inventory.discrete_device_count.value == 1U);
+  CHECK(inventory.discrete_device_count.value == 0U);
+  CHECK(inventory.unknown_device_count.value == 1U);
   CHECK(inventory.render_device_available.value);
   const auto sample =
       collector.collect(core::MonotonicTimePoint{}, std::nullopt, false);

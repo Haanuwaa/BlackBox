@@ -63,8 +63,8 @@ void render_product_settings(const DashboardState &state,
                   &product.record_power_and_device_events);
   ImGui::Checkbox("Record audio endpoint transition events",
                   &product.record_audio_device_events);
-  ImGui::Checkbox("Record selected privacy-bounded Windows events",
-                  &product.record_windows_event_log_evidence);
+  ImGui::Checkbox("Record selected privacy-bounded system events",
+                  &product.record_system_event_evidence);
   ImGui::PushTextWrapPos(0.0F);
   ImGui::TextDisabled(
       "Process lifecycle evidence stores a durable PID/creation identity in "
@@ -100,8 +100,8 @@ void render_product_settings(const DashboardState &state,
     command.record_power_and_device_events =
         product.record_power_and_device_events;
     command.record_audio_device_events = product.record_audio_device_events;
-    command.record_windows_event_log_evidence =
-        product.record_windows_event_log_evidence;
+    command.record_system_event_evidence =
+        product.record_system_event_evidence;
     command.incident_pre_window_seconds = product.incident_pre_window_seconds;
     command.incident_post_window_seconds = product.incident_post_window_seconds;
     command.archive_maximum_mib = product.archive_maximum_mib;

@@ -1612,7 +1612,8 @@ FROM system_events WHERE incident_id=? ORDER BY event_index
             const auto source = sqlite3_column_int(event_query->get(), 2);
             const auto kind = sqlite3_column_int(event_query->get(), 3);
             const auto level = sqlite3_column_int(event_query->get(), 4);
-            if (source < 0 || source > 10 || kind < 0 || kind > 26 ||
+            if (source < 0 || source > 10 || kind < 0 ||
+                kind > static_cast<int>(core::SystemEventKind::process_exited) ||
                 level < 0 || level > 2) {
                 return std::unexpected{simple_error(
                     StorageErrorCode::invalid_data, "system event enum is invalid")};
@@ -1635,7 +1636,10 @@ FROM system_events WHERE incident_id=? ORDER BY event_index
                 sqlite3_column_int64(event_query->get(), 6));
             const auto identity_present = sqlite3_column_int(
                 event_query->get(), 7);
-            const bool process_event = source == 10 && (kind == 25 || kind == 26);
+            const bool process_event =
+                source == static_cast<int>(core::SystemEventSource::process) &&
+                (kind == static_cast<int>(core::SystemEventKind::process_started) ||
+                 kind == static_cast<int>(core::SystemEventKind::process_exited));
             if ((identity_present != 0 && identity_present != 1) ||
                 (identity_present == 1) != process_event) {
                 return std::unexpected{simple_error(

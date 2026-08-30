@@ -61,6 +61,8 @@ GpuInventoryEvidence macos_gpu_inventory() noexcept {
             MetricValue<std::uint32_t>::available(integrated);
         result.discrete_device_count =
             MetricValue<std::uint32_t>::available(discrete);
+        result.unknown_device_count =
+            MetricValue<std::uint32_t>::available(0U);
         result.render_device_available = MetricValue<bool>::available(
             MTLCreateSystemDefaultDevice() != nil);
         return result;

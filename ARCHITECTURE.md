@@ -1014,12 +1014,25 @@ counter lifecycle state to `telemetry/linux`; missing capabilities and permissio
 typed data. DRM client counters are correlated only with the opted-in foreground process and are not
 called whole-system evidence. macOS confines public Metal inventory to `telemetry/macos`, while its
 whole-system and foreground GPU values stay unsupported because public Metal counters instrument only
-work owned by an application. Linux PSI reports
-CPU, memory, and I/O stall pressure, which is useful but not semantically equivalent to Windows
-DPC/ISR usage or rate. Those capabilities therefore stay false until a distinct portable pressure
-contract and direct schema-v1 representation are designed and reviewed. GPU time-series evidence
+work owned by an application. Windows DXGI inventory counts only non-software adapters; because the
+public descriptor does not provide a trustworthy integrated/discrete classification, those devices
+cross the portable inventory boundary as `unknown_device_count`. Linux PSI reports CPU, memory, and
+I/O stall pressure, which is useful but not semantically equivalent to Windows DPC/ISR usage or rate.
+`docs/PRESSURE_CONTRACT.md` now fixes the future cumulative-stall dimensions, interval normalization,
+availability, reset, privacy, and implementation gates. Runtime capabilities and direct schema-V1
+fields remain absent until a reviewed provider implementation satisfies that contract. GPU time-series evidence
 reuses existing direct-v1 fields and adds no migration or compatibility path; inventory and live
 renderer health are non-identifying session evidence and are not persisted as incident causality.
+
+Portable system events remain on their independently scheduled bounded provider thread. Linux maps
+identifier-free kernel uevents into audio, storage, display, network, or generic-device context;
+logind emits power transitions, systemd Manager job completion emits only a success/failure class, and
+systemd-coredump journal matching emits a crash marker without reading journal payload fields. macOS
+uses public CoreAudio property listeners, CoreGraphics display reconfiguration, SystemConfiguration
+network changes, IOKit storage/power notifications, and `NSWorkspace` application lifecycle. Normal
+macOS termination is explicitly `application_terminated`, never crash evidence. Native identifiers,
+unit/application names, paths, interface names, display IDs, message text, and payloads are discarded.
+macOS general launchd service events and any unavailable native source remain explicitly unsupported.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

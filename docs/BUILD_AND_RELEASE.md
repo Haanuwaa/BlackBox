@@ -2,7 +2,7 @@
 
 ## Intended release target
 
-V0.18 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
+V0.19 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
 Windows 11 and an ordinary, interactive user session. It has not completed the clean-client,
 wall-clock soak, usability, accessibility, or official-signing gates required for V1.0. The native
 APIs selected are non-elevated. Protected processes may remain inaccessible and are represented
@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.18.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.19.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 
@@ -55,16 +55,24 @@ bootstrapping the tool, so the dependency registry and frontend are reproducible
 Debian 13, and Fedora 43. Each container builds/tests the complete Linux desktop graph, exercises
 the shell/autostart/notification/portal-shortcut boundaries, measures 64 real provider samples,
 and creates a TGZ plus a native DEB or RPM. The package verifier checks desktop integration,
-application icon, executable layout, private-library RPATH, native package metadata, extraction,
-and launch under Xvfb. A dedicated packaged-app job still identifies the SDL Wayland driver under
+application icon, executable layout, private-library RPATH, native package metadata, and extraction.
+In its disposable container only, the lifecycle gate then performs a real native install, launches
+the installed `/usr/bin/blackbox` under Xvfb, uninstalls it, and proves the owned executable, desktop
+entry, and icon were removed. The script refuses to run without both `CI=true` and the explicit
+`BLACKBOX_ALLOW_SYSTEM_PACKAGE_TEST=1` guard, refuses a pre-existing installation, and installs only a
+package whose native name is exactly `blackbox`. A dedicated packaged-app job still identifies the SDL Wayland driver under
 Weston. Its direct-v1 reports compare package bytes, provider P95, and maximum observed process
 cardinality. Passing this workflow is cross-distribution engineering evidence; it is not physical
 Linux product qualification.
 
 `.github/workflows/macos.yml` builds and tests the complete native graph on hosted Apple Silicon and
 Intel macOS runners, executes the real Mach/libproc provider contract and 64-sample benchmark, and
-creates an unsigned TGZ engineering preview. This validates the telemetry and composition boundary;
-it does not qualify background services, signing/notarization, or physical macOS product behavior.
+creates unsigned TGZ, DMG, and component PKG engineering previews. The DMG is verified with
+`hdiutil`; the PKG payload is inspected and targets `/Applications`. The packaging script can sign
+the staged app and installer and submit/staple both artifacts when the application identity,
+installer identity, and notary keychain profile are explicitly supplied. Hosted previews omit those
+secrets, so this validates telemetry, composition, and unsigned native package structure; it does not
+qualify background services, signing/notarization, installation on a physical client, or product support.
 
 `.github/workflows/quality.yml` adds isolated dependency/SBOM, dependency-review, CodeQL, MSVC
 native-analysis, Windows ASan, Linux UBSan, native-fuzz, and coverage jobs. Run the local policy,

@@ -39,7 +39,7 @@ struct ProductUiState {
     bool record_process_lifecycle{};
     bool record_power_and_device_events{};
     bool record_audio_device_events{};
-    bool record_windows_event_log_evidence{};
+    bool record_system_event_evidence{};
     bool collect_process_paths{true};
     std::uint64_t incident_pre_window_seconds{120U};
     std::uint64_t incident_post_window_seconds{30U};
@@ -139,7 +139,7 @@ struct DashboardCommand {
     bool record_process_lifecycle{};
     bool record_power_and_device_events{};
     bool record_audio_device_events{};
-    bool record_windows_event_log_evidence{};
+    bool record_system_event_evidence{};
     bool collect_process_paths{true};
     std::uint64_t incident_pre_window_seconds{120U};
     std::uint64_t incident_post_window_seconds{30U};
@@ -268,6 +268,7 @@ struct DashboardState {
     std::uint32_t gpu_device_count{};
     std::uint32_t gpu_integrated_device_count{};
     std::uint32_t gpu_discrete_device_count{};
+    std::uint32_t gpu_unknown_device_count{};
     bool gpu_render_device_available{};
     bool renderer_active{};
     std::uint32_t foreground_pid{};

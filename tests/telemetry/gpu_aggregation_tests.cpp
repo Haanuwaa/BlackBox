@@ -99,6 +99,8 @@ TEST_CASE("GPU inventory contract rejects identifying-count inconsistencies",
       telemetry::MetricValue<std::uint32_t>::available(1U);
   valid.discrete_device_count =
       telemetry::MetricValue<std::uint32_t>::available(1U);
+  valid.unknown_device_count =
+      telemetry::MetricValue<std::uint32_t>::available(0U);
   valid.render_device_available = telemetry::MetricValue<bool>::available(true);
   CHECK(telemetry::validate_gpu_inventory_contract(capabilities, valid) ==
         telemetry::ProviderContractViolation::none);

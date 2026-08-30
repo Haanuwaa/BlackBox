@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     BlackBox
-    VERSION 0.18.0
+    VERSION 0.19.0
     DESCRIPTION "A lightweight native computer flight recorder"
     LANGUAGES CXX
 )
@@ -189,10 +189,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         "BlackBox-${PROJECT_VERSION}-linux-${BLACKBOX_PACKAGE_PROCESSOR}-engineering-preview")
     set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Hanuwa <hanuwa@aol.com>")
+    set(CPACK_DEBIAN_PACKAGE_NAME "blackbox")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
     set(CPACK_RPM_PACKAGE_LICENSE "LicenseRef-Proprietary")
+    set(CPACK_RPM_PACKAGE_NAME "blackbox")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 else()

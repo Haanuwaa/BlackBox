@@ -1,10 +1,10 @@
 # V1.0 qualification plan
 
-The current application version is 0.18.0. V1.0 is reserved for the completed product and is not
+The current application version is 0.19.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
 Roadmap headings `V0.16` and `V0.17` are engineering stages. The runtime/package version now follows
-the completed cross-platform evidence engineering stage as `0.18.0`; it changes to `1.0.0` only for the
+the completed cross-platform evidence engineering stage as `0.19.0`; it changes to `1.0.0` only for the
 exact final candidate revision that must repeat and compose the complete evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may

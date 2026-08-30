@@ -146,12 +146,20 @@ struct IdentityHash {
     case core::SystemEventKind::update_activity_started: return "Update activity started";
     case core::SystemEventKind::update_succeeded: return "Update succeeded";
     case core::SystemEventKind::update_failed: return "Update failed";
+    case core::SystemEventKind::application_started: return "Application started";
+    case core::SystemEventKind::application_terminated: return "Application terminated";
     case core::SystemEventKind::application_crash: return "Application crash reported";
     case core::SystemEventKind::application_hang: return "Application hang reported";
+    case core::SystemEventKind::network_connectivity_changed:
+        return "Network connectivity changed";
     case core::SystemEventKind::dns_resolution_timeout:
         return "DNS resolution timeout reported";
+    case core::SystemEventKind::display_configuration_changed:
+        return "Display configuration changed";
     case core::SystemEventKind::display_driver_recovery:
         return "Display timeout recovery reported";
+    case core::SystemEventKind::storage_device_added: return "Storage device added";
+    case core::SystemEventKind::storage_device_removed: return "Storage device removed";
     case core::SystemEventKind::storage_io_retry:
         return "Storage I/O retry reported";
     case core::SystemEventKind::process_started: return "Process started";

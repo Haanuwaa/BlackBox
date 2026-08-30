@@ -198,7 +198,6 @@ struct LinuxGpuCollector::NativeState {
     std::filesystem::path device_path{};
     bool amd{};
     bool nvidia{};
-    bool integrated{};
   };
 
   void refresh() {
@@ -243,12 +242,9 @@ struct LinuxGpuCollector::NativeState {
       error.clear();
       const bool amd = driver_name == "amdgpu";
       const bool nvidia = driver_name == "nvidia";
-      const bool integrated = driver_name == "i915" || driver_name == "xe" ||
-                              driver_name == "panfrost" ||
-                              driver_name == "panthor";
       devices[device_count++] =
           Device{stable_identity(iterator->path().string()), device_path, amd,
-                 nvidia, integrated};
+                 nvidia};
     }
     if (error) {
       inventory_status = error == std::errc::permission_denied
@@ -360,16 +356,14 @@ struct LinuxGpuCollector::NativeState {
           MetricValue<std::uint32_t>::unavailable(inventory_status);
       result.discrete_device_count =
           MetricValue<std::uint32_t>::unavailable(inventory_status);
+      result.unknown_device_count =
+          MetricValue<std::uint32_t>::unavailable(inventory_status);
       result.render_device_available =
           MetricValue<bool>::unavailable(inventory_status);
       return result;
     }
-    std::uint32_t integrated{};
-    std::uint32_t discrete{};
     bool has_nvidia{};
     for (std::size_t index = 0U; index < device_count; ++index) {
-      integrated += devices[index].integrated ? 1U : 0U;
-      discrete += devices[index].integrated ? 0U : 1U;
       has_nvidia = has_nvidia || devices[index].nvidia;
     }
     auto total = static_cast<std::uint32_t>(device_count);
@@ -377,10 +371,10 @@ struct LinuxGpuCollector::NativeState {
       total += nvml.device_count();
     result.device_count = MetricValue<std::uint32_t>::available(total);
     result.integrated_device_count =
-        MetricValue<std::uint32_t>::available(integrated);
-    result.discrete_device_count = MetricValue<std::uint32_t>::available(
-        discrete +
-        (!has_nvidia && nvml.available() ? nvml.device_count() : 0U));
+        MetricValue<std::uint32_t>::available(0U);
+    result.discrete_device_count =
+        MetricValue<std::uint32_t>::available(0U);
+    result.unknown_device_count = MetricValue<std::uint32_t>::available(total);
     result.render_device_available =
         MetricValue<bool>::available(render_device_available);
     return result;

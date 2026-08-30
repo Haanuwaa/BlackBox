@@ -1476,11 +1476,12 @@ DashboardCommand render_dashboard(const DashboardState& state,
             ImGui::TextUnformatted("GPU inventory / renderer");
             ImGui::TableSetColumnIndex(1);
             if (state.gpu_inventory_status == MetricDisplayStatus::available) {
-                ImGui::Text("%u device%s (%u integrated, %u discrete) | public render device %s | %s backend %s",
+                ImGui::Text("%u device%s (%u integrated, %u discrete, %u type unknown) | public render device %s | %s backend %s",
                             state.gpu_device_count,
                             state.gpu_device_count == 1U ? "" : "s",
                             state.gpu_integrated_device_count,
                             state.gpu_discrete_device_count,
+                            state.gpu_unknown_device_count,
                             state.gpu_render_device_available ? "available" : "unavailable",
                             state.renderer_active ? "active" : "inactive",
                             state.renderer_backend.c_str());

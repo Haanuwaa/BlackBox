@@ -35,7 +35,7 @@ namespace {
         "record_process_lifecycle=0\n"
         "record_power_and_device_events=0\n"
         "record_audio_device_events=0\n"
-        "record_windows_event_log_evidence=0\n"
+        "record_system_event_evidence=0\n"
         "archive_path=" + archive + "\n"
         "archive_maximum_bytes=1073741824\n"
         "onboarding_completed=0\n";

@@ -224,6 +224,29 @@ foreground GPU utilization remain `unsupported`; private IOReport/IORegistry pro
 privileged `powermetrics` parsing are not used. Linux PSI remains future pressure evidence, not a
 substitute for Windows DPC/ISR semantics.
 
+## Portable system-event parity
+
+System events remain separate from periodic telemetry: each native provider is polled by the bounded
+event collector and never inserts OS callbacks or journal work into the one-second sampler. Linux
+normalizes uevent classes for audio, block storage, DRM display changes, network link changes, and
+generic device churn; all identity-bearing uevent fields are ignored. Logind contributes
+`PrepareForSleep`, systemd Manager contributes only a normalized job result class, and an optional
+libsystemd journal cursor matches only the documented coredump message ID. It never retrieves the
+journal record's executable, command line, UID, path, signal, message, or dump fields.
+
+macOS normalizes CoreAudio device/default changes, CoreGraphics display reconfiguration,
+SystemConfiguration IPv4/IPv6 global changes, IOKit media/power changes, and `NSWorkspace` application
+launch/termination notifications. Display IDs and notification user-info are ignored. A termination
+notification is lifecycle context and is never relabeled as a crash. No public general launchd event
+stream has been accepted, so service events remain unsupported there.
+
+GPU inventory now includes integrated, discrete, and unknown type counts whose sum must equal the
+total. Windows DXGI filters software adapters and reports every remaining adapter as unknown type;
+dedicated-memory size is not used as a classification heuristic. Linux DRM/NVML devices are likewise
+reported as unknown type because driver name is not a reliable integrated/discrete classification;
+macOS retains Metal's public low-power classification and exposes zero unknown devices.
+The pressure design that prevents PSI/DPC semantic conflation is in `PRESSURE_CONTRACT.md`.
+
 ## Deterministic mock scenarios
 
 The mock provider emits one stable process (`PID 4242`, creation token `1`) and advances counters once per requested snapshot. The anomaly interval is the fifth observation:

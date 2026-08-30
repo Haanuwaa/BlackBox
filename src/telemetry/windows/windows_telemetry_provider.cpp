@@ -10,6 +10,7 @@
 #define NOMINMAX
 #include <winsock2.h>
 #include <windows.h>
+#include <dxgi1_2.h>
 #include <ws2ipdef.h>
 #include <iphlpapi.h>
 #include <pdh.h>
@@ -128,6 +129,7 @@ template <typename T>
 
 struct WindowsTelemetryProvider::NativeState {
     NativeState() noexcept {
+        initialize_gpu_inventory();
         if (PdhOpenQueryW(nullptr, 0U, &fast_query) != ERROR_SUCCESS) {
             initialize_network_state();
             return;
@@ -224,6 +226,64 @@ struct WindowsTelemetryProvider::NativeState {
 
     NativeState(const NativeState&) = delete;
     NativeState& operator=(const NativeState&) = delete;
+
+    void initialize_gpu_inventory() noexcept {
+        auto unavailable = [this]() noexcept {
+            const auto status = MetricStatus::temporarily_unavailable;
+            gpu_inventory_evidence.device_count =
+                MetricValue<std::uint32_t>::unavailable(status);
+            gpu_inventory_evidence.integrated_device_count =
+                MetricValue<std::uint32_t>::unavailable(status);
+            gpu_inventory_evidence.discrete_device_count =
+                MetricValue<std::uint32_t>::unavailable(status);
+            gpu_inventory_evidence.unknown_device_count =
+                MetricValue<std::uint32_t>::unavailable(status);
+            gpu_inventory_evidence.render_device_available =
+                MetricValue<bool>::unavailable(status);
+        };
+        unavailable();
+        IDXGIFactory1* factory{};
+        if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1),
+                                      reinterpret_cast<void**>(&factory))) ||
+            factory == nullptr) {
+            return;
+        }
+        std::uint32_t hardware_count{};
+        bool failed{};
+        bool enumeration_complete{};
+        for (UINT index = 0U; index < 256U; ++index) {
+            IDXGIAdapter1* adapter{};
+            const auto result = factory->EnumAdapters1(index, &adapter);
+            if (result == DXGI_ERROR_NOT_FOUND) {
+                enumeration_complete = true;
+                break;
+            }
+            if (FAILED(result) || adapter == nullptr) {
+                failed = true;
+                break;
+            }
+            DXGI_ADAPTER_DESC1 description{};
+            if (FAILED(adapter->GetDesc1(&description))) {
+                failed = true;
+            } else if ((description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0U) {
+                ++hardware_count;
+            }
+            adapter->Release();
+            if (failed) break;
+        }
+        factory->Release();
+        if (failed || !enumeration_complete) return;
+        gpu_inventory_evidence.device_count =
+            MetricValue<std::uint32_t>::available(hardware_count);
+        gpu_inventory_evidence.integrated_device_count =
+            MetricValue<std::uint32_t>::available(0U);
+        gpu_inventory_evidence.discrete_device_count =
+            MetricValue<std::uint32_t>::available(0U);
+        gpu_inventory_evidence.unknown_device_count =
+            MetricValue<std::uint32_t>::available(hardware_count);
+        gpu_inventory_evidence.render_device_available =
+            MetricValue<bool>::available(hardware_count != 0U);
+    }
 
     static VOID NETIOAPI_API_ connectivity_changed(
         void* context,
@@ -871,6 +931,10 @@ struct WindowsTelemetryProvider::NativeState {
                    : MetricStatus::temporarily_unavailable;
     }
 
+    [[nodiscard]] GpuInventoryEvidence inventory() const noexcept {
+        return gpu_inventory_evidence;
+    }
+
 private:
     static constexpr std::size_t pdh_buffer_size = 64U * 1024U;
     using PdhBuffer = std::array<std::byte, pdh_buffer_size>;
@@ -1011,6 +1075,7 @@ private:
     std::size_t interface_inventory_count{};
     bool interface_inventory_overflow{};
     WindowsProcessCollector process_collector{};
+    GpuInventoryEvidence gpu_inventory_evidence{};
 };
 
 WindowsTelemetryFunctions default_windows_telemetry_functions() noexcept {
@@ -1325,6 +1390,7 @@ PlatformCapabilities WindowsTelemetryProvider::capabilities() const noexcept {
     result.network_transport_quality = true;
     result.gpu_usage = native_state_ != nullptr && native_state_->gpu_available();
     result.gpu_memory = result.gpu_usage;
+    result.gpu_inventory = native_state_ != nullptr;
     result.foreground_application = native_state_ != nullptr;
     result.foreground_gpu_usage = result.gpu_usage;
     result.dpc_isr = native_state_ != nullptr && native_state_->responsiveness_available();
@@ -1333,6 +1399,11 @@ PlatformCapabilities WindowsTelemetryProvider::capabilities() const noexcept {
     result.power_status = native_state_ != nullptr;
     result.system_uptime = native_state_ != nullptr;
     return result;
+}
+
+GpuInventoryEvidence WindowsTelemetryProvider::gpu_inventory() const noexcept {
+    return native_state_ != nullptr ? native_state_->inventory()
+                                    : GpuInventoryEvidence{};
 }
 
 } // namespace blackbox::telemetry::windows

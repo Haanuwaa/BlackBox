@@ -424,22 +424,22 @@ struct WindowsSystemEventProvider::NativeState {
                 ++active_count;
             }
         }
-        if (configuration.dns_client_events) {
+        if (configuration.network_events) {
             ++requested_count;
             if (subscribe(subscription_index++, L"System",
                     L"*[System[Provider[@Name='Microsoft-Windows-DNS-Client'] and "
                     L"EventID=1014]]",
                     core::SystemEventSource::network)) {
-                capabilities.dns_client_events = true;
+                capabilities.network_events = true;
                 ++active_count;
             }
         }
-        if (configuration.display_driver_events) {
+        if (configuration.graphics_events) {
             ++requested_count;
             if (subscribe(subscription_index++, L"System",
                     L"*[System[Provider[@Name='Display'] and EventID=4101]]",
                     core::SystemEventSource::graphics)) {
-                capabilities.display_driver_events = true;
+                capabilities.graphics_events = true;
                 ++active_count;
             }
         }
@@ -546,8 +546,8 @@ EventProviderPollResult WindowsSystemEventProvider::poll(
                            static_cast<std::size_t>(configuration.defender_events) +
                            static_cast<std::size_t>(configuration.windows_update_events) +
                            static_cast<std::size_t>(configuration.application_events) +
-                           static_cast<std::size_t>(configuration.dns_client_events) +
-                           static_cast<std::size_t>(configuration.display_driver_events) +
+                           static_cast<std::size_t>(configuration.network_events) +
+                           static_cast<std::size_t>(configuration.graphics_events) +
                            static_cast<std::size_t>(configuration.storage_events);
     const auto active = static_cast<std::size_t>(capabilities.power_events) +
                         static_cast<std::size_t>(capabilities.device_events) +
@@ -556,8 +556,8 @@ EventProviderPollResult WindowsSystemEventProvider::poll(
                         static_cast<std::size_t>(capabilities.defender_events) +
                         static_cast<std::size_t>(capabilities.windows_update_events) +
                         static_cast<std::size_t>(capabilities.application_events) +
-                        static_cast<std::size_t>(capabilities.dns_client_events) +
-                        static_cast<std::size_t>(capabilities.display_driver_events) +
+                        static_cast<std::size_t>(capabilities.network_events) +
+                        static_cast<std::size_t>(capabilities.graphics_events) +
                         static_cast<std::size_t>(capabilities.storage_events);
     const auto status = requested == 0U || active == requested
                             ? EventProviderStatus::complete

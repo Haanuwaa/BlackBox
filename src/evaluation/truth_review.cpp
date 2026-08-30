@@ -68,8 +68,11 @@ namespace {
         "audio_default_changed", "service_state_changed", "service_unexpected_stop",
         "defender_scan_started", "defender_scan_completed", "defender_threat_detected",
         "defender_action", "defender_configuration_changed", "update_activity_started",
-        "update_succeeded", "update_failed", "application_crash", "application_hang",
-        "dns_resolution_timeout", "display_driver_recovery", "storage_io_retry",
+        "update_succeeded", "update_failed", "application_started",
+        "application_terminated", "application_crash", "application_hang",
+        "network_connectivity_changed", "dns_resolution_timeout",
+        "display_configuration_changed", "display_driver_recovery",
+        "storage_device_added", "storage_device_removed", "storage_io_retry",
         "process_started", "process_exited"};
     const auto index = static_cast<std::size_t>(value);
     return index < names.size() ? names[index] : "invalid";

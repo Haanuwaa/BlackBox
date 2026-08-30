@@ -129,6 +129,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(BLACKBOX_DBUS QUIET IMPORTED_TARGET dbus-1)
+        pkg_check_modules(BLACKBOX_SYSTEMD QUIET IMPORTED_TARGET libsystemd)
     endif()
     find_package(X11 QUIET)
     add_library(blackbox_telemetry_linux STATIC
@@ -156,16 +157,25 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(blackbox_telemetry_linux PRIVATE
             PkgConfig::BLACKBOX_DBUS)
     endif()
+    if(TARGET PkgConfig::BLACKBOX_SYSTEMD)
+        target_compile_definitions(blackbox_telemetry_linux PUBLIC
+            BLACKBOX_HAS_SYSTEMD_JOURNAL=1)
+        target_link_libraries(blackbox_telemetry_linux PRIVATE
+            PkgConfig::BLACKBOX_SYSTEMD)
+    endif()
     blackbox_set_project_warnings(blackbox_telemetry_linux)
 endif()
 
 if(APPLE)
     find_library(BLACKBOX_LIBPROC_LIBRARY proc REQUIRED)
     find_library(BLACKBOX_TELEMETRY_APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(BLACKBOX_CORE_AUDIO_FRAMEWORK CoreAudio REQUIRED)
     find_library(BLACKBOX_CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+    find_library(BLACKBOX_TELEMETRY_CORE_GRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
     find_library(BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK Foundation REQUIRED)
     find_library(BLACKBOX_IOKIT_FRAMEWORK IOKit REQUIRED)
     find_library(BLACKBOX_METAL_FRAMEWORK Metal REQUIRED)
+    find_library(BLACKBOX_SYSTEM_CONFIGURATION_FRAMEWORK SystemConfiguration REQUIRED)
     add_library(blackbox_telemetry_macos STATIC
         telemetry/macos/macos_process_collector.cpp
         telemetry/macos/macos_system_state.mm
@@ -177,14 +187,20 @@ if(APPLE)
     target_compile_features(blackbox_telemetry_macos PUBLIC cxx_std_23)
     target_compile_options(blackbox_telemetry_macos PRIVATE
         $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    set_source_files_properties(
+        telemetry/macos/macos_system_event_provider.cpp
+        PROPERTIES LANGUAGE OBJCXX)
     target_link_libraries(blackbox_telemetry_macos PUBLIC BlackBox::Telemetry)
     target_link_libraries(blackbox_telemetry_macos PRIVATE
         ${BLACKBOX_LIBPROC_LIBRARY}
         ${BLACKBOX_TELEMETRY_APPKIT_FRAMEWORK}
+        ${BLACKBOX_CORE_AUDIO_FRAMEWORK}
         ${BLACKBOX_CORE_FOUNDATION_FRAMEWORK}
+        ${BLACKBOX_TELEMETRY_CORE_GRAPHICS_FRAMEWORK}
         ${BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK}
         ${BLACKBOX_IOKIT_FRAMEWORK}
-        ${BLACKBOX_METAL_FRAMEWORK})
+        ${BLACKBOX_METAL_FRAMEWORK}
+        ${BLACKBOX_SYSTEM_CONFIGURATION_FRAMEWORK})
     blackbox_set_project_warnings(blackbox_telemetry_macos)
 endif()
 
@@ -270,7 +286,7 @@ if(WIN32)
     target_compile_definitions(blackbox_telemetry_windows PRIVATE _WIN32_WINNT=0x0A00)
     target_link_libraries(blackbox_telemetry_windows PUBLIC BlackBox::Telemetry)
     target_link_libraries(blackbox_telemetry_windows PRIVATE
-        pdh iphlpapi user32 powrprof cfgmgr32 ole32 uuid wevtapi)
+        pdh iphlpapi user32 powrprof cfgmgr32 dxgi ole32 uuid wevtapi)
     blackbox_set_project_warnings(blackbox_telemetry_windows)
 endif()
 

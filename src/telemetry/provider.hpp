@@ -41,6 +41,7 @@ struct GpuInventoryEvidence {
     MetricValue<std::uint32_t> device_count{};
     MetricValue<std::uint32_t> integrated_device_count{};
     MetricValue<std::uint32_t> discrete_device_count{};
+    MetricValue<std::uint32_t> unknown_device_count{};
     MetricValue<bool> render_device_available{};
     friend constexpr bool operator==(const GpuInventoryEvidence&,
                                      const GpuInventoryEvidence&) = default;

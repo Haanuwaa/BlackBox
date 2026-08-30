@@ -21,7 +21,7 @@ namespace {
 std::optional<core::SystemEvent> normalized_linux_uevent(
     std::string_view payload,
     const EventProviderConfiguration& configuration) noexcept {
-    if (!configuration.device_events || payload.empty() || payload.size() > 4096U) {
+    if (payload.empty() || payload.size() > 4096U) {
         return std::nullopt;
     }
 
@@ -49,20 +49,53 @@ std::optional<core::SystemEvent> normalized_linux_uevent(
         return std::nullopt;
     }
 
-    core::SystemEventKind kind{};
-    if (action == "add") {
-        kind = core::SystemEventKind::device_enumerated;
-    } else if (action == "remove") {
-        kind = core::SystemEventKind::device_removed;
-    } else {
-        return std::nullopt;
-    }
-
     core::SystemEvent event{};
-    event.source = core::SystemEventSource::device;
-    event.kind = kind;
     event.level = core::SystemEventLevel::informational;
     event.detail = subsystem_detail(subsystem);
+    if (subsystem == "block") {
+        if (!configuration.storage_events) return std::nullopt;
+        event.source = core::SystemEventSource::storage;
+        if (action == "add") {
+            event.kind = core::SystemEventKind::storage_device_added;
+        } else if (action == "remove") {
+            event.kind = core::SystemEventKind::storage_device_removed;
+        } else {
+            return std::nullopt;
+        }
+    } else if (subsystem == "drm") {
+        if (!configuration.graphics_events || action != "change") return std::nullopt;
+        event.source = core::SystemEventSource::graphics;
+        event.kind = core::SystemEventKind::display_configuration_changed;
+    } else if (subsystem == "net") {
+        if (!configuration.network_events ||
+            (action != "add" && action != "remove" && action != "change")) {
+            return std::nullopt;
+        }
+        event.source = core::SystemEventSource::network;
+        event.kind = core::SystemEventKind::network_connectivity_changed;
+    } else if (subsystem == "sound") {
+        if (!configuration.audio_device_events) return std::nullopt;
+        event.source = core::SystemEventSource::audio;
+        if (action == "add") {
+            event.kind = core::SystemEventKind::audio_endpoint_added;
+        } else if (action == "remove") {
+            event.kind = core::SystemEventKind::audio_endpoint_removed;
+        } else if (action == "change") {
+            event.kind = core::SystemEventKind::audio_endpoint_state_changed;
+        } else {
+            return std::nullopt;
+        }
+    } else {
+        if (!configuration.device_events) return std::nullopt;
+        event.source = core::SystemEventSource::device;
+        if (action == "add") {
+            event.kind = core::SystemEventKind::device_enumerated;
+        } else if (action == "remove") {
+            event.kind = core::SystemEventKind::device_removed;
+        } else {
+            return std::nullopt;
+        }
+    }
     return event;
 }
 

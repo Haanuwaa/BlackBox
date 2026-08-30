@@ -114,7 +114,7 @@ TEST_CASE("offline dataset round-trips classification without changing telemetry
     CHECK(read_all(fixture.dataset / "system_events.tsv").find("\t1014\t9\t\n") !=
           std::string::npos);
     CHECK(read_all(fixture.dataset / "system_events.tsv").find(
-              "\t10\t25\t0\t0\t0\t0\n") != std::string::npos);
+              "\t10\t31\t0\t0\t0\t0\n") != std::string::npos);
 
     const storage::IncidentAnnotation changed{
         exported.label, exported.note,

@@ -16,8 +16,8 @@ struct EventProviderConfiguration {
     bool defender_events{true};
     bool windows_update_events{true};
     bool application_events{true};
-    bool dns_client_events{true};
-    bool display_driver_events{true};
+    bool network_events{true};
+    bool graphics_events{true};
     bool storage_events{true};
     friend constexpr bool operator==(const EventProviderConfiguration&,
                                      const EventProviderConfiguration&) = default;
@@ -31,8 +31,8 @@ struct EventProviderCapabilities {
     bool defender_events{};
     bool windows_update_events{};
     bool application_events{};
-    bool dns_client_events{};
-    bool display_driver_events{};
+    bool network_events{};
+    bool graphics_events{};
     bool storage_events{};
     friend constexpr bool operator==(const EventProviderCapabilities&,
                                      const EventProviderCapabilities&) = default;

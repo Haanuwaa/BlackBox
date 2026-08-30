@@ -3,10 +3,14 @@
 #include "telemetry/event_provider.hpp"
 
 #include <memory>
+#include <string_view>
 
 namespace blackbox::telemetry::linux {
 
 [[nodiscard]] core::SystemEvent normalized_linux_sleep_event(bool sleeping) noexcept;
+[[nodiscard]] core::SystemEvent normalized_linux_service_job_event(
+    std::string_view result) noexcept;
+[[nodiscard]] core::SystemEvent normalized_linux_application_crash_event() noexcept;
 
 class LinuxSystemEventProvider final : public ISystemEventProvider {
 public:

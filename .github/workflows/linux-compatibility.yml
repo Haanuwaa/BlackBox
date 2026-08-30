@@ -48,7 +48,7 @@ jobs:
               libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
               libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
               libgl1-mesa-dev libasound2-dev libpulse-dev \
-              libudev-dev libdbus-1-dev
+              libudev-dev libdbus-1-dev libsystemd-dev
           else
             dnf install --assumeyes \
               gcc gcc-c++ make cmake ninja-build git curl ca-certificates zip unzip tar \
@@ -152,6 +152,11 @@ jobs:
           grep -Fxq "completed=1" "$native_report"
           grep -Fxq "failed_samples=0" "$native_report"
 
+          installed_report="$(pwd)/$build/linux-installed-package-smoke.ini"
+          CI=true BLACKBOX_ALLOW_SYSTEM_PACKAGE_TEST=1 \
+            bash scripts/verify-linux-install-lifecycle.sh \
+              "${{ matrix.native_package }}" "$native_package" "$installed_report"
+
           overhead="$build/linux-provider-overhead.ini"
           evidence="$build/linux-${{ matrix.id }}-compatibility.ini"
           package_name="$(basename "$package")"
@@ -198,6 +203,7 @@ jobs:
             out/build/linux-${{ matrix.id }}/linux-desktop-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-package-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-native-package-smoke.ini
+            out/build/linux-${{ matrix.id }}/linux-installed-package-smoke.ini
             out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
           if-no-files-found: error
 

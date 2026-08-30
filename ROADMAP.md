@@ -1593,7 +1593,7 @@ hosted, signed-package, physical-client, and wall-clock sources do not yet all e
 revision, and V0.15.1 still lacks its consented multi-hardware corpus and passing one-shot result.
 The final runner/verifier now also require the exact `BlackBox-1.0.0-windows-x64.zip` package,
 `application_version=1.0.0` in both wall-clock reports, and `product_version=1.0.0` in the final
-ledger. The engineering line is `0.18.0`; `1.0.0` remains reserved until those gates are real.
+ledger. The engineering line is `0.19.0`; `1.0.0` remains reserved until those gates are real.
 All five Windows product/qualification executables now derive their complete PE `VERSIONINFO` from
 that same CMake project version. A Windows runtime contract rejects blank or inconsistent string/
 numeric versions, descriptions, product identity, internal names, and original filenames, so the
@@ -2111,6 +2111,33 @@ portable Windows-first product graph.
 - [x] Obtain native Windows, Linux, macOS, and quality/security hosted evidence on the exact clean
   implementation revision before integrating it into `main`.
 
+## V0.19 — Native event and installation parity
+
+**Objective:** Expand privacy-reduced context and native installation evidence without conflating OS
+semantics, adding compatibility paths, or weakening the Windows-first release gates.
+
+- [x] Fast-forward the validated V0.18 GPU/parity stack into `main` and start this slice from the
+  integrated revision.
+- [x] Extend direct schema V1 with source-neutral application-lifecycle, connectivity-change,
+  display-configuration, and storage-device event kinds. Rename the pre-release event configuration
+  surface directly to system/network/graphics terminology; add no legacy key or reader.
+- [x] Add identifier-free Linux audio/storage/display/network uevent classes, logind power events,
+  systemd service-job result classes, and systemd-coredump crash markers. Read no unit/application
+  identity or journal payload into portable evidence and degrade native sources independently.
+- [x] Add public macOS application lifecycle, audio/default, storage, display, connectivity, and power
+  context. Keep normal termination distinct from crashes and general launchd service events explicit
+  unsupported.
+- [x] Add non-software Windows DXGI GPU inventory and a shared unknown-device-type count. Do not infer
+  integrated/discrete class from memory size or driver name on Windows or Linux.
+- [x] Define the portable cumulative-stall pressure contract, availability/reset rules, Linux PSI
+  mapping, macOS abstention boundary, privacy policy, and implementation gate before runtime work.
+- [x] Add guarded DEB/RPM install-launch-uninstall lifecycle coverage for disposable Linux CI
+  containers and unsigned macOS DMG/PKG production with optional Developer ID/notary hooks.
+- [ ] Obtain the complete Windows, Ubuntu/Debian/Fedora, Apple Silicon/Intel macOS, package-lifecycle,
+  and quality/security hosted evidence on one exact clean V0.19 revision.
+- [ ] Physically qualify Linux/macOS installation, desktop behavior, event delivery, sleep/resume,
+  accessibility, signing/notarization, and long-run behavior before any support claim.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -2224,6 +2251,12 @@ The Linux matrix passed Debian 13, Ubuntu 24.04, Fedora 43, X11/Wayland smoke, n
 provider-overhead limits, UBSan, coverage, and fuzzing; macOS passed Apple Silicon and Intel. The
 initial diagnostics correctly caught a GCC initialization warning and normal newline-terminated AMD
 sysfs input before this frozen revision. Physical AMD/NVIDIA/Intel/hybrid GPU coverage and macOS
-renderer behavior remain qualification work, not product-support evidence. The next integration step
-is to fast-forward this validated stacked branch only with explicit main-branch authorization; the
-operator-assisted 72-hour campaign and physical desktop matrix remain separate open release gates.
+renderer behavior remain qualification work, not product-support evidence. That validated stack was
+fast-forwarded into `main` at `f13e49a`.
+
+V0.19 now adds cross-platform privacy-reduced system events, honest unknown-type GPU inventory, a
+reviewed pressure contract, and native Linux/macOS package lifecycle boundaries. Its local Windows
+Release graph passes after the direct schema-V1 event ordinal and settings surface were updated
+without migrations. The exact next evidence gate is one clean revision passing Windows, Linux,
+macOS, native package lifecycle, and quality/security workflows; the operator-assisted 72-hour
+campaign and physical desktop/signing matrices remain separate open release gates.

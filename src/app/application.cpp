@@ -74,8 +74,8 @@ void load_product_font(ImGuiIO& io) {
     return configuration.power_events || configuration.device_events ||
            configuration.audio_device_events || configuration.service_events ||
            configuration.defender_events || configuration.windows_update_events ||
-           configuration.application_events || configuration.dns_client_events ||
-           configuration.display_driver_events || configuration.storage_events;
+           configuration.application_events || configuration.network_events ||
+           configuration.graphics_events || configuration.storage_events;
 }
 
 [[nodiscard]] constexpr ui::MetricDisplayStatus display_status(
@@ -447,6 +447,10 @@ ApplicationInitializationResult Application::initialize() {
         dashboard_state_.gpu_discrete_device_count =
             gpu_inventory.discrete_device_count.value;
     }
+    if (gpu_inventory.unknown_device_count.has_value()) {
+        dashboard_state_.gpu_unknown_device_count =
+            gpu_inventory.unknown_device_count.value;
+    }
     if (gpu_inventory.render_device_available.has_value()) {
         dashboard_state_.gpu_render_device_available =
             gpu_inventory.render_device_available.value;
@@ -766,8 +770,8 @@ void Application::synchronize_product_ui() noexcept {
         product_settings_.record_power_and_device_events;
     product_ui_state_.record_audio_device_events =
         product_settings_.record_audio_device_events;
-    product_ui_state_.record_windows_event_log_evidence =
-        product_settings_.record_windows_event_log_evidence;
+    product_ui_state_.record_system_event_evidence =
+        product_settings_.record_system_event_evidence;
     product_ui_state_.archive_maximum_mib =
         product_settings_.archive_maximum_bytes >> 20U;
     copy(product_ui_state_.archive_path, product_settings_.archive_path.string());
@@ -808,7 +812,7 @@ void Application::request_support_bundle(
         value.audio_device_events_enabled =
             product_settings_.record_audio_device_events;
         value.windows_event_evidence_enabled =
-            product_settings_.record_windows_event_log_evidence;
+            product_settings_.record_system_event_evidence;
         value.collections = dashboard_state_.collection_count;
         value.partial_samples = dashboard_state_.partial_samples;
         value.failed_samples = dashboard_state_.failed_samples;
@@ -922,8 +926,8 @@ void Application::apply_product_settings(
     proposed.record_process_lifecycle = command.record_process_lifecycle;
     proposed.record_power_and_device_events = command.record_power_and_device_events;
     proposed.record_audio_device_events = command.record_audio_device_events;
-    proposed.record_windows_event_log_evidence =
-        command.record_windows_event_log_evidence;
+    proposed.record_system_event_evidence =
+        command.record_system_event_evidence;
     proposed.archive_path = command.archive_path;
     if (command.archive_maximum_mib > (maximum_archive_bytes >> 20U)) {
         recorder_settings_status_text_ = "Rejected: archive capacity exceeds 64 GiB";
@@ -1046,6 +1050,8 @@ void Application::refresh_dashboard_if_due() {
             gpu_inventory.integrated_device_count.value;
         dashboard_state_.gpu_discrete_device_count =
             gpu_inventory.discrete_device_count.value;
+        dashboard_state_.gpu_unknown_device_count =
+            gpu_inventory.unknown_device_count.value;
     }
     if (gpu_inventory.render_device_available.has_value()) {
         dashboard_state_.gpu_render_device_available =
@@ -1127,12 +1133,12 @@ void Application::refresh_dashboard_if_due() {
                 "Disabled with automatic incident detection";
 #if defined(_WIN32)
         } else if (!event_provider_configuration(product_settings_).application_events ||
-                   !event_provider_configuration(product_settings_).display_driver_events ||
+                   !event_provider_configuration(product_settings_).graphics_events ||
                    !event_provider_configuration(product_settings_).storage_events) {
             dashboard_state_.automatic_event_capture_status =
                 "Disabled: Windows Event Log evidence recording is off";
         } else if (events.capabilities.application_events &&
-                   events.capabilities.display_driver_events &&
+                   events.capabilities.graphics_events &&
                    events.capabilities.storage_events) {
             dashboard_state_.automatic_event_capture_status =
                 "Supported: Application crash 1000, Hang 1002, Display recovery 4101, and Disk retry 153";
@@ -1140,9 +1146,21 @@ void Application::refresh_dashboard_if_due() {
             dashboard_state_.automatic_event_capture_status =
                 "Partially unavailable: a Windows symptom subscription failed";
 #else
+        } else if (!event_provider_configuration(product_settings_).application_events &&
+                   !event_provider_configuration(product_settings_).network_events &&
+                   !event_provider_configuration(product_settings_).graphics_events &&
+                   !event_provider_configuration(product_settings_).storage_events) {
+            dashboard_state_.automatic_event_capture_status =
+                "Disabled: privacy-bounded system event recording is off";
+        } else if (events.capabilities.application_events ||
+                   events.capabilities.network_events ||
+                   events.capabilities.graphics_events ||
+                   events.capabilities.storage_events) {
+            dashboard_state_.automatic_event_capture_status =
+                "Evidence enabled: native symptom and context sources are capability-gated";
         } else {
             dashboard_state_.automatic_event_capture_status =
-                "Unavailable: this engineering provider records device context only";
+                "Unavailable: native system-event sources could not be opened";
 #endif
         }
     }

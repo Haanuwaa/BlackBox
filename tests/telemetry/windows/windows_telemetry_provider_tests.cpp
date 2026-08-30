@@ -160,6 +160,15 @@ TEST_CASE("Windows provider reports implemented system capabilities",
     CHECK(capabilities.disk_service_time);
     CHECK(capabilities.network_connectivity);
     CHECK(capabilities.network_transport_quality);
+    CHECK(capabilities.gpu_inventory);
+    const auto inventory = provider.gpu_inventory();
+    CHECK(telemetry::validate_gpu_inventory_contract(capabilities, inventory) ==
+          telemetry::ProviderContractViolation::none);
+    if (inventory.device_count.has_value()) {
+        CHECK(inventory.unknown_device_count.value == inventory.device_count.value);
+        CHECK(inventory.integrated_device_count.value == 0U);
+        CHECK(inventory.discrete_device_count.value == 0U);
+    }
 }
 
 TEST_CASE("Windows provider samples internally consistent CPU and physical memory",

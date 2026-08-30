@@ -19,8 +19,8 @@ TEST_CASE("Windows system event provider exposes independently gated sources",
     CHECK(capabilities.defender_events);
     CHECK(capabilities.windows_update_events);
     CHECK(capabilities.application_events);
-    CHECK(capabilities.dns_client_events);
-    CHECK(capabilities.display_driver_events);
+    CHECK(capabilities.network_events);
+    CHECK(capabilities.graphics_events);
     CHECK(capabilities.storage_events);
 }
 

@@ -38,7 +38,7 @@ struct ProductSettings {
     bool record_process_lifecycle{};
     bool record_power_and_device_events{};
     bool record_audio_device_events{};
-    bool record_windows_event_log_evidence{};
+    bool record_system_event_evidence{};
     std::filesystem::path archive_path{};
     std::uint64_t archive_maximum_bytes{1ULL << 30U};
     bool onboarding_completed{};
