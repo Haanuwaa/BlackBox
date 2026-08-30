@@ -2204,3 +2204,26 @@ build ordering, target count, query depth, cancellation, and timeout. On exact r
 preceding comparable job `99203200655`: a 19 minute 33 second (55.3%) reduction. The traced production
 build completed in 7:21 and analysis in 3:12; the earlier combined configure/build took 19:09 and
 analysis took 14:32. The query suite and six-target production scope were unchanged.
+
+The capability-driven Linux/macOS GPU engineering slice completed on exact code revision
+`ddf3535359dd84689d725b55fa38e675bdfd59a3`. Linux now has bounded DRM device discovery, documented
+AMD sysfs whole-device utilization/VRAM evidence, an optional runtime-loaded NVIDIA NVML backend,
+and privacy-bounded foreground-client DRM `fdinfo` activity for supported Intel and other drivers.
+The shared aggregation contract preserves busiest-device semantics, checked-sums memory, and keeps
+permission, malformed, reset, hotplug, duplicate, overflow, and unsupported states explicit. macOS
+uses only public Metal APIs for non-identifying inventory and reports BlackBox's initialized SDL
+renderer separately; passive whole-system/foreground utilization remains unsupported. No identifier
+or new compatibility/migration path enters direct schema V1.
+
+The complete local Windows Release graph passed 352/352 tests. Exact-revision hosted evidence passed
+in [Windows run 33295121291](https://github.com/Haanuwaa/BlackBox/actions/runs/33295121291),
+[Linux run 33295121145](https://github.com/Haanuwaa/BlackBox/actions/runs/33295121145),
+[macOS run 33295121127](https://github.com/Haanuwaa/BlackBox/actions/runs/33295121127), and
+[quality/security run 33295121194](https://github.com/Haanuwaa/BlackBox/actions/runs/33295121194).
+The Linux matrix passed Debian 13, Ubuntu 24.04, Fedora 43, X11/Wayland smoke, native packages, all-tier
+provider-overhead limits, UBSan, coverage, and fuzzing; macOS passed Apple Silicon and Intel. The
+initial diagnostics correctly caught a GCC initialization warning and normal newline-terminated AMD
+sysfs input before this frozen revision. Physical AMD/NVIDIA/Intel/hybrid GPU coverage and macOS
+renderer behavior remain qualification work, not product-support evidence. The next integration step
+is to fast-forward this validated stacked branch only with explicit main-branch authorization; the
+operator-assisted 72-hour campaign and physical desktop matrix remain separate open release gates.

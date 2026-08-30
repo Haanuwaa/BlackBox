@@ -29,7 +29,7 @@ qualified.
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
-| Hosted native compiler/provider/package checks | Windows runners passed on `59c1204` | Ubuntu, Debian, Fedora, X11, Wayland passed on `59c1204` | Apple Silicon and Intel passed on `59c1204` |
+| Hosted native compiler/provider/package checks | Windows runners passed on `ddf3535` | Ubuntu, Debian, Fedora, X11, Wayland, GPU parsers/backends, and provider overhead passed on `ddf3535` | Apple Silicon and Intel Metal inventory/provider/package checks passed on `ddf3535` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
