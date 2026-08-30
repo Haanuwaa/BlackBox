@@ -16,10 +16,10 @@ constexpr std::size_t maximum_engines = 64U;
 
 [[nodiscard]] constexpr std::string_view trim(std::string_view value) noexcept {
   while (!value.empty() && (value.front() == ' ' || value.front() == '\t' ||
-                            value.front() == '\r'))
+                            value.front() == '\r' || value.front() == '\n'))
     value.remove_prefix(1U);
-  while (!value.empty() &&
-         (value.back() == ' ' || value.back() == '\t' || value.back() == '\r'))
+  while (!value.empty() && (value.back() == ' ' || value.back() == '\t' ||
+                            value.back() == '\r' || value.back() == '\n'))
     value.remove_suffix(1U);
   return value;
 }
