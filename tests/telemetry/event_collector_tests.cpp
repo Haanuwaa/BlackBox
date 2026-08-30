@@ -145,6 +145,7 @@ TEST_CASE("system event collector is independently bounded and reports recovery"
     CHECK(diagnostics.provider_failures == 1U);
     CHECK(diagnostics.provider_recoveries == 1U);
     CHECK(diagnostics.native_events_dropped == 7U);
+    CHECK(collector.cadence_reset_generation() >= 6U);
     CHECK(provider.starts == 1U);
     CHECK(provider.stops == 1U);
 }
@@ -254,6 +255,7 @@ TEST_CASE("measured storage retry events request bounded automatic capture",
     CHECK(sink.last_trigger.resource == core::AutomaticIncidentResource::disk);
     CHECK(sink.last_trigger.signal == core::AutomaticIncidentSignal::storage_io_retry);
     CHECK(sink.last_trigger.score == 1.0);
+    CHECK(collector.cadence_reset_generation() == 0U);
     CHECK(collector.diagnostics().automatic_event_requests >= 1U);
     CHECK(collector.diagnostics().automatic_event_captures_started >= 1U);
 }

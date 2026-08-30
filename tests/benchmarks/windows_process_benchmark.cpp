@@ -183,7 +183,8 @@ int main() {
                  "psapi_enumeration_average_ns=%.0f\n"
                  "pdh_enumeration_average_ns=%.0f\n"
                  "native_full_average_ns=%.0f\nnative_full_p95_ns=%lld\n"
-                 "native_full_p99_ns=%lld\nnative_metadata_cache=%zu\n",
+                 "native_full_p99_ns=%lld\nnative_metadata_cache=%zu\n"
+                 "native_cached_handles=%zu\n",
                  sizeof(telemetry::ProcessSample), sizeof(telemetry::ProcessFrame),
                  raw.process_diagnostics.enumerated,
                  raw.process_diagnostics.sampled,
@@ -193,7 +194,7 @@ int main() {
                  static_cast<double>(native.average.count()),
                  static_cast<long long>(native.p95.count()),
                  static_cast<long long>(native.p99.count()),
-                 collector.cache_size());
+                 collector.cache_size(), collector.cached_handle_count());
     std::fprintf(stderr,
                  "native_last_handles_opened=%llu\n"
                  "native_last_handles_reused=%llu\n"

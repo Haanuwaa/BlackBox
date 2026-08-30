@@ -1025,3 +1025,30 @@ are discarded before the portable event boundary. These context-only events cann
 trigger capture or claim a symptom, affected identity, or cause. Disabled or unavailable sources
 remain inert, and loss/truncation stays explicit in provider diagnostics. Direct schema V1 and every
 persisted-format version remain unchanged.
+
+## Suspend/resume cadence and Windows handle ownership note
+
+Power-transition scheduling preserves the independent event-provider boundary. The native event
+provider still runs only on the system-event collector's owned thread; the telemetry sampler never
+polls that provider, its queue, or retained event history. `SystemEventCollector` exposes only a
+portable monotonic generation counter through `ISamplingCadenceResetSignal`, incremented after a
+normalized power suspend, automatic-resume, or user-resume event is recorded. Events from device,
+audio, service, security, update, application, network, graphics, storage, and process sources cannot
+change this counter even if their numeric kind is malformed.
+
+The composition root optionally connects that signal to `TelemetryCollector`. A changed generation
+resets system and process counter baselines, the automatic detector, and process lifecycle state, then
+establishes the next deadline from the completed transition observation. This prevents sleep entry or
+wake delivery latency from becoming fabricated missed samples or an immediate catch-up burst. The
+existing monotonic-gap fallback remains for platforms or races without a delivered native event.
+Ordinary scheduler or provider stalls still flow through `advance_schedule`, remain visible in the
+bounded scheduling-event diagnostics, and fail the zero-drop/deadline-miss qualification gate.
+
+The Windows process collector keeps durable identity and lifecycle metadata separate from native
+handle ownership. At most 16 readable live identities form a handle hot set; all other process handles
+are query-scoped RAII objects, including the case where an identity is already known but has no cached
+handle. Metadata remains capped at 8,192 identities and is still keyed by PID plus creation time, so
+the handle bound cannot weaken PID-reuse or lifecycle semantics. The sampling worker retains highest
+non-real-time priority and best-effort disables only its own execution-speed throttling. No realtime
+priority, global power-policy change, schema field, compatibility reader, migration path, or new edge
+into `TelemetryProvider -> Normalizer -> Recorder` is introduced.

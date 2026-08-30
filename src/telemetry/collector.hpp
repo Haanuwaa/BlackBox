@@ -160,7 +160,8 @@ public:
                        ValidatedRecorderConfiguration configuration,
                        IAutomaticIncidentDetector* automatic_detector = nullptr,
                        const ISystemEventHistory* event_history = nullptr,
-                       ISystemEventSink* event_sink = nullptr);
+                       ISystemEventSink* event_sink = nullptr,
+                       const ISamplingCadenceResetSignal* cadence_reset_signal = nullptr);
     ~TelemetryCollector();
 
     TelemetryCollector(const TelemetryCollector&) = delete;
@@ -208,6 +209,7 @@ private:
     IAutomaticIncidentDetector* automatic_detector_{};
     const ISystemEventHistory* event_history_{};
     ISystemEventSink* event_sink_{};
+    const ISamplingCadenceResetSignal* cadence_reset_signal_{};
     std::atomic<bool> automatic_detection_enabled_{};
     std::atomic<bool> foreground_application_enabled_{true};
     std::atomic<bool> process_lifecycle_enabled_{};

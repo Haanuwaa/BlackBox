@@ -2085,7 +2085,7 @@ portable Windows-first product graph.
   system-event collector, with bounded queues and explicit loss diagnostics.
 - [x] Preserve direct schema V1, event/telemetry independence, native API containment, and the absence
   of any runtime ML or compatibility path.
-- [ ] Obtain native Windows, Linux, macOS, and quality/security hosted evidence on the exact clean
+- [x] Obtain native Windows, Linux, macOS, and quality/security hosted evidence on the exact clean
   implementation revision before integrating it into `main`.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
@@ -2110,13 +2110,45 @@ archive, source identity, coverage, resource bounds, and counters on 2026-08-24.
 
 This evidence released frozen `main` for the completed `0.17.0` parity stack. The V0.18 implementation
 adds exact cross-platform disk-quality evidence plus privacy-reduced Linux/macOS device-lifecycle
-context without changing direct schema V1. Its complete local Windows Release graph passes 343/343
-tests. The exact next gate is native Windows, Linux, macOS, and quality/security hosted validation of
-the clean V0.18 revision, followed by a fast-forward integration and exact-revision rebuild on `main`.
-Freeze that revision and begin the operator-assisted 72-hour campaign before further `main` changes;
-new engineering work can continue in a separate branch/worktree. Execute physical Windows and
-GNOME/KDE/macOS desktop qualification only with qualifying operators and real clients. Runtime ML
-remains behind representative held-out value.
-The signed Windows package, operator-assisted 72-hour actions, independently reviewed physical UI/
-client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1 evidence-
-execution gates; local rehearsals or additional schema machinery cannot satisfy them.
+context without changing direct schema V1. Revision
+`92bac7a66d41f5e683fc348c5e034dc98f8ff28a` passed the Windows, Linux, macOS, and quality/security
+hosted workflows and was integrated into `main` as engineering version `0.18.0`.
+
+The first exact-revision 72-hour campaign on that revision completed the full 259,200 requested
+seconds and retained useful diagnostic evidence, but correctly remained unpublished at
+`out/soaks/72-hour-v1-92bac7a-20260826.partial`. It recorded 258,174 collections, 4,301 process
+checkpoints, 143 persisted incidents, a healthy direct-v1 archive, every required operator/native
+event, the required archive-fault recovery, 0.00727% average total-machine CPU, and a 58.42 MiB
+maximum working set. It failed the unchanged release gate because four scheduling stalls produced
+ten dropped samples/four deadline misses and the ten-checkpoint handle window grew by 72.5 handles.
+The two boundary stalls aligned with sleep entry/resume; two shorter ordinary host stalls remained
+real scheduling failures. The handle trend came from retaining one process handle per readable live
+identity, coupling the app's resource gate to unrelated host process population.
+
+Hardening now lets the independent system-event collector publish only a portable atomic generation
+for genuine power suspend/resume transitions. The sampler consumes that signal to reset cumulative
+rate state, request lifecycle resynchronization, and establish a new deadline from the completed
+transition observation; it still counts ordinary in-flight stalls as drops and deadline misses.
+Windows also keeps a fixed 16-handle live-identity hot set, uses RAII for every uncached query, and
+opts only the bounded sampling worker out of execution-speed throttling while retaining the highest
+non-real-time priority. Regression tests cover transition versus ordinary-stall semantics, event-
+source isolation, the cache bound, and OS-level handle stability.
+
+The first 120-second process/CPU/memory/disk churn rehearsal exposed and retained a temporary-handle
+ownership defect, reaching 20,704 handles and +17,210 steady-window growth. After the RAII correction,
+the identical `local-uncommitted` rehearsal at
+`out/soaks/stress-rehearsal-v1-fixed-20260829/` passed 121 collections with zero drops, late samples,
+deadline misses, sampling gaps, or worker failures; maximum handles were 626 and steady-window handle
+growth was -6. Full process enumeration averaged 2.505 ms with exactly 16 cached handles. The full
+345-test Release graph and warnings-as-errors MSVC native-analysis product/test build pass. These are
+development results, not long-run release evidence.
+
+The exact next gate is to freeze the clean hardening revision, rebuild and run the complete Release
+graph from that revision, obtain Windows/Linux/macOS/quality hosted evidence, and start a new hidden
+operator-assisted 72-hour campaign. Sleep/resume, lock/unlock, and safe device churn must be performed
+and attested again because actions from failed evidence cannot be transferred. Keep the V0.17 soak
+checkbox open until the standalone verifier publishes that new campaign. Execute physical Windows
+and GNOME/KDE/macOS desktop qualification only with qualifying operators and real clients. Runtime ML
+remains behind representative held-out value. The signed Windows package, independently reviewed
+physical UI/client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1
+evidence-execution gates; local rehearsals or additional schema machinery cannot satisfy them.

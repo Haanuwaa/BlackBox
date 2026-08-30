@@ -55,6 +55,14 @@ automatic_trigger(const core::SystemEventKind kind) noexcept {
     }
 }
 
+[[nodiscard]] constexpr bool resets_sampling_cadence(
+    const core::SystemEvent& event) noexcept {
+    return event.source == core::SystemEventSource::power &&
+           (event.kind == core::SystemEventKind::suspend ||
+            event.kind == core::SystemEventKind::resume_automatic ||
+            event.kind == core::SystemEventKind::resume_user);
+}
+
 } // namespace
 
 SystemEventCollector::SystemEventCollector(
@@ -170,6 +178,10 @@ bool SystemEventCollector::record_external_event(
     }
 }
 
+std::uint64_t SystemEventCollector::cadence_reset_generation() const noexcept {
+    return cadence_reset_generation_.load(std::memory_order_acquire);
+}
+
 EventCollectorDiagnostics SystemEventCollector::diagnostics() const noexcept {
     const std::scoped_lock lock{diagnostics_mutex_};
     auto result = diagnostics_;
@@ -209,6 +221,10 @@ void SystemEventCollector::run(const std::stop_token stop_token) noexcept {
                 }
                 recorder_.append((*batch_)[index]);
                 record_source(source_counts, (*batch_)[index].source);
+                if (resets_sampling_cadence((*batch_)[index])) {
+                    cadence_reset_generation_.fetch_add(1U,
+                                                        std::memory_order_release);
+                }
                 if (configuration_.automatic_system_event_capture &&
                     incident_capture_sink_ != nullptr) {
                     const auto trigger = automatic_trigger((*batch_)[index].kind);

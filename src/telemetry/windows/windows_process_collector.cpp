@@ -39,8 +39,11 @@ struct HandleGuard {
     ~HandleGuard() {
         reset();
     }
+    [[nodiscard]] bool valid() const noexcept {
+        return value != nullptr && value != INVALID_HANDLE_VALUE;
+    }
     void reset(const HANDLE replacement = INVALID_HANDLE_VALUE) noexcept {
-        if (value != nullptr && value != INVALID_HANDLE_VALUE) {
+        if (valid()) {
             CloseHandle(value);
         }
         value = replacement;
@@ -137,6 +140,9 @@ struct WindowsProcessCollector::State {
                 if (active != active_by_pid.end() && active->second == iterator->first) {
                     active_by_pid.erase(active);
                 }
+                if (iterator->second.process.valid()) {
+                    --cached_handles;
+                }
                 iterator = metadata.erase(iterator);
             } else {
                 ++iterator;
@@ -207,7 +213,7 @@ struct WindowsProcessCollector::State {
             cached = metadata.find(active->second);
             if (cached == metadata.end()) {
                 active_by_pid.erase(active);
-            } else {
+            } else if (cached->second.process.valid()) {
                 const auto wait = WaitForSingleObject(cached->second.process.value, 0U);
                 if (wait == WAIT_TIMEOUT) {
                     ++last_diagnostics.handles_reused;
@@ -218,21 +224,25 @@ struct WindowsProcessCollector::State {
                                                      RawProcessLifecycleKind::exited});
                     }
                     active_by_pid.erase(active);
+                    --cached_handles;
                     metadata.erase(cached);
                     cached = metadata.end();
                 } else {
-                    cached = metadata.end();
+                    cached->second.process.reset();
+                    --cached_handles;
                 }
             }
         }
 
         HandleGuard opened{};
-        HANDLE process = cached != metadata.end()
+        const bool reused_cached_handle =
+            cached != metadata.end() && cached->second.process.valid();
+        HANDLE process = reused_cached_handle
                              ? cached->second.process.value
                              : OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION |
                                                SYNCHRONIZE,
                                            FALSE, entry.th32ProcessID);
-        if (cached == metadata.end() && process != nullptr) {
+        if (!reused_cached_handle && process != nullptr) {
             opened.reset(process);
             ++last_diagnostics.handles_opened;
         }
@@ -252,7 +262,7 @@ struct WindowsProcessCollector::State {
         FILETIME exit{};
         FILETIME kernel{};
         FILETIME user{};
-        const bool need_times = cached == metadata.end() || collect_counters;
+        const bool need_times = !reused_cached_handle || collect_counters;
         if (need_times &&
             GetProcessTimes(process, &creation, &exit, &kernel, &user) == 0) {
             // The process was present in this enumeration even if its durable
@@ -271,11 +281,13 @@ struct WindowsProcessCollector::State {
             return;
         }
 
-        const ProcessIdentity identity = cached != metadata.end()
+        const ProcessIdentity identity = reused_cached_handle
             ? cached->first
             : ProcessIdentity{ProcessId{pid}, file_time_ticks(creation)};
-        if (cached == metadata.end()) cached = metadata.find(identity);
+        if (!reused_cached_handle) cached = metadata.find(identity);
         const bool is_new = cached == metadata.end();
+        const bool retain_opened = opened.valid() &&
+                                   cached_handles < maximum_cached_process_handles;
         if (is_new) {
             if (metadata.size() >= maximum_processes) {
                 ++destination.process_diagnostics.inaccessible;
@@ -283,7 +295,10 @@ struct WindowsProcessCollector::State {
             }
             CachedMetadata value{};
             value.info.identity = identity;
-            value.process = std::move(opened);
+            if (retain_opened) {
+                value.process = std::move(opened);
+                ++cached_handles;
+            }
             value.info.parent_pid = MetricValue<ProcessId>::available(
                 ProcessId{static_cast<std::uint32_t>(entry.th32ParentProcessID)});
             auto name = utf8(entry.szExeFile);
@@ -300,9 +315,9 @@ struct WindowsProcessCollector::State {
                     RawProcessLifecycleEvent{identity,
                                              RawProcessLifecycleKind::started});
             }
-        } else if (opened.value != nullptr &&
-                   opened.value != INVALID_HANDLE_VALUE) {
+        } else if (retain_opened) {
             cached->second.process = std::move(opened);
+            ++cached_handles;
             active_by_pid[pid] = identity;
         }
         cached->second.generation = generation;
@@ -388,6 +403,7 @@ struct WindowsProcessCollector::State {
     std::array<DWORD, maximum_processes> process_ids{};
     std::array<wchar_t, maximum_path_characters + 1U> path_buffer{};
     std::uint64_t generation{};
+    std::size_t cached_handles{};
     bool lifecycle_warmed{};
     WindowsProcessCollectorDiagnostics last_diagnostics{};
 };
@@ -408,6 +424,10 @@ MetricStatus WindowsProcessCollector::collect(
 
 std::size_t WindowsProcessCollector::cache_size() const noexcept {
     return state_ != nullptr ? state_->metadata.size() : 0U;
+}
+
+std::size_t WindowsProcessCollector::cached_handle_count() const noexcept {
+    return state_ != nullptr ? state_->cached_handles : 0U;
 }
 
 WindowsProcessCollectorDiagnostics

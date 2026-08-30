@@ -123,6 +123,20 @@ collections, and 143 scheduled incidents. The 95% process/collection allowance a
 required real sleep/resume exercise while preventing a sparse journal from qualifying. Every
 sampling gap is still recomputed and published.
 
+Power suspend/resume is a cadence boundary, not permission to hide unrelated timing failures. A
+normalized native power transition resets cumulative-rate and lifecycle baselines and schedules the
+next observation from the completed transition. The monotonic-gap fallback covers a missing or late
+native notification. Device, audio, service, security, update, application, network, graphics,
+storage, and process events cannot reset cadence. Any ordinary in-flight collection or host-scheduler
+stall still increments the bounded drop/deadline diagnostics and fails the zero-drop gate.
+
+Windows process identity metadata is not equivalent to handle ownership. The collector may retain
+bounded metadata for every readable identity but keeps at most 16 live process handles; uncached
+queries must release their temporary handle before the sample returns. Before freezing a long-run
+revision, repeat a short smoke under controlled process churn and inspect both maximum and
+first/last steady-window handle counts. A smoke is diagnostic only and never substitutes for the
+72-hour resource-growth gate.
+
 The runner stages to `<output>.partial`. Cancellation, power loss, app failure, a failed gate, or a
 runner error leaves that directory in place and never turns it into passing evidence. A successful
 campaign atomically renames the staging directory to the requested output. Never rename a failed

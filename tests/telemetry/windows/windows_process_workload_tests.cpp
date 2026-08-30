@@ -61,13 +61,16 @@ struct ProcessGuard {
 
 } // namespace
 
-TEST_CASE("Windows process collector reuses live identity-bound handles",
+TEST_CASE("Windows process collector reuses a bounded live-identity handle hot set",
           "[telemetry][windows][process][performance]") {
     core::SystemMonotonicClock clock;
     windows::WindowsProcessCollector collector;
     telemetry::RawTelemetrySnapshot raw;
     raw.reset(clock.now(), telemetry::SamplingTierSet::all());
     REQUIRE(collector.collect(true, true, raw) == telemetry::MetricStatus::available);
+    CHECK(collector.cached_handle_count() <=
+          windows::maximum_cached_process_handles);
+    CHECK(collector.cache_size() >= collector.cached_handle_count());
     const auto own_pid = static_cast<std::uint32_t>(GetCurrentProcessId());
     const auto first = find_raw(raw, own_pid);
     REQUIRE(first != nullptr);
@@ -80,6 +83,21 @@ TEST_CASE("Windows process collector reuses live identity-bound handles",
     CHECK(second->identity == identity);
     const auto diagnostics = collector.diagnostics();
     CHECK(diagnostics.handles_reused >= 1U);
+    CHECK(collector.cached_handle_count() <=
+          windows::maximum_cached_process_handles);
+
+    DWORD baseline_handles{};
+    REQUIRE(GetProcessHandleCount(GetCurrentProcess(), &baseline_handles) != 0);
+    for (std::size_t iteration = 0U; iteration < 20U; ++iteration) {
+        raw.reset(clock.now(), telemetry::SamplingTier::normal);
+        REQUIRE(collector.collect(true, false, raw) ==
+                telemetry::MetricStatus::available);
+    }
+    DWORD final_handles{};
+    REQUIRE(GetProcessHandleCount(GetCurrentProcess(), &final_handles) != 0);
+    CHECK(final_handles <= baseline_handles + 4U);
+    CHECK(collector.cached_handle_count() <=
+          windows::maximum_cached_process_handles);
 }
 
 TEST_CASE("Windows provider follows a short-lived CPU memory and I/O process",

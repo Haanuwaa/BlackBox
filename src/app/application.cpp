@@ -317,13 +317,15 @@ ApplicationInitializationResult Application::initialize() {
         detector_configuration(product_settings_));
         collector_ = std::make_unique<telemetry::TelemetryCollector>(
         *telemetry_provider_, telemetry_clock_, configuration, automatic_detector_.get(),
-        system_event_collector_.get(), system_event_collector_.get());
+        system_event_collector_.get(), system_event_collector_.get(),
+        system_event_collector_.get());
     collector_->set_automatic_detection_enabled(
         product_settings_.automatic_detection_enabled);
 #else
         collector_ = std::make_unique<telemetry::TelemetryCollector>(
         *telemetry_provider_, telemetry_clock_, configuration, nullptr,
-        system_event_collector_.get(), system_event_collector_.get());
+        system_event_collector_.get(), system_event_collector_.get(),
+        system_event_collector_.get());
 #endif
     collector_->set_foreground_application_enabled(
         product_settings_.record_foreground_application);

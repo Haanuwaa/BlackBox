@@ -49,7 +49,23 @@ struct ProcessorPowerInformation {
 }
 
 [[nodiscard]] bool prepare_sampling_thread() noexcept {
-    return SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST) != FALSE;
+    const auto thread = GetCurrentThread();
+    const bool priority_prepared =
+        SetThreadPriority(thread, THREAD_PRIORITY_HIGHEST) != FALSE;
+
+    // Windows may apply EcoQoS execution-speed throttling after a process has
+    // remained hidden for a long time. The one-second sampler is already
+    // bounded and extremely low duty-cycle, so opt only this worker out while
+    // retaining the highest non-real-time priority contract. Older systems may
+    // reject the hint; priority preparation remains the required capability.
+    THREAD_POWER_THROTTLING_STATE throttling{};
+    throttling.Version = THREAD_POWER_THROTTLING_CURRENT_VERSION;
+    throttling.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
+    throttling.StateMask = 0U;
+    static_cast<void>(SetThreadInformation(
+        thread, ThreadPowerThrottling, &throttling,
+        static_cast<DWORD>(sizeof(throttling))));
+    return priority_prepared;
 }
 
 template <typename T>

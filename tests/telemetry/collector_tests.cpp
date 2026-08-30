@@ -77,6 +77,43 @@ public:
     std::atomic<std::uint64_t> prepare_calls{};
 };
 
+class ManualCadenceResetSignal final
+    : public telemetry::ISamplingCadenceResetSignal {
+public:
+    [[nodiscard]] std::uint64_t cadence_reset_generation() const noexcept override {
+        return generation.load();
+    }
+    void notify() noexcept { generation.fetch_add(1U); }
+    std::atomic<std::uint64_t> generation{};
+};
+
+class TransitioningSlowProvider final : public telemetry::ITelemetryProvider {
+public:
+    TransitioningSlowProvider(const core::IMonotonicClock& value,
+                              ManualCadenceResetSignal& reset_signal)
+        : clock{value}, signal{reset_signal} {}
+
+    telemetry::ProviderSampleResult sample(
+        const telemetry::SamplingRequest request,
+        telemetry::RawTelemetrySnapshot& destination) override {
+        const auto sequence = samples.fetch_add(1U);
+        if (sequence == 0U) {
+            signal.notify();
+            std::this_thread::sleep_for(30ms);
+        }
+        destination.reset(clock.now(), request.tiers);
+        return {telemetry::ProviderSampleStatus::complete, sequence + 1U};
+    }
+
+    [[nodiscard]] telemetry::PlatformCapabilities capabilities() const noexcept override {
+        return {};
+    }
+
+    const core::IMonotonicClock& clock;
+    ManualCadenceResetSignal& signal;
+    std::atomic<std::uint64_t> samples{};
+};
+
 class TierRecordingProvider final : public telemetry::ITelemetryProvider {
 public:
     explicit TierRecordingProvider(const core::IMonotonicClock& clock)
@@ -294,6 +331,45 @@ TEST_CASE("resume gaps are separated from ordinary scheduling jitter",
     CHECK_FALSE(telemetry::detect_resume_gap(
                     scheduled, scheduled + 12s, 0ns, 5s)
                     .detected);
+}
+
+TEST_CASE("power transition generation rebases an in-flight collection without drops",
+          "[telemetry][collector][resume][schedule]") {
+    core::SystemMonotonicClock clock;
+    ManualCadenceResetSignal signal;
+    TransitioningSlowProvider provider{clock, signal};
+    telemetry::TelemetryCollector collector{
+        provider, clock, configuration(5ms, 100ms), nullptr, nullptr, nullptr, &signal};
+
+    collector.start();
+    REQUIRE(wait_until([&] {
+        return collector.diagnostics().collection_count >= 2U;
+    }));
+    collector.stop();
+
+    const auto diagnostics = collector.diagnostics();
+    CHECK(diagnostics.dropped_samples == 0U);
+    CHECK(diagnostics.deadline_misses == 0U);
+    CHECK(signal.cadence_reset_generation() == 1U);
+}
+
+TEST_CASE("ordinary in-flight stalls still fail the zero-drop schedule contract",
+          "[telemetry][collector][schedule][stress]") {
+    core::SystemMonotonicClock clock;
+    ManualCadenceResetSignal signal;
+    TransitioningSlowProvider provider{clock, signal};
+    telemetry::TelemetryCollector collector{
+        provider, clock, configuration(5ms, 100ms)};
+
+    collector.start();
+    REQUIRE(wait_until([&] {
+        return collector.diagnostics().collection_count >= 2U;
+    }));
+    collector.stop();
+
+    const auto diagnostics = collector.diagnostics();
+    CHECK(diagnostics.dropped_samples >= 1U);
+    CHECK(diagnostics.deadline_misses >= 1U);
 }
 
 TEST_CASE("pausing and restarting collection preserves history but resets rate baselines",

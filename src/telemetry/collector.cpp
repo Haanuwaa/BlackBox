@@ -145,7 +145,8 @@ TelemetryCollector::TelemetryCollector(
     const ValidatedRecorderConfiguration configuration,
     IAutomaticIncidentDetector* const automatic_detector,
     const ISystemEventHistory* const event_history,
-    ISystemEventSink* const event_sink)
+    ISystemEventSink* const event_sink,
+    const ISamplingCadenceResetSignal* const cadence_reset_signal)
     : provider_{provider},
       clock_{clock},
       configuration_{configuration},
@@ -155,6 +156,7 @@ TelemetryCollector::TelemetryCollector(
       automatic_detector_{automatic_detector},
       event_history_{event_history},
       event_sink_{event_sink},
+      cadence_reset_signal_{cadence_reset_signal},
       automatic_detection_enabled_{automatic_detector != nullptr} {
     diagnostics_.configuration = configuration.values;
     diagnostics_.ring = recorder_.statistics();
@@ -387,6 +389,27 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
     }
     auto scheduled_start = clock_.now();
     auto next_metadata_collection = scheduled_start;
+    auto cadence_reset_generation = cadence_reset_signal_ != nullptr
+                                        ? cadence_reset_signal_->cadence_reset_generation()
+                                        : 0U;
+
+    const auto reset_rate_state = [this] {
+        normalizer_.reset();
+        process_normalizer_.reset();
+        if (automatic_detector_ != nullptr) {
+            automatic_detector_->reset();
+        }
+        lifecycle_resynchronize_requested_.store(true);
+    };
+
+    const auto consume_cadence_reset = [&] {
+        if (cadence_reset_signal_ == nullptr) return false;
+        const auto observed = cadence_reset_signal_->cadence_reset_generation();
+        if (observed == cadence_reset_generation) return false;
+        cadence_reset_generation = observed;
+        reset_rate_state();
+        return true;
+    };
 
     while (!stop_token.stop_requested()) {
         {
@@ -399,16 +422,16 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
         }
 
         const auto actual_start = clock_.now();
+        bool cadence_reset_observed = consume_cadence_reset();
+        if (cadence_reset_observed) {
+            scheduled_start = actual_start;
+            next_metadata_collection = actual_start;
+        }
         const auto resume = detect_resume_gap(
             scheduled_start, actual_start, configuration_.values.sample_interval,
             configuration_.values.resume_gap_threshold);
         if (resume.detected) {
-            normalizer_.reset();
-            process_normalizer_.reset();
-            if (automatic_detector_ != nullptr) {
-                automatic_detector_->reset();
-            }
-            lifecycle_resynchronize_requested_.store(true);
+            reset_rate_state();
             scheduled_start = actual_start;
             next_metadata_collection = actual_start;
             {
@@ -440,6 +463,8 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
                 foreground_application_enabled_.load();
             const auto result = provider_.sample(request, raw_snapshot_);
             status = result.status;
+            cadence_reset_observed = consume_cadence_reset() ||
+                                     cadence_reset_observed;
             normalized = normalizer_.normalize(raw_snapshot_);
             normalized_process_frame_.observed_at = raw_snapshot_.observed_at;
             process_normalizer_.normalize(raw_snapshot_,
@@ -574,8 +599,14 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
         }
         const auto finished = clock_.now();
         collection_timing_.record(nonnegative_duration(finished - actual_start));
-        const auto schedule = advance_schedule(
-            scheduled_start, finished, configuration_.values.sample_interval);
+        cadence_reset_observed = consume_cadence_reset() || cadence_reset_observed;
+        const auto schedule = cadence_reset_observed
+                                  ? ScheduleAdvance{
+                                        finished + configuration_.values.sample_interval,
+                                        std::chrono::nanoseconds::zero(), 0U, false}
+                                  : advance_schedule(
+                                        scheduled_start, finished,
+                                        configuration_.values.sample_interval);
 
         {
             const std::scoped_lock lock{diagnostics_mutex_};
