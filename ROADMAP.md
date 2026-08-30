@@ -2133,8 +2133,12 @@ semantics, adding compatibility paths, or weakening the Windows-first release ga
   mapping, macOS abstention boundary, privacy policy, and implementation gate before runtime work.
 - [x] Add guarded DEB/RPM install-launch-uninstall lifecycle coverage for disposable Linux CI
   containers and unsigned macOS DMG/PKG production with optional Developer ID/notary hooks.
-- [ ] Obtain the complete Windows, Ubuntu/Debian/Fedora, Apple Silicon/Intel macOS, package-lifecycle,
-  and quality/security hosted evidence on one exact clean V0.19 revision.
+- [x] Obtain the complete Windows, Ubuntu/Debian/Fedora, Apple Silicon/Intel macOS, package-lifecycle,
+  and quality/security hosted evidence on one exact clean V0.19 revision (`46023e3`):
+  [Windows](https://github.com/Haanuwaa/BlackBox/actions/runs/33316078234),
+  [Linux](https://github.com/Haanuwaa/BlackBox/actions/runs/33316078213),
+  [macOS](https://github.com/Haanuwaa/BlackBox/actions/runs/33316078226), and
+  [quality/security](https://github.com/Haanuwaa/BlackBox/actions/runs/33316078214).
 - [ ] Physically qualify Linux/macOS installation, desktop behavior, event delivery, sleep/resume,
   accessibility, signing/notarization, and long-run behavior before any support claim.
 
@@ -2256,7 +2260,9 @@ fast-forwarded into `main` at `f13e49a`.
 
 V0.19 now adds cross-platform privacy-reduced system events, honest unknown-type GPU inventory, a
 reviewed pressure contract, and native Linux/macOS package lifecycle boundaries. Its local Windows
-Release graph passes after the direct schema-V1 event ordinal and settings surface were updated
-without migrations. The exact next evidence gate is one clean revision passing Windows, Linux,
-macOS, native package lifecycle, and quality/security workflows; the operator-assisted 72-hour
-campaign and physical desktop/signing matrices remain separate open release gates.
+Release graph passes all 353 tests plus MSVC native analysis after the direct schema-V1 event ordinal
+and settings surface were updated without migrations. Exact revision `46023e3` passed Windows,
+Ubuntu/Debian/Fedora, Wayland, DEB/RPM install lifecycle, Apple Silicon/Intel DMG/PKG, SBOM,
+dependency review, CodeQL, MSVC analysis, ASan, UBSan, fuzzing, and coverage. The exact next milestone
+is physical Linux/macOS desktop and installation qualification plus Developer ID signing/notarization;
+the operator-assisted 72-hour campaign remains a separate open V1 release gate.
