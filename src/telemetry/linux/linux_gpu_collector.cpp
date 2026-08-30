@@ -268,26 +268,24 @@ struct LinuxGpuCollector::NativeState {
         continue;
       const auto usage_status =
           read_bounded_file(device.device_path / "gpu_busy_percent", contents);
-      const auto usage = usage_status == MetricStatus::available
-                             ? parse_gpu_busy_percent(contents)
-                             : std::nullopt;
+      auto usage_metric = MetricValue<Ratio>::unavailable(usage_status);
+      if (usage_status == MetricStatus::available) {
+        const auto parsed = parse_gpu_busy_percent(contents);
+        usage_metric = parsed ? MetricValue<Ratio>::available(*parsed)
+                              : MetricValue<Ratio>::unavailable(
+                                    MetricStatus::temporarily_unavailable);
+      }
       const auto memory_status = read_bounded_file(
           device.device_path / "mem_info_vram_used", contents);
-      const auto memory = memory_status == MetricStatus::available
-                              ? parse_gpu_memory_bytes(contents)
-                              : std::nullopt;
-      readings[reading_count++] = GpuDeviceReading{
-          device.identity,
-          usage ? MetricValue<Ratio>::available(*usage)
-                : MetricValue<Ratio>::unavailable(
-                      usage_status == MetricStatus::available
-                          ? MetricStatus::temporarily_unavailable
-                          : usage_status),
-          memory ? MetricValue<ByteCount>::available(*memory)
-                 : MetricValue<ByteCount>::unavailable(
-                       memory_status == MetricStatus::available
-                           ? MetricStatus::temporarily_unavailable
-                           : memory_status)};
+      auto memory_metric = MetricValue<ByteCount>::unavailable(memory_status);
+      if (memory_status == MetricStatus::available) {
+        const auto parsed = parse_gpu_memory_bytes(contents);
+        memory_metric = parsed ? MetricValue<ByteCount>::available(*parsed)
+                               : MetricValue<ByteCount>::unavailable(
+                                     MetricStatus::temporarily_unavailable);
+      }
+      readings[reading_count++] =
+          GpuDeviceReading{device.identity, usage_metric, memory_metric};
     }
     if (reading_count < readings.size()) {
       reading_count += nvml.append(std::span<GpuDeviceReading>{
