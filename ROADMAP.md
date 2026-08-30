@@ -2085,8 +2085,11 @@ Parity follow-up implementation:
   Metal counters are app-owned, Linux GPU sources are vendor-specific, and Linux PSI is pressure stall
   evidence rather than Windows DPC/ISR evidence; keep current capability bits false and plan PSI only
   behind a distinct portable direct-v1 contract.
-- [ ] Obtain hosted native Linux and macOS build/provider/package evidence for the shortcut, power,
-  frequency, profile, and foreground implementation revision before integration.
+- [x] Obtain hosted native Linux and macOS build/provider/package evidence for the shortcut, power,
+  frequency, profile, and foreground implementation revision before integration. Revision
+  `59c1204d700a6125cde990568d909d9f4ceb2d6e` passed the complete Ubuntu/Debian/Fedora/Wayland
+  engineering matrix and both Apple Silicon and Intel macOS build/test/bundle/overhead/package jobs;
+  Windows validation also passed on that exact revision.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
 
