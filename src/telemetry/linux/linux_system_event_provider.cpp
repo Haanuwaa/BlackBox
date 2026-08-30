@@ -88,7 +88,7 @@ template <typename State>
     };
     unsigned requested{};
     unsigned active{};
-    for (const auto [wanted, available] : pairs) {
+    for (const auto& [wanted, available] : pairs) {
         requested += static_cast<unsigned>(wanted);
         active += static_cast<unsigned>(wanted && available);
     }
