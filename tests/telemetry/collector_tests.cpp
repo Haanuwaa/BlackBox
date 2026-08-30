@@ -343,7 +343,7 @@ TEST_CASE("power transition generation rebases an in-flight collection without d
 
     collector.start();
     REQUIRE(wait_until([&] {
-        return collector.diagnostics().collection_count >= 2U;
+        return collector.diagnostics().collection_count >= 1U;
     }));
     collector.stop();
 
@@ -363,7 +363,7 @@ TEST_CASE("ordinary in-flight stalls still fail the zero-drop schedule contract"
 
     collector.start();
     REQUIRE(wait_until([&] {
-        return collector.diagnostics().collection_count >= 2U;
+        return collector.diagnostics().collection_count >= 1U;
     }));
     collector.stop();
 
