@@ -12,10 +12,13 @@ not introduce migrations, compatibility adapters, or legacy fixtures.
 - dependency-policy validation and a validated CycloneDX 1.5 SBOM artifact;
 - pull-request dependency review, failing for newly introduced vulnerabilities of moderate severity
   or higher;
-- CodeQL C++ analysis with the extended security query suite. Broad CodeQL quality queries are
-  intentionally excluded from the Security tab because they report test-registration helpers and
-  generated dependency headers; warnings-as-errors, MSVC native analysis, sanitizers, coverage,
-  property tests, and fuzzing retain the separate code-quality gates;
+- CodeQL C++ analysis with the extended security query suite and an explicit manual production
+  graph. The desktop executable and every product/development tool keep all production translation
+  units observable, while tests, fixtures, and benchmarks stay out of the CodeQL database because
+  their production dependencies are already traced and their own code is covered by warnings-as-
+  errors, MSVC native analysis, sanitizers, coverage, property tests, fuzzing, and execution. Broad
+  CodeQL quality queries are intentionally excluded from the Security tab because they report test-
+  registration helpers and generated dependency headers;
 - MSVC native `/analyze` with warnings treated as errors across product and test translation units;
 - Windows AddressSanitizer across the app and test graph;
 - Linux UndefinedBehaviorSanitizer for the portable headless graph;

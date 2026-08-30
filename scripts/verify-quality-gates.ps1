@@ -24,6 +24,12 @@ $tests = Get-Content -LiteralPath (Join-Path $root 'tests/CMakeLists.txt') -Raw
 $workflow = Get-Content -LiteralPath (Join-Path $root '.github/workflows/quality.yml') -Raw
 $presets = Get-Content -LiteralPath (Join-Path $root 'CMakePresets.json') -Raw
 $asanTripletPath = Join-Path $root 'cmake/triplets/x64-windows-blackbox-asan.cmake'
+$codeqlStart = $workflow.IndexOf("`n  codeql:", [StringComparison]::Ordinal)
+$codeqlEnd = $workflow.IndexOf("`n  msvc-static-analysis:", [StringComparison]::Ordinal)
+if ($codeqlStart -lt 0 -or $codeqlEnd -le $codeqlStart) {
+    throw 'Quality gate contract failed: CodeQL workflow boundary is missing'
+}
+$codeqlWorkflow = $workflow.Substring($codeqlStart, $codeqlEnd - $codeqlStart)
 
 foreach ($option in @(
     'BLACKBOX_ENABLE_ADDRESS_SANITIZER',
@@ -62,6 +68,18 @@ Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
 Require-Text $workflow 'queries: security-extended' 'extended CodeQL security query suite'
 Reject-Text $workflow 'queries:\s*[^\r\n]*security-and-quality' `
     'broad CodeQL quality suite in security alert output'
+Require-Text $codeqlWorkflow 'build-mode: manual' 'manual compiled-language CodeQL build mode'
+Require-Text $codeqlWorkflow 'BLACKBOX_BUILD_TESTS=OFF' 'production-only CodeQL graph'
+foreach ($target in @(
+    'blackbox',
+    'blackbox_dataset_tool',
+    'blackbox_soak_archive_fault',
+    'blackbox_dogfood_tool',
+    'blackbox_offline_ml_tool',
+    'blackbox_dogfood_capture')) {
+    Require-Text $codeqlWorkflow ("(?m)^\s+" + [regex]::Escape($target) + '\s*`?$') `
+        "CodeQL production target $target"
+}
 Require-Text $workflow 'fail-on-severity: moderate' 'dependency vulnerability floor'
 Require-Text $workflow '-E "Windows unhandled exception probe"' 'sanitizer crash-probe exclusion'
 Require-Text $workflow 'VCPKG_TARGET_TRIPLET=x64-windows-blackbox-asan' 'instrumented Windows dependency triplet'
@@ -84,4 +102,4 @@ foreach ($path in @(
     }
 }
 
-Write-Output 'Quality gate contract verified: asan=1 ubsan=1 msvc_analysis=1 fuzz=1 property=2 dependency_review=1 codeql=1 sbom=1 coverage=60/45'
+Write-Output 'Quality gate contract verified: asan=1 ubsan=1 msvc_analysis=1 fuzz=1 property=2 dependency_review=1 codeql_production_targets=6 sbom=1 coverage=60/45'

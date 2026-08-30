@@ -2152,3 +2152,12 @@ and GNOME/KDE/macOS desktop qualification only with qualifying operators and rea
 remains behind representative held-out value. The signed Windows package, independently reviewed
 physical UI/client matrix, consented multi-hardware corpus, and one-shot held-out result remain V1
 evidence-execution gates; local rehearsals or additional schema machinery cannot satisfy them.
+
+Revision `42b01bccfd7291beb0cee9bb856d8a44e0610a03` completed the clean 345-test Release
+rebuild and the Windows, Linux, macOS, and quality/security hosted matrices. Its replacement hidden
+72-hour campaign started on 2026-08-29 and remains the active exact-revision gate; the checkbox stays
+open until publication. In parallel, CodeQL optimization isolates an explicit six-target production
+graph instead of tracing 93 test/benchmark/fixture translation units already covered by their own
+quality jobs. The previous exact-revision CodeQL baseline was 45 minutes 54 seconds: 27 minutes
+58 seconds in the observed build and 16 minutes 18 seconds in finalization/query execution. This is
+CI-only scope control, not a runtime, direct-v1, telemetry, diagnostic, or release-gate relaxation.

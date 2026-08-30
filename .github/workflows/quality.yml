@@ -100,6 +100,7 @@ jobs:
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           languages: c-cpp
+          build-mode: manual
           # Security findings belong in the repository Security tab. Code quality is
           # enforced separately by warnings-as-errors, MSVC /analyze, sanitizers,
           # coverage, property tests, and fuzzing below. Including the broad
@@ -117,8 +118,17 @@ jobs:
       - name: Configure and build observed graph
         shell: pwsh
         run: |
-          cmake --preset windows-msvc-release
-          cmake --build --preset windows-msvc-release --parallel
+          # CodeQL observes every production translation unit. Tests, fixtures,
+          # and benchmarks have dedicated MSVC analysis, sanitizer, coverage,
+          # property, fuzz, and execution jobs and must not inflate this database.
+          cmake --preset windows-msvc-release -DBLACKBOX_BUILD_TESTS=OFF
+          cmake --build --preset windows-msvc-release --config Release --parallel --target `
+            blackbox `
+            blackbox_dataset_tool `
+            blackbox_soak_archive_fault `
+            blackbox_dogfood_tool `
+            blackbox_offline_ml_tool `
+            blackbox_dogfood_capture
       - name: Analyze
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
 
