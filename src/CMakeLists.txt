@@ -125,6 +125,10 @@ target_link_libraries(blackbox_telemetry PUBLIC BlackBox::Core)
 blackbox_set_project_warnings(blackbox_telemetry)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(BLACKBOX_DBUS QUIET IMPORTED_TARGET dbus-1)
+    endif()
     add_library(blackbox_telemetry_linux STATIC
         telemetry/linux/linux_process_collector.cpp
         telemetry/linux/linux_system_event_provider.cpp
@@ -134,6 +138,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_include_directories(blackbox_telemetry_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_telemetry_linux PUBLIC cxx_std_23)
     target_link_libraries(blackbox_telemetry_linux PUBLIC BlackBox::Telemetry)
+    if(TARGET PkgConfig::BLACKBOX_DBUS)
+        target_compile_definitions(blackbox_telemetry_linux PRIVATE
+            BLACKBOX_HAS_DBUS=1)
+        target_link_libraries(blackbox_telemetry_linux PRIVATE
+            PkgConfig::BLACKBOX_DBUS)
+    endif()
     blackbox_set_project_warnings(blackbox_telemetry_linux)
 endif()
 
@@ -164,8 +174,9 @@ target_compile_features(blackbox_platform INTERFACE cxx_std_23)
 target_link_libraries(blackbox_platform INTERFACE BlackBox::Core)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(BLACKBOX_DBUS REQUIRED IMPORTED_TARGET dbus-1)
+    if(NOT TARGET PkgConfig::BLACKBOX_DBUS)
+        message(FATAL_ERROR "The Linux desktop app requires the dbus-1 development package")
+    endif()
     add_library(blackbox_platform_linux STATIC
         platform/linux/linux_accessibility.cpp
         platform/linux/linux_background_shell.cpp

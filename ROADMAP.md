@@ -2067,6 +2067,10 @@ Parity follow-up implementation:
 - [x] Add privacy-reduced Linux kernel device and macOS IOMedia lifecycle context behind the existing
   independently scheduled bounded event boundary. Discard native identifiers and payloads, suppress
   startup inventory, expose loss diagnostics, and keep context-only events ineligible for capture.
+- [ ] Validate native Linux logind and macOS IOKit suspend/resume lifecycle evidence on their hosted
+  graphs. The implementation maps only direct native notifications into the existing privacy-bounded
+  power event kinds, keeps the queue/poll path bounded and nonblocking, degrades sources independently,
+  and leaves physical sleep/resume exercise to client qualification.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
 
@@ -2155,9 +2159,14 @@ evidence-execution gates; local rehearsals or additional schema machinery cannot
 
 Revision `42b01bccfd7291beb0cee9bb856d8a44e0610a03` completed the clean 345-test Release
 rebuild and the Windows, Linux, macOS, and quality/security hosted matrices. Its replacement hidden
-72-hour campaign started on 2026-08-29 and remains the active exact-revision gate; the checkbox stays
-open until publication. In parallel, CodeQL optimization isolates an explicit six-target production
-graph instead of tracing 93 test/benchmark/fixture translation units already covered by their own
-quality jobs. The previous exact-revision CodeQL baseline was 45 minutes 54 seconds: 27 minutes
-58 seconds in the observed build and 16 minutes 18 seconds in finalization/query execution. This is
-CI-only scope control, not a runtime, direct-v1, telemetry, diagnostic, or release-gate relaxation.
+72-hour campaign started on 2026-08-29, then was operator-cancelled and disabled before a required
+PC restart on 2026-08-30. The unpublished `.partial` directory remains diagnostic evidence only; no
+campaign process remains and the release checkbox stays open.
+
+In parallel, revision `6363f63dd75cea9a64ff0a4f212dd977c29bc1d3` made CodeQL observe an
+explicit six-target production graph instead of 93 test/benchmark/fixture translation units already
+covered by their own quality jobs. Hosted quality/security run `33288332585` passed. CodeQL fell from
+45 minutes 54 seconds to 34 minutes 49 seconds, an 11 minute 5 second (24.1%) reduction: the observed
+build fell from 27:58 to 19:04 and analysis from 16:18 to 13:56. The extended security query suite,
+all production translation units, and every separate test-quality gate remain enabled; this is CI-only
+scope control, not a runtime, direct-v1, telemetry, diagnostic, or release-gate relaxation.

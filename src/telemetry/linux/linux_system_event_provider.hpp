@@ -6,6 +6,8 @@
 
 namespace blackbox::telemetry::linux {
 
+[[nodiscard]] core::SystemEvent normalized_linux_sleep_event(bool sleeping) noexcept;
+
 class LinuxSystemEventProvider final : public ISystemEventProvider {
 public:
     LinuxSystemEventProvider() noexcept;

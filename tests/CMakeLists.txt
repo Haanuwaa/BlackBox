@@ -150,6 +150,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         telemetry/linux_system_event_provider_tests.cpp
         telemetry/linux_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
+    if(TARGET PkgConfig::BLACKBOX_DBUS)
+        target_compile_definitions(blackbox_tests PRIVATE
+            BLACKBOX_TEST_HAS_DBUS=1)
+    endif()
     if(BLACKBOX_BUILD_APP)
         add_executable(blackbox_posix_crash_probe
             fixtures/posix_crash_probe.cpp)

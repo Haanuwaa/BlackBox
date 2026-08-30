@@ -7,6 +7,7 @@
 namespace blackbox::telemetry::macos {
 
 [[nodiscard]] core::SystemEvent normalized_macos_media_event(bool added) noexcept;
+[[nodiscard]] core::SystemEvent normalized_macos_sleep_event(bool sleeping) noexcept;
 
 class MacosSystemEventProvider final : public ISystemEventProvider {
 public:

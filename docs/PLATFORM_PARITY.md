@@ -19,6 +19,7 @@ qualified.
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | GPU, foreground, and responsiveness evidence | Native, capability-gated | Open | Open |
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime; battery saver and frequency/thermal open | Native power/battery/uptime; battery saver and frequency/thermal open |
+| Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free kernel device add/remove context | Identifier-free IOKit storage-media add/remove context |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
 | Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
@@ -27,22 +28,29 @@ qualified.
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
-| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland passed on `49b18dc` | Apple Silicon and Intel passed on `49b18dc` |
+| Hosted native compiler/provider/package checks | Windows runners | Ubuntu, Debian, Fedora, X11, Wayland passed on `42b01bc` | Apple Silicon and Intel passed on `42b01bc` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
 ## Ordered parity work
 
-1. Validate the V0.18 disk-quality and system-event slice on native Windows, Linux, and macOS hosted
-   graphs, then integrate the exact clean revision and freeze it for the operator-assisted 72-hour run.
-2. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
-   background, notification, autostart, and package boundaries.
-3. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
+1. Validate the implemented native Linux logind and macOS IOKit suspend/resume events on hosted native
+   graphs, then physically exercise them during later desktop qualification. They use the existing
+   independently scheduled, fixed-capacity event boundary, request cadence resynchronization, and do
+   not manufacture incidents or rely on monotonic clocks that may pause during sleep.
+2. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
    A passive Quartz event tap is technically available but is not equivalent to conflict-aware shortcut
    registration and must not be enabled merely to fill a table cell.
-4. Research native Linux/macOS GPU, foreground, responsiveness, frequency, and thermal evidence; add
+3. Add macOS Low Power Mode and research bounded Linux CPU-frequency/power-profile evidence. Thermal
+   states must not be forced into the existing CPU-frequency-limit fields when their semantics differ.
+4. Add foreground-application evidence only where a stable process identity is available without window
+   titles: macOS and X11 are candidates, while Wayland must remain explicitly unavailable unless a
+   standardized permission-aware interface exists.
+5. Research native Linux/macOS GPU and responsiveness evidence; add
    only sources whose semantics and collection cost satisfy the existing portable contracts.
-5. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
+6. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
+   background, notification, autostart, package, sleep/resume, and shortcut boundaries.
+7. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
    campaigns, then design signed/notarized distribution. Hosted compilation alone cannot establish
    product support.
 
@@ -62,7 +70,9 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple `IOBlockStorageDriver` statistics](https://developer.apple.com/documentation/kernel/ioblockstoragedriver)
 - [Linux block-device I/O statistics](https://docs.kernel.org/admin-guide/iostats.html)
 - [Linux kernel uevent environment](https://docs.kernel.org/driver-api/driver-model/uevent.html)
+- [systemd-logind `PrepareForSleep`](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html)
 - [Linux TCP SNMP counters](https://docs.kernel.org/networking/snmp_counter.html)
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)
 - [XDG Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
 - [Apple Quartz event taps](https://developer.apple.com/documentation/coregraphics/cgevent/tapcreate%28tap%3Aplace%3Aoptions%3Aeventsofinterest%3Acallback%3Auserinfo%3A%29)
+- [Apple system sleep/wake notifications](https://developer.apple.com/library/archive/qa/qa1340/_index.html)
