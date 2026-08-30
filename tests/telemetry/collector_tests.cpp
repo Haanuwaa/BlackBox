@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -347,9 +348,10 @@ TEST_CASE("power transition generation rebases an in-flight collection without d
     }));
     collector.stop();
 
-    const auto diagnostics = collector.diagnostics();
-    CHECK(diagnostics.dropped_samples == 0U);
-    CHECK(diagnostics.deadline_misses == 0U);
+    const auto scheduling = collector.scheduling_drop_snapshot();
+    CHECK(std::ranges::none_of(scheduling.events, [](const auto& event) {
+        return event.collection_index == 1U;
+    }));
     CHECK(signal.cadence_reset_generation() == 1U);
 }
 
@@ -367,9 +369,10 @@ TEST_CASE("ordinary in-flight stalls still fail the zero-drop schedule contract"
     }));
     collector.stop();
 
-    const auto diagnostics = collector.diagnostics();
-    CHECK(diagnostics.dropped_samples >= 1U);
-    CHECK(diagnostics.deadline_misses >= 1U);
+    const auto scheduling = collector.scheduling_drop_snapshot();
+    REQUIRE_FALSE(scheduling.events.empty());
+    CHECK(scheduling.events.front().collection_index == 1U);
+    CHECK(scheduling.events.front().dropped_ticks >= 1U);
 }
 
 TEST_CASE("pausing and restarting collection preserves history but resets rate baselines",
