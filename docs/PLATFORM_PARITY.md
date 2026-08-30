@@ -18,7 +18,7 @@ qualified.
 | Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | Foreground-application evidence | Native, capability-gated | Privacy-bounded X11 EWMH PID correlated to process creation identity; Wayland explicitly unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
-| GPU and responsiveness evidence | Native, capability-gated | GPU explicitly unsupported; PSI is promising pressure evidence but is not DPC/ISR and needs a distinct portable contract | GPU explicitly unsupported; public Metal counters are app-owned, not passive whole-system evidence |
+| GPU and responsiveness evidence | Native, capability-gated | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity where exposed; other drivers remain explicit | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal open | Native power/battery/uptime and Low Power Mode; CPU frequency/thermal open |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free kernel device add/remove context | Identifier-free IOKit storage-media add/remove context |
@@ -45,10 +45,12 @@ qualified.
 3. Physically validate Linux CPU-frequency/profile coverage across governors and hardware, macOS Low
    Power Mode transitions, and privacy-bounded foreground identity on macOS and X11. Wayland remains
    unsupported because its public portal API has no standardized active-window interface.
-4. Design a separate portable pressure/responsiveness contract before considering Linux PSI. CPU,
-   memory, and I/O stall pressure must not be relabeled as Windows DPC/ISR activity. Keep passive
-   Linux/macOS whole-system GPU evidence unsupported until a documented cross-vendor public source
-   satisfies exact semantics and bounded background collection cost.
+4. Physically validate Linux GPU coverage on AMD, NVIDIA, Intel, hybrid, permission-restricted, and
+   hotplug-capable hosts. AMD and NVIDIA provide whole-system device gauges; DRM `fdinfo` supplies
+   only readable foreground-client activity and is never relabeled as complete host utilization.
+   Keep macOS passive whole-system GPU utilization unsupported. Design a separate portable pressure/
+   responsiveness contract before considering Linux PSI; its CPU, memory, and I/O stall semantics
+   are not Windows DPC/ISR activity.
 5. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
    background, notification, autostart, package, sleep/resume, and shortcut boundaries.
 6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
@@ -81,6 +83,10 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple `NSWorkspace.frontmostApplication`](https://developer.apple.com/documentation/appkit/nsworkspace/frontmostapplication)
 - [Apple Low Power Mode notifications](https://developer.apple.com/documentation/xcode/responding-to-power-notifications)
 - [Apple Metal GPU counters](https://developer.apple.com/documentation/metal/gpu-counters-and-counter-sample-buffers)
+- [Apple Metal device discovery](https://developer.apple.com/documentation/metal/1433401-mtlcopyalldevices)
+- [Linux DRM client usage statistics](https://docs.kernel.org/gpu/drm-usage-stats.html)
+- [Linux AMDGPU monitoring](https://docs.kernel.org/gpu/amdgpu/thermal.html)
+- [NVIDIA NVML utilization](https://docs.nvidia.com/deploy/nvml-api/structnvmlUtilization__t.html)
 - [Linux CPUFreq sysfs policy](https://docs.kernel.org/admin-guide/pm/cpufreq.html)
 - [Linux platform profile](https://docs.kernel.org/userspace-api/sysfs-platform_profile.html)
 - [Linux Pressure Stall Information](https://docs.kernel.org/accounting/psi.html)

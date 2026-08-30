@@ -7,6 +7,7 @@ add_executable(blackbox_tests
     telemetry/collection_timing_tests.cpp
     telemetry/disk_quality_tracker_tests.cpp
     telemetry/event_collector_tests.cpp
+    telemetry/gpu_aggregation_tests.cpp
     telemetry/incident_snapshot_builder_tests.cpp
     telemetry/linux_proc_parser_tests.cpp
     telemetry/linux_uevent_parser_tests.cpp
@@ -146,10 +147,17 @@ if(BLACKBOX_ENABLE_ANALYSIS)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(blackbox_fake_nvml SHARED fixtures/fake_nvml.cpp)
+    target_compile_features(blackbox_fake_nvml PRIVATE cxx_std_23)
+    blackbox_set_project_warnings(blackbox_fake_nvml)
     target_sources(blackbox_tests PRIVATE
+        telemetry/linux_gpu_tests.cpp
         telemetry/linux_system_event_provider_tests.cpp
         telemetry/linux_telemetry_provider_tests.cpp)
     target_link_libraries(blackbox_tests PRIVATE BlackBox::TelemetryLinux)
+    target_compile_definitions(blackbox_tests PRIVATE
+        BLACKBOX_FAKE_NVML_PATH="$<TARGET_FILE:blackbox_fake_nvml>")
+    add_dependencies(blackbox_tests blackbox_fake_nvml)
     if(BLACKBOX_BUILD_APP)
         add_executable(blackbox_posix_crash_probe
             fixtures/posix_crash_probe.cpp)

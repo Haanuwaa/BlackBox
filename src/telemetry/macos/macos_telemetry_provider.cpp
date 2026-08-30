@@ -499,10 +499,15 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.network_usage = true;
     result.network_connectivity = true;
     result.network_transport_quality = true;
+    result.gpu_inventory = true;
     result.foreground_application = true;
     result.power_status = true;
     result.system_uptime = true;
     return result;
+}
+
+GpuInventoryEvidence MacosTelemetryProvider::gpu_inventory() const noexcept {
+    return macos_gpu_inventory();
 }
 
 } // namespace blackbox::telemetry::macos

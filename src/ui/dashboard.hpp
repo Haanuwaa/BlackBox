@@ -175,6 +175,7 @@ struct DashboardState {
     std::string platform_name{"Unknown"};
     std::string provider_name{"Not configured"};
     std::string provider_status{"Starting"};
+    std::string renderer_backend{"Unavailable"};
     std::string hotkey_status{"Not configured"};
     std::string background_status{"Unavailable"};
     std::string incident_capture_status{"Stopped"};
@@ -236,6 +237,7 @@ struct DashboardState {
     MetricDisplayStatus network_transport_quality_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus gpu_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus gpu_memory_status{MetricDisplayStatus::warming_up};
+    MetricDisplayStatus gpu_inventory_status{MetricDisplayStatus::unsupported};
     MetricDisplayStatus foreground_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus dpc_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus cpu_frequency_status{MetricDisplayStatus::warming_up};
@@ -263,6 +265,11 @@ struct DashboardState {
     double gpu_usage{};
     double gpu_dedicated_memory_mib{};
     double gpu_shared_memory_mib{};
+    std::uint32_t gpu_device_count{};
+    std::uint32_t gpu_integrated_device_count{};
+    std::uint32_t gpu_discrete_device_count{};
+    bool gpu_render_device_available{};
+    bool renderer_active{};
     std::uint32_t foreground_pid{};
     double foreground_gpu_usage{};
     double dpc_usage{};

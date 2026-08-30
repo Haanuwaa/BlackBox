@@ -32,7 +32,7 @@ require_literal("src/telemetry/windows/windows_telemetry_provider.cpp"
     "GPU Engine(*)"
     "implemented Windows GPU provider")
 require_literal("docs/TELEMETRY.md"
-    "Windows implemented V0.14; capability gated"
+    "Windows and capability-driven Linux implemented; macOS explicitly unsupported"
     "capability-gated GPU documentation")
 require_literal("docs/TELEMETRY.md"
     "DPC/ISR responsiveness"

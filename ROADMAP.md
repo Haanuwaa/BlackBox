@@ -2118,6 +2118,9 @@ portable Windows-first product graph.
   Windows Release, static-analysis, sanitizer, and security graphs remain intact
 - [ ] Promote Linux or macOS to a supported product target only after physical desktop integration,
   accessibility, lifecycle, package/install, signing, and support qualification
+- [x] Add capability-driven Linux AMD/NVIDIA whole-device GPU telemetry, privacy-bounded DRM
+  foreground activity, and public non-identifying macOS GPU inventory/renderer evidence without
+  manufacturing cross-platform parity
 - [ ] Consider opt-in anonymous feature-level collective intelligence as a separate privacy-reviewed product
 
 ## Exact next milestone

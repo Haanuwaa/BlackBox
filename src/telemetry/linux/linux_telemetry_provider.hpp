@@ -16,6 +16,7 @@ public:
   [[nodiscard]] ProviderSampleResult
   sample(SamplingRequest request, RawTelemetrySnapshot &destination) override;
   [[nodiscard]] PlatformCapabilities capabilities() const noexcept override;
+  [[nodiscard]] GpuInventoryEvidence gpu_inventory() const noexcept override;
 
 private:
   struct NativeState;

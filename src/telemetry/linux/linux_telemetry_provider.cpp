@@ -2,6 +2,7 @@
 
 #include "telemetry/linux/linux_proc_parser.hpp"
 #include "telemetry/linux/linux_process_collector.hpp"
+#include "telemetry/linux/linux_gpu_collector.hpp"
 #include "telemetry/disk_quality_tracker.hpp"
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/network_interface_tracker.hpp"
@@ -16,6 +17,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netpacket/packet.h>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -366,6 +368,7 @@ struct LinuxTelemetryProvider::NativeState {
   IoCounterTracker<maximum_io_entities> network_tracker{};
   NetworkInterfaceTracker<maximum_io_entities> interface_tracker{};
   LinuxProcessCollector process_collector{};
+  LinuxGpuCollector gpu_collector{};
   MetricValue<ByteCount> disk_read{};
   MetricValue<ByteCount> disk_write{};
   RawDiskQuality disk_quality{};
@@ -430,6 +433,12 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   destination.system.system_uptime = temporary<Seconds>();
   destination.system.cpu_current_mhz = temporary<double>();
   destination.system.cpu_max_mhz = temporary<double>();
+  destination.system.gpu_usage =
+      MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
+  destination.system.gpu_dedicated_memory =
+      MetricValue<ByteCount>::unavailable(MetricStatus::unsupported);
+  destination.system.gpu_shared_memory =
+      MetricValue<ByteCount>::unavailable(MetricStatus::unsupported);
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
   destination.system.foreground_process = request.collect_foreground_application
       ? temporary<ProcessIdentity>()
@@ -502,6 +511,7 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   }
 
   if (request.tiers.contains(SamplingTier::normal)) {
+    std::optional<ProcessIdentity> foreground_identity{};
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
     const auto foreground_pid = request.collect_foreground_application &&
                                         native_state_ != nullptr
@@ -551,12 +561,28 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
       if (match != destination.processes.end()) {
         destination.system.foreground_process =
             MetricValue<ProcessIdentity>::available(match->identity);
+        foreground_identity = match->identity;
       }
     } else if (request.collect_foreground_application) {
       destination.system.foreground_process =
           MetricValue<ProcessIdentity>::unavailable(foreground_pid.status);
     }
 #endif
+    const auto gpu = native_state_->gpu_collector.collect(
+        destination.observed_at, foreground_identity,
+        request.tiers.contains(SamplingTier::slow));
+    destination.system.gpu_usage = gpu.system.busiest_engine_usage;
+    destination.system.gpu_dedicated_memory = gpu.system.dedicated_memory_used;
+    destination.system.foreground_gpu_usage = gpu.foreground_usage;
+    if (native_state_->gpu_collector.supports_system_usage()) {
+      ++attempted;
+      if (!destination.system.gpu_usage.has_value()) ++failed;
+    }
+    if (foreground_identity &&
+        native_state_->gpu_collector.supports_foreground_usage()) {
+      ++attempted;
+      if (!destination.system.foreground_gpu_usage.has_value()) ++failed;
+    }
   }
 
   const auto status = failed == 0U ? ProviderSampleStatus::complete
@@ -580,6 +606,13 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
   result.network_usage = true;
   result.network_connectivity = true;
   result.network_transport_quality = true;
+  result.gpu_usage = native_state_ != nullptr &&
+                     native_state_->gpu_collector.supports_system_usage();
+  result.gpu_memory = native_state_ != nullptr &&
+                      native_state_->gpu_collector.supports_memory();
+  result.gpu_inventory = native_state_ != nullptr;
+  result.foreground_gpu_usage = native_state_ != nullptr &&
+                                native_state_->gpu_collector.supports_foreground_usage();
   result.cpu_frequency = true;
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
   result.foreground_application = true;
@@ -587,6 +620,11 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
   result.power_status = true;
   result.system_uptime = true;
   return result;
+}
+
+GpuInventoryEvidence LinuxTelemetryProvider::gpu_inventory() const noexcept {
+  return native_state_ != nullptr ? native_state_->gpu_collector.inventory()
+                                  : GpuInventoryEvidence{};
 }
 
 } // namespace blackbox::telemetry::linux

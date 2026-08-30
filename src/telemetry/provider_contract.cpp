@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cmath>
+#include <limits>
 
 namespace blackbox::telemetry {
 namespace {
@@ -174,6 +175,35 @@ ProviderContractViolation validate_provider_snapshot_contract(
             if (snapshot.processes[previous].identity == process.identity) {
                 return ProviderContractViolation::duplicate_process_identity;
             }
+        }
+    }
+    return ProviderContractViolation::none;
+}
+
+ProviderContractViolation validate_gpu_inventory_contract(
+    const PlatformCapabilities& capabilities,
+    const GpuInventoryEvidence& inventory) noexcept {
+    if (!capabilities.gpu_inventory) {
+        return inventory.device_count.status == MetricStatus::unsupported &&
+                       inventory.integrated_device_count.status ==
+                           MetricStatus::unsupported &&
+                       inventory.discrete_device_count.status ==
+                           MetricStatus::unsupported &&
+                       inventory.render_device_available.status ==
+                           MetricStatus::unsupported
+                   ? ProviderContractViolation::none
+                   : ProviderContractViolation::capability_status_mismatch;
+    }
+    const bool counts_aligned =
+        inventory.device_count.status == inventory.integrated_device_count.status &&
+        inventory.device_count.status == inventory.discrete_device_count.status;
+    if (!counts_aligned) return ProviderContractViolation::invalid_gpu_inventory;
+    if (inventory.device_count.has_value()) {
+        const auto integrated = inventory.integrated_device_count.value;
+        const auto discrete = inventory.discrete_device_count.value;
+        if (integrated > (std::numeric_limits<std::uint32_t>::max)() - discrete ||
+            integrated + discrete != inventory.device_count.value) {
+            return ProviderContractViolation::invalid_gpu_inventory;
         }
     }
     return ProviderContractViolation::none;

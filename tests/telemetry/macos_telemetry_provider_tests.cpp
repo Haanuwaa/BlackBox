@@ -55,6 +55,7 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK_FALSE(provider.capabilities().disk_queue_depth);
     CHECK(provider.capabilities().network_connectivity);
     CHECK(provider.capabilities().network_transport_quality);
+    CHECK(provider.capabilities().gpu_inventory);
     CHECK(provider.capabilities().power_status);
     CHECK(provider.capabilities().foreground_application);
     CHECK_FALSE(provider.capabilities().gpu_usage);
@@ -68,6 +69,28 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(telemetry::validate_provider_snapshot_contract(
               provider.capabilities(), {}, snapshot) ==
           telemetry::ProviderContractViolation::none);
+}
+
+TEST_CASE("macOS GPU inventory uses public non-identifying Metal evidence",
+          "[telemetry][macos][gpu][privacy]") {
+    core::SystemMonotonicClock clock;
+    macos::MacosTelemetryProvider provider{clock};
+    const auto inventory = provider.gpu_inventory();
+
+    REQUIRE(inventory.device_count.has_value());
+    REQUIRE(inventory.integrated_device_count.has_value());
+    REQUIRE(inventory.discrete_device_count.has_value());
+    REQUIRE(inventory.render_device_available.has_value());
+    CHECK(inventory.device_count.value ==
+          inventory.integrated_device_count.value +
+              inventory.discrete_device_count.value);
+    CHECK(inventory.render_device_available.value ==
+          (inventory.device_count.value != 0U));
+    CHECK(telemetry::validate_gpu_inventory_contract(
+              provider.capabilities(), inventory) ==
+          telemetry::ProviderContractViolation::none);
+    CHECK_FALSE(provider.capabilities().gpu_usage);
+    CHECK_FALSE(provider.capabilities().gpu_memory);
 }
 
 TEST_CASE("macOS process evidence identifies the current executable",

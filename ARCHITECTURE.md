@@ -143,7 +143,7 @@ collector dependency graph.
 
 ## Platform abstraction
 
-Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
+Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network/power/uptime, capability-driven GPU evidence, and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. It exposes public non-identifying Metal inventory and render-device availability, but not passive whole-system GPU utilization. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
 
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
@@ -977,8 +977,10 @@ accessibility, session, power, installer, and long-running qualification exist. 
 values are weighted by their affected CPU membership; the current value retains the kernel's
 requested-policy semantics and is not claimed to be an exact instantaneous hardware clock. The
 generic ACPI platform profile maps only the documented `low-power` state to battery saver; absent or
-unrecognized interfaces remain explicit. Linux GPU and Windows-style responsiveness services remain
-unsupported rather than being inferred or supplied by another module. Linux
+unrecognized interfaces remain explicit. Linux GPU support is capability-driven: documented AMD
+sysfs and optional dynamically loaded NVIDIA NVML provide whole-device gauges, while readable DRM
+`fdinfo` is restricted to privacy-bounded foreground-client activity. Unsupported drivers and
+Windows-style responsiveness services remain explicit rather than being inferred. Linux
 desktop accessibility is a separate `platform/linux` service: requests coalesce on one
 worker, portal calls are bounded, cached values retain per-key availability, and hidden operation sends
 no requests.
@@ -1005,12 +1007,19 @@ and global monitors use the public event-listening permission flow, suppress rep
 never consume the application's event. This is passive delivery rather than conflict-aware shortcut
 reservation, and permission denial is a visible retryable registration result.
 
-GPU and responsiveness research does not add a provider edge or a synthetic metric. Public Metal
-counters instrument GPU work owned by an application, Linux GPU sources are vendor-specific, and
-neither is an exact passive whole-system source for the existing GPU contract. Linux PSI reports
+GPU collection preserves the existing portable values and provider edge. A shared aggregation
+contract selects the busiest available device and checked-sums dedicated memory without exporting
+provider-private identities. Linux confines DRM discovery, AMD sysfs, runtime-loaded NVML, and DRM
+counter lifecycle state to `telemetry/linux`; missing capabilities and permission failures remain
+typed data. DRM client counters are correlated only with the opted-in foreground process and are not
+called whole-system evidence. macOS confines public Metal inventory to `telemetry/macos`, while its
+whole-system and foreground GPU values stay unsupported because public Metal counters instrument only
+work owned by an application. Linux PSI reports
 CPU, memory, and I/O stall pressure, which is useful but not semantically equivalent to Windows
 DPC/ISR usage or rate. Those capabilities therefore stay false until a distinct portable pressure
-contract and direct schema-v1 representation are designed and reviewed.
+contract and direct schema-v1 representation are designed and reviewed. GPU time-series evidence
+reuses existing direct-v1 fields and adds no migration or compatibility path; inventory and live
+renderer health are non-identifying session evidence and are not persisted as incident causality.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

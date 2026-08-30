@@ -35,8 +35,8 @@ This matrix separates portable domain readiness from real collection. Windows so
 | Process working set | `MetricValue<ByteCount>` | bytes | Normal / 1 Hz | `GetProcessMemoryInfo` selected | Limited-query access may fail | Gauge; no delta | Medium across all accessible processes | `/proc/<pid>/status` | `proc_pid_rusage` resident size | Windows/Linux/macOS implemented |
 | Process I/O read | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.ReadTransferCount` selected | Limited-query access may fail | Per-identity cumulative byte delta / measured seconds | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes read | Windows/Linux/macOS implemented |
 | Process I/O write | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.WriteTransferCount` selected | Limited-query access may fail | Same as process read | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes written | Windows/Linux/macOS implemented |
-| GPU engine/memory | `MetricValue<Ratio>` plus two `MetricValue<ByteCount>` gauges | fraction `[0,1]`, bytes | Fast / 1 Hz | Persistent PDH `GPU Engine(*)` and `GPU Adapter Memory(*)` queries | None observed | Busiest physical engine after per-engine process summation; dedicated/shared bytes summed | Optional bounded PDH arrays; measured with provider | DRM/sysfs/vendor candidates | Metal/IOKit candidate | Windows implemented V0.14; capability gated |
-| Foreground application/GPU correlation | `MetricValue<ProcessIdentity>` plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Fast / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | Current `(PID, creation token)` plus maximum matching current-PID engine usage; correlation only | Optional; no title or content read | Desktop/session candidates | Workspace/accessibility candidates | Windows implemented V0.14; privacy gated |
+| GPU engine/memory | `MetricValue<Ratio>` plus two `MetricValue<ByteCount>` gauges | fraction `[0,1]`, bytes | Normal / 1 Hz | Persistent PDH `GPU Engine(*)` and `GPU Adapter Memory(*)` queries | None observed | Busiest physical device/engine; dedicated bytes checked-summed; unsupported siblings remain explicit | Bounded native arrays and optional dynamic vendor API | AMD `gpu_busy_percent`/VRAM sysfs; runtime-loaded NVIDIA NVML | Passive whole-system gauge unavailable | Windows and capability-driven Linux implemented; macOS explicitly unsupported |
+| Foreground application/GPU correlation | `MetricValue<ProcessIdentity>` plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Normal / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | Current `(PID, creation token)` plus maximum matching engine usage; correlation only | Optional; no title, name, bus address, or content retained | X11 identity plus readable DRM `fdinfo` cumulative engine deltas | Workspace identity; GPU value unavailable | Windows and capability-driven Linux DRM implemented; privacy gated |
 | DPC/ISR responsiveness | two `MetricValue<Ratio>` plus `MetricValue<double>` | fractions `[0,1]`, DPC/s | Fast / 1 Hz | Persistent PDH `Processor Information(_Total)` DPC/interrupt counters | None observed | Percentages divided by 100 and clamped; nonnegative rate gauge | Optional bounded PDH query | `/proc/interrupts`/trace candidates | Instruments candidate | Windows implemented V0.14; context only |
 | CPU frequency/thermal limit | four `MetricValue<double/Ratio>` gauges | MHz, fraction `[0,1]` | Normal / 1 Hz | `CallNtPowerInformation(ProcessorInformation)` | None observed | Mean current/max/limit MHz across active processors; limit/max ratio | Low bounded array | sysfs candidates | `sysctl`/IOKit candidates | Windows implemented V0.14; context only |
 | Power/battery/uptime | typed source, battery/saver, uptime gauges | enum, fraction, boolean, seconds | Normal / 1 Hz | `GetSystemPowerStatus`, `GetTickCount64` | None | Direct gauges; unsupported fields remain explicit | Very low | `/sys/class/power_supply`, `/proc/uptime` | IOKit power sources, continuous clock | Windows/Linux/macOS implemented; Linux/macOS battery saver unsupported |
@@ -202,13 +202,27 @@ to the current process sample's creation identity. It never reads a window title
 Wayland sessions return explicit `unsupported`: the public XDG Desktop Portal API has no standardized
 active-window identity interface.
 
-Research did not identify an exact, passive, cross-vendor whole-system GPU source for Linux or macOS.
-Public Metal GPU counters measure command buffers or passes owned by the instrumented application,
-while Linux GPU interfaces are vendor-specific. Neither is relabeled as the existing whole-system
-gauge. Linux Pressure Stall Information is a strong candidate for future CPU/memory/I/O pressure
-evidence, but its stall-time semantics are not Windows DPC/ISR usage or rate. Adding PSI therefore
-requires a new explicit portable pressure contract and direct schema-v1 design; current GPU and
-responsiveness capabilities remain false and their metric values remain `unsupported`.
+Linux GPU collection is capability-driven rather than falsely universal. A bounded inventory scans
+DRM card/render nodes without exporting names, serials, PCI locations, or client identifiers. AMD's
+documented sysfs gauges provide busy percentage and VRAM use. NVIDIA support dynamically loads the
+installed `libnvidia-ml.so.1`; no SDK or driver library becomes a package dependency. Multi-device
+utilization keeps the existing busiest-device semantics and dedicated memory uses a checked sum.
+Missing libraries/files are `unsupported`, permissions are `inaccessible`, malformed/reset/overflow
+observations are temporary, and slow-tier inventory refresh handles device churn.
+
+For Intel and other DRM drivers that publish standardized `fdinfo`, BlackBox reads only the already
+opted-in foreground PID. It retains fixed-capacity one-way identities and cumulative engine counters,
+warms new/replaced clients, rejects resets, removes departed clients, groups activity by engine, and
+emits only the maximum bounded fraction. It never scans window titles or exports PID, client id,
+engine label, or PCI location from this component, and it never presents readable-client coverage as
+whole-system utilization. Wayland foreground identity remains unavailable.
+
+macOS exposes only public, non-identifying Metal inventory counts and default render-device
+availability. The UI separately reports the successfully initialized SDL renderer backend. Public
+Metal counters measure command buffers or passes owned by BlackBox, so passive whole-system and
+foreground GPU utilization remain `unsupported`; private IOReport/IORegistry properties and
+privileged `powermetrics` parsing are not used. Linux PSI remains future pressure evidence, not a
+substitute for Windows DPC/ISR semantics.
 
 ## Deterministic mock scenarios
 

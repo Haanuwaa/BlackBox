@@ -22,6 +22,7 @@ struct PlatformCapabilities {
     bool per_process_network{};
     bool gpu_usage{};
     bool gpu_memory{};
+    bool gpu_inventory{};
     bool foreground_application{};
     bool foreground_gpu_usage{};
     bool dpc_isr{};
@@ -30,6 +31,19 @@ struct PlatformCapabilities {
     bool power_status{};
     bool system_uptime{};
     friend constexpr bool operator==(const PlatformCapabilities&, const PlatformCapabilities&) = default;
+};
+
+// Slow-changing, non-identifying device evidence. Providers must not expose
+// bus addresses, serial numbers, device names, or process identifiers here.
+// This is deliberately separate from the recorded time series: it describes
+// collection/render capability, not incident causality.
+struct GpuInventoryEvidence {
+    MetricValue<std::uint32_t> device_count{};
+    MetricValue<std::uint32_t> integrated_device_count{};
+    MetricValue<std::uint32_t> discrete_device_count{};
+    MetricValue<bool> render_device_available{};
+    friend constexpr bool operator==(const GpuInventoryEvidence&,
+                                     const GpuInventoryEvidence&) = default;
 };
 
 enum class ProviderSampleStatus : std::uint8_t {
@@ -51,6 +65,7 @@ enum class ProviderContractViolation : std::uint8_t {
     invalid_power_evidence,
     invalid_process_identity,
     duplicate_process_identity,
+    invalid_gpu_inventory,
 };
 
 struct ProviderSampleResult {
@@ -74,6 +89,10 @@ public:
         RawTelemetrySnapshot& destination) = 0;
 
     [[nodiscard]] virtual PlatformCapabilities capabilities() const noexcept = 0;
+
+    [[nodiscard]] virtual GpuInventoryEvidence gpu_inventory() const noexcept {
+        return {};
+    }
 };
 
 // Backend-independent conformance check used by provider tests and bring-up tools.
@@ -82,5 +101,9 @@ public:
     const PlatformCapabilities& capabilities,
     SamplingRequest request,
     const RawTelemetrySnapshot& snapshot) noexcept;
+
+[[nodiscard]] ProviderContractViolation validate_gpu_inventory_contract(
+    const PlatformCapabilities& capabilities,
+    const GpuInventoryEvidence& inventory) noexcept;
 
 } // namespace blackbox::telemetry

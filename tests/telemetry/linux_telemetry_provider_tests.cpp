@@ -53,7 +53,14 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(provider.capabilities().disk_queue_depth);
   CHECK(provider.capabilities().disk_service_time);
   CHECK(provider.capabilities().cpu_frequency);
-  CHECK_FALSE(provider.capabilities().gpu_usage);
+  CHECK(provider.capabilities().gpu_inventory);
+  const auto inventory = provider.gpu_inventory();
+  CHECK(inventory.device_count.status != telemetry::MetricStatus::inaccessible);
+  CHECK(telemetry::validate_gpu_inventory_contract(provider.capabilities(), inventory) ==
+        telemetry::ProviderContractViolation::none);
+  if (!provider.capabilities().gpu_usage) {
+    CHECK(second.system.gpu_usage.status == telemetry::MetricStatus::unsupported);
+  }
   CHECK_FALSE(provider.capabilities().dpc_isr);
   CHECK(snapshot.system.foreground_gpu_usage.status ==
         telemetry::MetricStatus::unsupported);

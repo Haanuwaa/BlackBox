@@ -2,6 +2,7 @@
 
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
+#import <Metal/Metal.h>
 
 #include <cstdint>
 #include <limits>
@@ -36,6 +37,33 @@ MetricValue<ProcessId> macos_frontmost_process_id() noexcept {
         }
         return MetricValue<ProcessId>::available(
             ProcessId{static_cast<std::uint32_t>(pid)});
+    }
+}
+
+GpuInventoryEvidence macos_gpu_inventory() noexcept {
+    @autoreleasepool {
+        NSArray<id<MTLDevice>>* devices = MTLCopyAllDevices();
+        if (devices == nil || devices.count >
+                static_cast<NSUInteger>(std::numeric_limits<std::uint32_t>::max())) {
+            return {};
+        }
+        std::uint32_t integrated{};
+        std::uint32_t discrete{};
+        for (id<MTLDevice> device in devices) {
+            if (device == nil) continue;
+            if (device.lowPower != NO) ++integrated;
+            else ++discrete;
+        }
+        const auto count = integrated + discrete;
+        GpuInventoryEvidence result{};
+        result.device_count = MetricValue<std::uint32_t>::available(count);
+        result.integrated_device_count =
+            MetricValue<std::uint32_t>::available(integrated);
+        result.discrete_device_count =
+            MetricValue<std::uint32_t>::available(discrete);
+        result.render_device_available = MetricValue<bool>::available(
+            MTLCreateSystemDefaultDevice() != nil);
+        return result;
     }
 }
 

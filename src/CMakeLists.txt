@@ -99,6 +99,7 @@ add_library(blackbox_telemetry STATIC
     telemetry/collector.cpp
     telemetry/collection_timing.cpp
     telemetry/event_collector.cpp
+    telemetry/gpu_aggregation.cpp
     telemetry/incident_snapshot_builder.cpp
     telemetry/linux/linux_proc_parser.cpp
     telemetry/linux/linux_uevent_parser.cpp
@@ -131,6 +132,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     endif()
     find_package(X11 QUIET)
     add_library(blackbox_telemetry_linux STATIC
+        telemetry/linux/linux_gpu_collector.cpp
+        telemetry/linux/linux_gpu_parser.cpp
         telemetry/linux/linux_process_collector.cpp
         telemetry/linux/linux_system_event_provider.cpp
         telemetry/linux/linux_telemetry_provider.cpp
@@ -139,6 +142,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_include_directories(blackbox_telemetry_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_telemetry_linux PUBLIC cxx_std_23)
     target_link_libraries(blackbox_telemetry_linux PUBLIC BlackBox::Telemetry)
+    target_link_libraries(blackbox_telemetry_linux PRIVATE ${CMAKE_DL_LIBS})
     if(X11_FOUND)
         target_sources(blackbox_telemetry_linux PRIVATE
             telemetry/linux/linux_x11_foreground_reader.cpp)
@@ -161,6 +165,7 @@ if(APPLE)
     find_library(BLACKBOX_CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
     find_library(BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK Foundation REQUIRED)
     find_library(BLACKBOX_IOKIT_FRAMEWORK IOKit REQUIRED)
+    find_library(BLACKBOX_METAL_FRAMEWORK Metal REQUIRED)
     add_library(blackbox_telemetry_macos STATIC
         telemetry/macos/macos_process_collector.cpp
         telemetry/macos/macos_system_state.mm
@@ -178,7 +183,8 @@ if(APPLE)
         ${BLACKBOX_TELEMETRY_APPKIT_FRAMEWORK}
         ${BLACKBOX_CORE_FOUNDATION_FRAMEWORK}
         ${BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK}
-        ${BLACKBOX_IOKIT_FRAMEWORK})
+        ${BLACKBOX_IOKIT_FRAMEWORK}
+        ${BLACKBOX_METAL_FRAMEWORK})
     blackbox_set_project_warnings(blackbox_telemetry_macos)
 endif()
 

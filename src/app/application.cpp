@@ -429,6 +429,31 @@ ApplicationInitializationResult Application::initialize() {
 
     dashboard_state_.platform_name = BLACKBOX_PLATFORM_NAME;
     dashboard_state_.provider_name = provider_name_;
+    const auto* renderer_name = SDL_GetRendererName(renderer_);
+    dashboard_state_.renderer_backend = renderer_name != nullptr
+        ? renderer_name : "Unknown";
+    dashboard_state_.renderer_active = imgui_renderer_backend_initialized_;
+    const auto gpu_inventory = telemetry_provider_->gpu_inventory();
+    dashboard_state_.gpu_inventory_status =
+        display_status(gpu_inventory.device_count.status);
+    if (gpu_inventory.device_count.has_value()) {
+        dashboard_state_.gpu_device_count = gpu_inventory.device_count.value;
+    }
+    if (gpu_inventory.integrated_device_count.has_value()) {
+        dashboard_state_.gpu_integrated_device_count =
+            gpu_inventory.integrated_device_count.value;
+    }
+    if (gpu_inventory.discrete_device_count.has_value()) {
+        dashboard_state_.gpu_discrete_device_count =
+            gpu_inventory.discrete_device_count.value;
+    }
+    if (gpu_inventory.render_device_available.has_value()) {
+        dashboard_state_.gpu_render_device_available =
+            gpu_inventory.render_device_available.value;
+    }
+    core::Logger::write(core::LogLevel::info,
+        std::string{"Renderer initialized: backend="} +
+        dashboard_state_.renderer_backend);
     dashboard_state_.background_status = background_status_text_;
     dashboard_state_.accessibility_high_contrast = high_contrast_enabled_;
     dashboard_state_.accessibility_animations_enabled = animations_enabled_;
@@ -1012,6 +1037,20 @@ void Application::refresh_dashboard_if_due() {
 
     refresh_accessibility_if_due();
     const auto diagnostics = collector_->diagnostics();
+    const auto gpu_inventory = telemetry_provider_->gpu_inventory();
+    dashboard_state_.gpu_inventory_status =
+        display_status(gpu_inventory.device_count.status);
+    if (gpu_inventory.device_count.has_value()) {
+        dashboard_state_.gpu_device_count = gpu_inventory.device_count.value;
+        dashboard_state_.gpu_integrated_device_count =
+            gpu_inventory.integrated_device_count.value;
+        dashboard_state_.gpu_discrete_device_count =
+            gpu_inventory.discrete_device_count.value;
+    }
+    if (gpu_inventory.render_device_available.has_value()) {
+        dashboard_state_.gpu_render_device_available =
+            gpu_inventory.render_device_available.value;
+    }
     dashboard_state_.display_scale = SDL_GetWindowDisplayScale(window_);
     const auto snapshot = collector_->snapshot(ui::dashboard_history_capacity);
     auto active_processes = collector_->active_process_snapshot();
