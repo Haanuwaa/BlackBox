@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dependency-policy-sbom:
     runs-on: windows-2022
@@ -88,6 +92,7 @@ jobs:
 
   codeql:
     runs-on: windows-2022
+    timeout-minutes: 60
     permissions:
       contents: read
       security-events: write
@@ -96,6 +101,18 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bootstrap pinned vcpkg registry
+        shell: pwsh
+        run: |
+          git init "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+      - name: Resolve production dependencies outside CodeQL tracing
+        shell: pwsh
+        run: >-
+          cmake --preset windows-msvc-release -DBLACKBOX_BUILD_TESTS=OFF
       - name: Initialize CodeQL C++ analysis
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
@@ -107,21 +124,12 @@ jobs:
           # security-and-quality suite here uploads test-registration and vendored
           # header style notes as security alerts.
           queries: security-extended
-      - name: Bootstrap pinned vcpkg registry
+      - name: Build observed production graph
         shell: pwsh
         run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
-      - name: Configure and build observed graph
-        shell: pwsh
-        run: |
-          # CodeQL observes every production translation unit. Tests, fixtures,
-          # and benchmarks have dedicated MSVC analysis, sanitizer, coverage,
-          # property, fuzz, and execution jobs and must not inflate this database.
-          cmake --preset windows-msvc-release -DBLACKBOX_BUILD_TESTS=OFF
+          # Dependencies were resolved before tracing. CodeQL now observes every
+          # BlackBox production translation unit and no third-party package build.
+          # Tests, fixtures, and benchmarks retain their dedicated quality jobs.
           cmake --build --preset windows-msvc-release --config Release --parallel --target `
             blackbox `
             blackbox_dataset_tool `

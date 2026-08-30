@@ -18,7 +18,10 @@ not introduce migrations, compatibility adapters, or legacy fixtures.
   their production dependencies are already traced and their own code is covered by warnings-as-
   errors, MSVC native analysis, sanitizers, coverage, property tests, fuzzing, and execution. Broad
   CodeQL quality queries are intentionally excluded from the Security tab because they report test-
-  registration helpers and generated dependency headers;
+  registration helpers and generated dependency headers. Pinned third-party packages are resolved
+  before CodeQL initialization, so manual tracing observes only the subsequent six-target BlackBox
+  production build. A 60-minute job timeout fails closed, and same-workflow/same-ref concurrency
+  cancels superseded runs instead of allowing obsolete scans to consume runner capacity;
 - MSVC native `/analyze` with warnings treated as errors across product and test translation units;
 - Windows AddressSanitizer across the app and test graph;
 - Linux UndefinedBehaviorSanitizer for the portable headless graph;

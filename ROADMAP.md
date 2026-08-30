@@ -2189,3 +2189,11 @@ covered by their own quality jobs. Hosted quality/security run `33288332585` pas
 build fell from 27:58 to 19:04 and analysis from 16:18 to 13:56. The extended security query suite,
 all production translation units, and every separate test-quality gate remain enabled; this is CI-only
 scope control, not a runtime, direct-v1, telemetry, diagnostic, or release-gate relaxation.
+
+A second CodeQL efficiency pass keeps the same `security-extended` query suite and six production
+targets but resolves pinned third-party dependencies before initializing manual build tracing. This
+prevents package compilation from entering the BlackBox database while preserving every production
+translation unit. The quality workflow now cancels superseded runs for the same ref and fails a
+nonterminal CodeQL job after 60 minutes. The quality-gate contract pins dependency-before-init-before-
+build ordering, target count, query depth, cancellation, and timeout. Hosted wall-time comparison is
+required before claiming an additional speedup.

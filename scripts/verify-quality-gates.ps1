@@ -68,8 +68,23 @@ Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
 Require-Text $workflow 'queries: security-extended' 'extended CodeQL security query suite'
 Reject-Text $workflow 'queries:\s*[^\r\n]*security-and-quality' `
     'broad CodeQL quality suite in security alert output'
+Require-Text $workflow 'group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}' `
+    'same-workflow same-ref concurrency group'
+Require-Text $workflow 'cancel-in-progress: true' 'obsolete workflow cancellation'
+Require-Text $codeqlWorkflow 'timeout-minutes: 60' 'bounded CodeQL wall time'
 Require-Text $codeqlWorkflow 'build-mode: manual' 'manual compiled-language CodeQL build mode'
 Require-Text $codeqlWorkflow 'BLACKBOX_BUILD_TESTS=OFF' 'production-only CodeQL graph'
+$dependencyStep = $codeqlWorkflow.IndexOf(
+    '- name: Resolve production dependencies outside CodeQL tracing',
+    [StringComparison]::Ordinal)
+$initializationStep = $codeqlWorkflow.IndexOf(
+    '- name: Initialize CodeQL C++ analysis', [StringComparison]::Ordinal)
+$productionBuildStep = $codeqlWorkflow.IndexOf(
+    '- name: Build observed production graph', [StringComparison]::Ordinal)
+if ($dependencyStep -lt 0 -or $initializationStep -le $dependencyStep -or
+    $productionBuildStep -le $initializationStep) {
+    throw 'Quality gate contract failed: CodeQL must resolve dependencies before tracing the production build'
+}
 foreach ($target in @(
     'blackbox',
     'blackbox_dataset_tool',
@@ -102,4 +117,4 @@ foreach ($path in @(
     }
 }
 
-Write-Output 'Quality gate contract verified: asan=1 ubsan=1 msvc_analysis=1 fuzz=1 property=2 dependency_review=1 codeql_production_targets=6 sbom=1 coverage=60/45'
+Write-Output 'Quality gate contract verified: asan=1 ubsan=1 msvc_analysis=1 fuzz=1 property=2 dependency_review=1 codeql_production_targets=6 codeql_dependency_prime=1 codeql_concurrency=1 sbom=1 coverage=60/45'
