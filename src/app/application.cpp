@@ -22,6 +22,7 @@
 #elif defined(__APPLE__)
 #include "platform/macos/macos_accessibility.hpp"
 #include "platform/macos/macos_background_shell.hpp"
+#include "platform/macos/macos_global_hotkey_manager.hpp"
 #include "platform/posix/posix_crash_diagnostics.hpp"
 #include "telemetry/macos/macos_telemetry_provider.hpp"
 #include "telemetry/macos/macos_system_event_provider.hpp"
@@ -454,6 +455,9 @@ ApplicationInitializationResult Application::initialize() {
 #elif defined(__linux__)
     hotkey_manager_ = std::make_unique<platform::linux::LinuxGlobalHotkeyManager>();
     static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
+#elif defined(__APPLE__)
+    hotkey_manager_ = std::make_unique<platform::macos::MacosGlobalHotkeyManager>();
+    static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
 #endif
     dashboard_state_.hotkey_status = hotkey_status_;
 
@@ -843,7 +847,13 @@ bool Application::register_configured_hotkey(
     if (combination.control) name += "Ctrl+";
     if (combination.shift) name += "Shift+";
     if (combination.alt) name += "Alt+";
-    if (combination.windows) name += "Win+";
+    if (combination.windows) {
+#if defined(__APPLE__)
+        name += "Cmd+";
+#else
+        name += "Win+";
+#endif
+    }
     name += "F" + std::to_string(static_cast<unsigned>(combination.key));
     switch (result) {
     case platform::HotkeyRegistrationResult::registered:
@@ -851,6 +861,10 @@ bool Application::register_configured_hotkey(
         return true;
     case platform::HotkeyRegistrationResult::conflict:
         hotkey_status_ = name + " is already in use";
+        break;
+    case platform::HotkeyRegistrationResult::permission_required:
+        hotkey_status_ =
+            "Input Monitoring permission required; grant access and apply again";
         break;
     case platform::HotkeyRegistrationResult::unavailable:
         hotkey_status_ = "Hotkey registration unavailable";
@@ -910,7 +924,7 @@ void Application::apply_product_settings(
         return;
     }
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
     if (proposed.incident_hotkey != product_settings_.incident_hotkey) {
         hotkey_manager_->unregister_hotkey();
         if (!register_configured_hotkey(proposed.incident_hotkey)) {

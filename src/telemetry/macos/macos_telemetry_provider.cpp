@@ -3,6 +3,7 @@
 #include "telemetry/disk_quality_tracker.hpp"
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/macos/macos_process_collector.hpp"
+#include "telemetry/macos/macos_system_state.hpp"
 #include "telemetry/network_interface_tracker.hpp"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -330,6 +331,7 @@ struct MacosTelemetryProvider::NativeState {
         }
         destination.system.power_source =
             MetricValue<PowerSource>::available(power_source);
+        destination.system.battery_saver = macos_low_power_mode();
 
         CFArrayRef sources = IOPSCopyPowerSourcesList(snapshot);
         if (sources != nullptr) {
@@ -420,9 +422,13 @@ ProviderSampleResult MacosTelemetryProvider::sample(
         MetricValue<std::uint64_t>::unavailable(MetricStatus::unsupported);
     destination.system.power_source = temporary<PowerSource>();
     destination.system.battery_fraction = temporary<Ratio>();
-    destination.system.battery_saver =
-        MetricValue<bool>::unavailable(MetricStatus::unsupported);
+    destination.system.battery_saver = temporary<bool>();
     destination.system.system_uptime = temporary<Seconds>();
+    destination.system.foreground_process = request.collect_foreground_application
+        ? temporary<ProcessIdentity>()
+        : MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+    destination.system.foreground_gpu_usage =
+        MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
     std::uint32_t attempted{};
     std::uint32_t failed{};
 
@@ -441,6 +447,9 @@ ProviderSampleResult MacosTelemetryProvider::sample(
         if (native_state_ == nullptr || !native_state_->read_uptime(destination)) ++failed;
     }
     if (request.tiers.contains(SamplingTier::normal)) {
+        const auto foreground_pid = request.collect_foreground_application
+            ? macos_frontmost_process_id()
+            : MetricValue<ProcessId>::unavailable(MetricStatus::unsupported);
         destination.system.memory_total = temporary<ByteCount>();
         destination.system.memory_available = temporary<ByteCount>();
         ++attempted;
@@ -453,6 +462,20 @@ ProviderSampleResult MacosTelemetryProvider::sample(
                 true, request.tiers.contains(SamplingTier::slow), destination) !=
                 MetricStatus::available) {
             ++failed;
+        }
+        if (foreground_pid.has_value()) {
+            const auto match = std::find_if(
+                destination.processes.begin(), destination.processes.end(),
+                [pid = foreground_pid.value](const RawProcessCounters& process) {
+                    return process.identity.pid == pid;
+                });
+            if (match != destination.processes.end()) {
+                destination.system.foreground_process =
+                    MetricValue<ProcessIdentity>::available(match->identity);
+            }
+        } else if (request.collect_foreground_application) {
+            destination.system.foreground_process =
+                MetricValue<ProcessIdentity>::unavailable(foreground_pid.status);
         }
     }
 
@@ -476,6 +499,7 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.network_usage = true;
     result.network_connectivity = true;
     result.network_transport_quality = true;
+    result.foreground_application = true;
     result.power_status = true;
     result.system_uptime = true;
     return result;

@@ -45,6 +45,7 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(snapshot.system.network_quality.tcp_established_resets.status ==
           telemetry::MetricStatus::unsupported);
     CHECK(snapshot.system.power_source.has_value());
+    CHECK(snapshot.system.battery_saver.has_value());
     CHECK(snapshot.system.system_uptime.has_value());
     CHECK(snapshot.system.system_uptime.value.value >= 0.0);
     CHECK(provider.capabilities().network_usage);
@@ -55,6 +56,13 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(provider.capabilities().network_connectivity);
     CHECK(provider.capabilities().network_transport_quality);
     CHECK(provider.capabilities().power_status);
+    CHECK(provider.capabilities().foreground_application);
+    CHECK_FALSE(provider.capabilities().gpu_usage);
+    CHECK_FALSE(provider.capabilities().dpc_isr);
+    CHECK(snapshot.system.foreground_process.status !=
+          telemetry::MetricStatus::unsupported);
+    CHECK(snapshot.system.foreground_gpu_usage.status ==
+          telemetry::MetricStatus::unsupported);
     CHECK(provider.capabilities().system_uptime);
     CHECK_FALSE(snapshot.processes.empty());
     CHECK(telemetry::validate_provider_snapshot_contract(

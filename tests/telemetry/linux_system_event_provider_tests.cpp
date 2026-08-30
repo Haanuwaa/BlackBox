@@ -27,7 +27,7 @@ TEST_CASE("Linux event provider exposes bounded native capabilities",
     linux_telemetry::LinuxSystemEventProvider provider;
     const auto capabilities = provider.capabilities();
     CHECK(capabilities.device_events);
-#if defined(BLACKBOX_TEST_HAS_DBUS)
+#if defined(BLACKBOX_HAS_DBUS)
     CHECK(capabilities.power_events);
 #else
     CHECK_FALSE(capabilities.power_events);

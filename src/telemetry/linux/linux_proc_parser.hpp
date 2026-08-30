@@ -106,6 +106,15 @@ parse_proc_net_snmp(std::string_view contents) noexcept;
 [[nodiscard]] std::expected<Seconds, ProcParseError>
 parse_proc_uptime(std::string_view contents) noexcept;
 
+[[nodiscard]] std::expected<double, ProcParseError>
+parse_sysfs_frequency_mhz(std::string_view contents) noexcept;
+
+[[nodiscard]] std::expected<std::uint32_t, ProcParseError>
+parse_sysfs_cpu_list_count(std::string_view contents) noexcept;
+
+[[nodiscard]] std::expected<bool, ProcParseError>
+parse_linux_low_power_profile(std::string_view contents) noexcept;
+
 [[nodiscard]] std::expected<ProcPowerSupplySnapshot, ProcParseError>
 parse_power_supply_uevent(std::string_view contents) noexcept;
 

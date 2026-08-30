@@ -17,14 +17,15 @@ qualified.
 | System disk/network throughput | Native | Native `/proc` and `/sys` | Native BSD interfaces and IOKit block-driver statistics |
 | Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
-| GPU, foreground, and responsiveness evidence | Native, capability-gated | Open | Open |
-| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime; battery saver and frequency/thermal open | Native power/battery/uptime; battery saver and frequency/thermal open |
+| Foreground-application evidence | Native, capability-gated | Privacy-bounded X11 EWMH PID correlated to process creation identity; Wayland explicitly unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
+| GPU and responsiveness evidence | Native, capability-gated | GPU explicitly unsupported; PSI is promising pressure evidence but is not DPC/ISR and needs a distinct portable contract | GPU explicitly unsupported; public Metal counters are app-owned, not passive whole-system evidence |
+| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal open | Native power/battery/uptime and Low Power Mode; CPU frequency/thermal open |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free kernel device add/remove context | Identifier-free IOKit storage-media add/remove context |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
 | Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
-| Global incident shortcut | Native registration | XDG GlobalShortcuts portal | Open; no legacy Carbon fallback |
+| Global incident shortcut | Native registration | XDG GlobalShortcuts portal | AppKit global/local key monitor with Input Monitoring permission; passive and not conflict-aware |
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM | Native `.app` in unsigned TGZ |
@@ -38,19 +39,19 @@ qualified.
    graphs, then physically exercise them during later desktop qualification. They use the existing
    independently scheduled, fixed-capacity event boundary, request cadence resynchronization, and do
    not manufacture incidents or rely on monotonic clocks that may pause during sleep.
-2. Decide the macOS global-shortcut product flow around current accessibility permission requirements.
-   A passive Quartz event tap is technically available but is not equivalent to conflict-aware shortcut
-   registration and must not be enabled merely to fill a table cell.
-3. Add macOS Low Power Mode and research bounded Linux CPU-frequency/power-profile evidence. Thermal
-   states must not be forced into the existing CPU-frequency-limit fields when their semantics differ.
-4. Add foreground-application evidence only where a stable process identity is available without window
-   titles: macOS and X11 are candidates, while Wayland must remain explicitly unavailable unless a
-   standardized permission-aware interface exists.
-5. Research native Linux/macOS GPU and responsiveness evidence; add
-   only sources whose semantics and collection cost satisfy the existing portable contracts.
-6. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
+2. Physically validate macOS Input Monitoring onboarding, denial/retry, local/global delivery, function-
+   key behavior, and app restart. The AppKit monitor is intentionally labeled passive because it cannot
+   detect conflicts or reserve the combination like Windows/XDG registration.
+3. Physically validate Linux CPU-frequency/profile coverage across governors and hardware, macOS Low
+   Power Mode transitions, and privacy-bounded foreground identity on macOS and X11. Wayland remains
+   unsupported because its public portal API has no standardized active-window interface.
+4. Design a separate portable pressure/responsiveness contract before considering Linux PSI. CPU,
+   memory, and I/O stall pressure must not be relabeled as Windows DPC/ISR activity. Keep passive
+   Linux/macOS whole-system GPU evidence unsupported until a documented cross-vendor public source
+   satisfies exact semantics and bounded background collection cost.
+5. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
    background, notification, autostart, package, sleep/resume, and shortcut boundaries.
-7. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
+6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
    campaigns, then design signed/notarized distribution. Hosted compilation alone cannot establish
    product support.
 
@@ -75,4 +76,14 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)
 - [XDG Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
 - [Apple Quartz event taps](https://developer.apple.com/documentation/coregraphics/cgevent/tapcreate%28tap%3Aplace%3Aoptions%3Aeventsofinterest%3Acallback%3Auserinfo%3A%29)
+- [Apple AppKit global event monitors](https://developer.apple.com/documentation/appkit/nsevent/addglobalmonitorforevents%28matching%3Ahandler%3A%29)
+- [Apple event-listening permission](https://developer.apple.com/forums/thread/811443)
+- [Apple `NSWorkspace.frontmostApplication`](https://developer.apple.com/documentation/appkit/nsworkspace/frontmostapplication)
+- [Apple Low Power Mode notifications](https://developer.apple.com/documentation/xcode/responding-to-power-notifications)
+- [Apple Metal GPU counters](https://developer.apple.com/documentation/metal/gpu-counters-and-counter-sample-buffers)
+- [Linux CPUFreq sysfs policy](https://docs.kernel.org/admin-guide/pm/cpufreq.html)
+- [Linux platform profile](https://docs.kernel.org/userspace-api/sysfs-platform_profile.html)
+- [Linux Pressure Stall Information](https://docs.kernel.org/accounting/psi.html)
+- [Extended Window Manager Hints](https://specifications.freedesktop.org/wm/latest-single/)
+- [XDG Desktop Portal API reference](https://flatpak.github.io/xdg-desktop-portal/docs/api-reference.html)
 - [Apple system sleep/wake notifications](https://developer.apple.com/library/archive/qa/qa1340/_index.html)

@@ -129,6 +129,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(PkgConfig_FOUND)
         pkg_check_modules(BLACKBOX_DBUS QUIET IMPORTED_TARGET dbus-1)
     endif()
+    find_package(X11 QUIET)
     add_library(blackbox_telemetry_linux STATIC
         telemetry/linux/linux_process_collector.cpp
         telemetry/linux/linux_system_event_provider.cpp
@@ -138,8 +139,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_include_directories(blackbox_telemetry_linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_telemetry_linux PUBLIC cxx_std_23)
     target_link_libraries(blackbox_telemetry_linux PUBLIC BlackBox::Telemetry)
+    if(X11_FOUND)
+        target_sources(blackbox_telemetry_linux PRIVATE
+            telemetry/linux/linux_x11_foreground_reader.cpp)
+        target_compile_definitions(blackbox_telemetry_linux PUBLIC
+            BLACKBOX_HAS_X11_FOREGROUND=1)
+        target_link_libraries(blackbox_telemetry_linux PRIVATE X11::X11)
+    endif()
     if(TARGET PkgConfig::BLACKBOX_DBUS)
-        target_compile_definitions(blackbox_telemetry_linux PRIVATE
+        target_compile_definitions(blackbox_telemetry_linux PUBLIC
             BLACKBOX_HAS_DBUS=1)
         target_link_libraries(blackbox_telemetry_linux PRIVATE
             PkgConfig::BLACKBOX_DBUS)
@@ -149,20 +157,27 @@ endif()
 
 if(APPLE)
     find_library(BLACKBOX_LIBPROC_LIBRARY proc REQUIRED)
+    find_library(BLACKBOX_TELEMETRY_APPKIT_FRAMEWORK AppKit REQUIRED)
     find_library(BLACKBOX_CORE_FOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+    find_library(BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK Foundation REQUIRED)
     find_library(BLACKBOX_IOKIT_FRAMEWORK IOKit REQUIRED)
     add_library(blackbox_telemetry_macos STATIC
         telemetry/macos/macos_process_collector.cpp
+        telemetry/macos/macos_system_state.mm
         telemetry/macos/macos_system_event_provider.cpp
         telemetry/macos/macos_telemetry_provider.cpp
     )
     add_library(BlackBox::TelemetryMacos ALIAS blackbox_telemetry_macos)
     target_include_directories(blackbox_telemetry_macos PUBLIC ${PROJECT_SOURCE_DIR}/src)
     target_compile_features(blackbox_telemetry_macos PUBLIC cxx_std_23)
+    target_compile_options(blackbox_telemetry_macos PRIVATE
+        $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
     target_link_libraries(blackbox_telemetry_macos PUBLIC BlackBox::Telemetry)
     target_link_libraries(blackbox_telemetry_macos PRIVATE
         ${BLACKBOX_LIBPROC_LIBRARY}
+        ${BLACKBOX_TELEMETRY_APPKIT_FRAMEWORK}
         ${BLACKBOX_CORE_FOUNDATION_FRAMEWORK}
+        ${BLACKBOX_TELEMETRY_FOUNDATION_FRAMEWORK}
         ${BLACKBOX_IOKIT_FRAMEWORK})
     blackbox_set_project_warnings(blackbox_telemetry_macos)
 endif()
@@ -195,12 +210,14 @@ endif()
 
 if(APPLE AND BLACKBOX_BUILD_APP)
     find_library(BLACKBOX_APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(BLACKBOX_CORE_GRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
     find_library(BLACKBOX_FOUNDATION_FRAMEWORK Foundation REQUIRED)
     find_library(BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK ServiceManagement REQUIRED)
     find_library(BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK UserNotifications REQUIRED)
     add_library(blackbox_platform_macos STATIC
         platform/macos/macos_accessibility.mm
         platform/macos/macos_background_shell.mm
+        platform/macos/macos_global_hotkey_manager.mm
         platform/posix/posix_crash_diagnostics.cpp
     )
     add_library(BlackBox::PlatformMacos ALIAS blackbox_platform_macos)
@@ -212,6 +229,7 @@ if(APPLE AND BLACKBOX_BUILD_APP)
     target_link_libraries(blackbox_platform_macos PRIVATE
         SDL3::SDL3
         ${BLACKBOX_APPKIT_FRAMEWORK}
+        ${BLACKBOX_CORE_GRAPHICS_FRAMEWORK}
         ${BLACKBOX_FOUNDATION_FRAMEWORK}
         ${BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK}
         ${BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK})

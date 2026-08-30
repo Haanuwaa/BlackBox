@@ -144,6 +144,38 @@ TEST_CASE("Linux TCP uptime and power parsers fail closed on malformed input",
                   .has_value());
 }
 
+TEST_CASE("Linux CPU frequency and platform profile parsers preserve exact units",
+          "[telemetry][linux][power]") {
+  const auto frequency =
+      linux_telemetry::parse_sysfs_frequency_mhz("2387500\n");
+  REQUIRE(frequency.has_value());
+  CHECK(*frequency == Catch::Approx{2387.5});
+
+  const auto cpus = linux_telemetry::parse_sysfs_cpu_list_count("0-3 8 10-11\n");
+  REQUIRE(cpus.has_value());
+  CHECK(*cpus == 7U);
+
+  REQUIRE(linux_telemetry::parse_linux_low_power_profile("low-power\n")
+              .has_value());
+  CHECK(*linux_telemetry::parse_linux_low_power_profile("low-power\n"));
+  REQUIRE(linux_telemetry::parse_linux_low_power_profile("balanced\n")
+              .has_value());
+  CHECK_FALSE(*linux_telemetry::parse_linux_low_power_profile("balanced\n"));
+}
+
+TEST_CASE("Linux CPU frequency and platform profile parsers fail closed",
+          "[telemetry][linux][power]") {
+  CHECK_FALSE(linux_telemetry::parse_sysfs_frequency_mhz("0\n").has_value());
+  CHECK_FALSE(linux_telemetry::parse_sysfs_frequency_mhz("2000 extra\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_sysfs_cpu_list_count("0-3 3-4\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_sysfs_cpu_list_count("4-2\n")
+                  .has_value());
+  CHECK_FALSE(linux_telemetry::parse_linux_low_power_profile("vendor-turbo\n")
+                  .has_value());
+}
+
 TEST_CASE("Linux process parsers retain stable identity memory and I O",
           "[telemetry][linux]") {
   const auto process = linux_telemetry::parse_proc_pid_stat(

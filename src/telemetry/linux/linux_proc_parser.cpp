@@ -439,6 +439,81 @@ parse_proc_uptime(std::string_view contents) noexcept {
   return Seconds{*uptime};
 }
 
+std::expected<double, ProcParseError>
+parse_sysfs_frequency_mhz(std::string_view contents) noexcept {
+  const auto line = trim_horizontal(next_line(contents));
+  while (!contents.empty()) {
+    if (!trim_horizontal(next_line(contents)).empty()) {
+      return std::unexpected{ProcParseError::invalid_number};
+    }
+  }
+  const auto frequency_khz = parse_unsigned(line);
+  if (!frequency_khz) return std::unexpected{frequency_khz.error()};
+  if (*frequency_khz == 0U || *frequency_khz > 100'000'000U) {
+    return std::unexpected{ProcParseError::invalid_relationship};
+  }
+  return static_cast<double>(*frequency_khz) / 1'000.0;
+}
+
+std::expected<std::uint32_t, ProcParseError>
+parse_sysfs_cpu_list_count(std::string_view contents) noexcept {
+  const auto line = trim_horizontal(next_line(contents));
+  while (!contents.empty()) {
+    if (!trim_horizontal(next_line(contents)).empty()) {
+      return std::unexpected{ProcParseError::invalid_number};
+    }
+  }
+  if (line.empty()) return std::unexpected{ProcParseError::missing_field};
+  std::uint64_t total{};
+  std::uint64_t previous_end{};
+  bool have_previous{};
+  auto remaining = line;
+  while (!remaining.empty()) {
+    const auto separator = remaining.find_first_of(" \t");
+    const auto token = remaining.substr(0U, separator);
+    const auto dash = token.find('-');
+    const auto first = parse_unsigned(token.substr(0U, dash));
+    const auto last = dash == std::string_view::npos
+                          ? first
+                          : parse_unsigned(token.substr(dash + 1U));
+    if (!first) return std::unexpected{first.error()};
+    if (!last) return std::unexpected{last.error()};
+    if (*last < *first || (have_previous && *first <= previous_end)) {
+      return std::unexpected{ProcParseError::invalid_relationship};
+    }
+    const auto span = *last - *first + 1U;
+    if (!checked_add(total, span) ||
+        total > std::numeric_limits<std::uint32_t>::max()) {
+      return std::unexpected{ProcParseError::overflow};
+    }
+    previous_end = *last;
+    have_previous = true;
+    remaining = separator == std::string_view::npos
+                    ? std::string_view{}
+                    : trim_horizontal(remaining.substr(separator));
+  }
+  return static_cast<std::uint32_t>(total);
+}
+
+std::expected<bool, ProcParseError>
+parse_linux_low_power_profile(std::string_view contents) noexcept {
+  const auto profile = trim_horizontal(next_line(contents));
+  while (!contents.empty()) {
+    if (!trim_horizontal(next_line(contents)).empty()) {
+      return std::unexpected{ProcParseError::invalid_number};
+    }
+  }
+  if (profile == "low-power") return true;
+  constexpr std::array<std::string_view, 6U> non_saver_profiles{
+      "cool", "quiet", "balanced", "balanced-performance", "performance",
+      "custom"};
+  if (std::find(non_saver_profiles.begin(), non_saver_profiles.end(), profile) !=
+      non_saver_profiles.end()) {
+    return false;
+  }
+  return std::unexpected{ProcParseError::invalid_number};
+}
+
 std::expected<ProcPowerSupplySnapshot, ProcParseError>
 parse_power_supply_uevent(std::string_view contents) noexcept {
   ProcPowerSupplySnapshot result{};

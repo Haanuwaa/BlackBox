@@ -52,6 +52,18 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(provider.capabilities().disk_latency);
   CHECK(provider.capabilities().disk_queue_depth);
   CHECK(provider.capabilities().disk_service_time);
+  CHECK(provider.capabilities().cpu_frequency);
+  CHECK_FALSE(provider.capabilities().gpu_usage);
+  CHECK_FALSE(provider.capabilities().dpc_isr);
+  CHECK(snapshot.system.foreground_gpu_usage.status ==
+        telemetry::MetricStatus::unsupported);
+  CHECK(second.system.cpu_current_mhz.status !=
+        telemetry::MetricStatus::inaccessible);
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+  CHECK(provider.capabilities().foreground_application);
+#else
+  CHECK_FALSE(provider.capabilities().foreground_application);
+#endif
   CHECK(telemetry::validate_provider_snapshot_contract(provider.capabilities(),
                                                        request, second) ==
         telemetry::ProviderContractViolation::none);

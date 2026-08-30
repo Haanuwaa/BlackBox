@@ -35,6 +35,7 @@ inline constexpr HotkeyCombination default_incident_hotkey{};
 enum class HotkeyRegistrationResult : std::uint8_t {
     registered,
     conflict,
+    permission_required,
     unavailable,
     invalid_combination,
 };

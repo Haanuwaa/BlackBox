@@ -153,8 +153,8 @@ outgoing original segments, retransmissions,
 and connection/drop failures. Apple exposes no exact equivalent of the shared established-reset
 field, which therefore remains explicitly unsupported. Sleep-inclusive monotonic uptime comes from
 the native continuous clock. The normal tier reads IOKit's current power-source snapshot and exposes
-battery fraction when the host reports a valid capacity; unavailable battery and battery-saver
-values remain explicit.
+battery fraction when the host reports a valid capacity. `NSProcessInfo` supplies Low Power Mode on
+macOS 12 and later; older or unavailable sources remain explicit.
 The independent macOS event provider consumes IOKit `IOMedia` first-match and termination
 notifications. It drains the initial inventory without emitting events and publishes only broad
 storage-media added/removed context; BSD names, registry paths, UUIDs, serials, properties, and
@@ -165,8 +165,12 @@ The process collector enumerates bounded PIDs with libproc, keys each identity b
 microsecond process start token from `proc_pid_rusage`, and collects cumulative CPU time, resident
 memory, and disk read/write bytes. Name, parent PID, and executable path remain metadata, with path
 resolution limited to slow-tier requests. Access races and protected identities stay per-process
-gaps instead of failing the provider. GPU, event, CPU frequency/thermal, battery-saver, and other
-unimplemented telemetry metrics are explicitly unsupported.
+gaps instead of failing the provider. When foreground collection is opted in,
+`NSWorkspace.frontmostApplication` contributes only a PID, which must match a process identity from
+the same bounded sample before the PID-plus-creation-token identity crosses the portable boundary.
+Names, titles, bundle identifiers, and native application objects do not cross. GPU, Windows-style
+DPC/ISR responsiveness, CPU frequency/thermal, and other unimplemented telemetry metrics are
+explicitly unsupported.
 
 `blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry,
 libproc, and IOKit. Hosted Apple Silicon and Intel jobs build/test the complete desktop
@@ -174,10 +178,37 @@ graph, exercise the real-host provider contract, collect 64 bounded benchmark ob
 create an unsigned TGZ engineering preview containing a native `.app` bundle. The separate macOS
 platform adapter owns the per-user instance lock, SDL menu-bar tray, current ServiceManagement login
 item, bounded permission-aware UserNotifications requests, and AppKit increased-contrast/reduced-motion
-preferences. None of those adapters runs on the collection thread. Hosted tests exercise the lock and
+preferences. The macOS shortcut adapter uses AppKit local and global key-down monitors, requests the
+public event-listening/Input Monitoring permission, suppresses repeats, and never consumes the local
+event. It is passive observation, not conflict-aware reservation; denial stays visible and retryable.
+None of those adapters runs on the collection thread. Hosted tests exercise the lock and
 no-service fallback, while bundle checks validate identifier, version, deployment floor, and packaged
 layout. That evidence does not qualify physical client behavior, global shortcuts, signing,
 notarization, or product support.
+
+## Linux power, foreground, and responsiveness decisions
+
+The Linux fast tier reads each bounded CPUFreq policy's `scaling_cur_freq`, maximum frequency, and
+affected CPU list. It computes CPU-membership-weighted current and maximum MHz while preserving the
+kernel interface's limitation: `scaling_cur_freq` often reflects the last requested P-state and is
+not guaranteed to be an exact instantaneous hardware clock. Missing CPUFreq support is `unsupported`;
+malformed or unreadable advertised policy data is temporary failure. The normal tier reads the
+generic ACPI `platform_profile` interface when present and maps only `low-power` to the portable
+battery-saver state. Unknown vendor values fail closed rather than being guessed.
+
+On X11, the optional native reader accepts only EWMH `_NET_ACTIVE_WINDOW` plus `_NET_WM_PID`, verifies
+`WM_CLIENT_MACHINE` against the local host to reject remote-X PID collisions, and correlates the PID
+to the current process sample's creation identity. It never reads a window title or process name.
+Wayland sessions return explicit `unsupported`: the public XDG Desktop Portal API has no standardized
+active-window identity interface.
+
+Research did not identify an exact, passive, cross-vendor whole-system GPU source for Linux or macOS.
+Public Metal GPU counters measure command buffers or passes owned by the instrumented application,
+while Linux GPU interfaces are vendor-specific. Neither is relabeled as the existing whole-system
+gauge. Linux Pressure Stall Information is a strong candidate for future CPU/memory/I/O pressure
+evidence, but its stall-time semantics are not Windows DPC/ISR usage or rate. Adding PSI therefore
+requires a new explicit portable pressure contract and direct schema-v1 design; current GPU and
+responsiveness capabilities remain false and their metric values remain `unsupported`.
 
 ## Deterministic mock scenarios
 

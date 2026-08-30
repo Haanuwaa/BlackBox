@@ -950,7 +950,8 @@ added to `TelemetryProvider -> Normalizer -> Recorder`; the public module graph 
 are unchanged.
 
 The Linux engineering provider uses strict portable parsers for aggregate `/proc/stat` CPU ticks,
-`/proc/meminfo` physical-memory gauges, `/sys/block/*/stat` cumulative physical-device sectors,
+`/proc/meminfo` physical-memory gauges, CPUFreq policy frequency and membership files,
+`/sys/firmware/acpi/platform_profile`, `/sys/block/*/stat` cumulative physical-device sectors,
 `/proc/net/dev` cumulative non-loopback interface bytes, `/proc/net/snmp` TCP counters,
 `/proc/uptime`, `/sys/class/power_supply/*/uevent`, and bounded `/proc/<pid>` identity, CPU-time,
 RSS, I/O, parent/name, and optional slow-tier executable-path evidence. CPU and every I/O or TCP
@@ -972,9 +973,12 @@ contract, and the no-tray background/autostart boundary. A separate matrix build
 and package on Ubuntu 24.04, Debian 13, and Fedora 43, measures the real provider, smoke-tests both
 the build-tree and extracted package under a virtual display, and publishes comparable package-size
 and provider-latency fields. Linux remains unsupported as a product until physical desktop,
-accessibility, session, power, installer, and long-running qualification exist. GPU and event
-services remain explicitly unavailable rather than being inferred or supplied by another module;
-battery-saver state also remains unsupported because the native sources do not define it. Linux
+accessibility, session, power, installer, and long-running qualification exist. CPUFreq policy
+values are weighted by their affected CPU membership; the current value retains the kernel's
+requested-policy semantics and is not claimed to be an exact instantaneous hardware clock. The
+generic ACPI platform profile maps only the documented `low-power` state to battery saver; absent or
+unrecognized interfaces remain explicit. Linux GPU and Windows-style responsiveness services remain
+unsupported rather than being inferred or supplied by another module. Linux
 desktop accessibility is a separate `platform/linux` service: requests coalesce on one
 worker, portal calls are bounded, cached values retain per-key availability, and hidden operation sends
 no requests.
@@ -986,8 +990,27 @@ arrival/removal cannot become a rate spike. Interface state proves only that a n
 is up and running; it is never promoted to an Internet-reachability claim. Apple's native TCP
 statistics do not expose an exact RFC established-reset counter, so that individual field remains
 unsupported instead of relabeling a generic drop count. Normal-tier IOKit power-source reads expose
-the current source and battery fraction when present; unsupported battery-saver state stays explicit.
+the current source and battery fraction when present; `NSProcessInfo` supplies the native Low Power
+Mode state on supported macOS versions.
 No Apple or BSD header crosses out of `telemetry/macos`.
+
+Foreground evidence remains opt-in and identity-only. The macOS provider reads the frontmost PID
+through `NSWorkspace`; the Linux X11 adapter reads EWMH active-window and PID properties and accepts
+them only when `WM_CLIENT_MACHINE` identifies the local host. Each PID must match the process
+collector's current PID-plus-creation-token identity before it crosses the portable boundary. Window
+titles, application names, bundle identifiers, native handles, and property payloads are discarded.
+Wayland is explicitly unsupported because the public portal surface does not expose a standardized
+active-window identity. The macOS global-shortcut service remains in `platform/macos`: AppKit local
+and global monitors use the public event-listening permission flow, suppress repeated key-downs, and
+never consume the application's event. This is passive delivery rather than conflict-aware shortcut
+reservation, and permission denial is a visible retryable registration result.
+
+GPU and responsiveness research does not add a provider edge or a synthetic metric. Public Metal
+counters instrument GPU work owned by an application, Linux GPU sources are vendor-specific, and
+neither is an exact passive whole-system source for the existing GPU contract. Linux PSI reports
+CPU, memory, and I/O stall pressure, which is useful but not semantically equivalent to Windows
+DPC/ISR usage or rate. Those capabilities therefore stay false until a distinct portable pressure
+contract and direct schema-v1 representation are designed and reviewed.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free

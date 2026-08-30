@@ -2071,6 +2071,22 @@ Parity follow-up implementation:
   graphs. The implementation maps only direct native notifications into the existing privacy-bounded
   power event kinds, keeps the queue/poll path bounded and nonblocking, degrades sources independently,
   and leaves physical sleep/resume exercise to client qualification.
+- [x] Add a macOS global incident-shortcut adapter with local/global AppKit key monitoring, repeat
+  suppression, public Input Monitoring preflight/request UX, explicit denial status, and no event
+  consumption. Keep its passive, non-conflict-aware semantics visible instead of claiming reservation.
+- [x] Add macOS Low Power Mode plus bounded Linux CPUFreq policy and ACPI platform-profile evidence.
+  Preserve requested-policy frequency semantics, CPU-membership weighting, and explicit unsupported
+  status when a host does not advertise the optional kernel interfaces.
+- [x] Add opt-in privacy-bounded foreground identity on macOS and X11 using only a native PID correlated
+  to the current process sample's creation token. Verify local X11 ownership, collect no title/name,
+  and leave Wayland explicitly unsupported because no standardized public portal exposes active-window
+  identity.
+- [x] Complete Linux/macOS GPU and responsiveness source research without weakening semantics. Public
+  Metal counters are app-owned, Linux GPU sources are vendor-specific, and Linux PSI is pressure stall
+  evidence rather than Windows DPC/ISR evidence; keep current capability bits false and plan PSI only
+  behind a distinct portable direct-v1 contract.
+- [ ] Obtain hosted native Linux and macOS build/provider/package evidence for the shortcut, power,
+  frequency, profile, and foreground implementation revision before integration.
 - [ ] Execute physical GNOME/KDE/macOS desktop, accessibility, DPI, battery, sleep/resume, packaging,
   signing/notarization, and long-run qualification before any product-support claim.
 

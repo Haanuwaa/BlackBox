@@ -5,7 +5,11 @@
 #include "telemetry/disk_quality_tracker.hpp"
 #include "telemetry/io_counter_tracker.hpp"
 #include "telemetry/network_interface_tracker.hpp"
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+#include "telemetry/linux/linux_x11_foreground_reader.hpp"
+#endif
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -23,6 +27,7 @@ namespace {
 constexpr std::size_t maximum_proc_file_bytes = 1024U * 1024U;
 constexpr std::size_t maximum_io_entities = 128U;
 constexpr std::size_t maximum_power_supplies = 32U;
+constexpr std::size_t maximum_frequency_policies = 256U;
 
 [[nodiscard]] bool read_bounded_proc_file(const char *path,
                                           std::string &destination) {
@@ -70,6 +75,10 @@ struct LinuxTelemetryProvider::NativeState {
     tcp_contents.reserve(64U * 1024U);
     uptime_contents.reserve(256U);
     power_contents.reserve(16U * 1024U);
+    frequency_contents.reserve(128U);
+    frequency_max_contents.reserve(128U);
+    frequency_cpu_contents.reserve(1U * 1024U);
+    platform_profile_contents.reserve(128U);
   }
 
   [[nodiscard]] MetricStatus read_disks(
@@ -258,6 +267,96 @@ struct LinuxTelemetryProvider::NativeState {
     return MetricStatus::available;
   }
 
+  [[nodiscard]] MetricStatus read_cpu_frequency(
+      RawTelemetrySnapshot &destination) {
+    std::error_code error{};
+    const std::filesystem::path root{"/sys/devices/system/cpu/cpufreq"};
+    if (!std::filesystem::exists(root, error) || error) {
+      destination.system.cpu_current_mhz =
+          MetricValue<double>::unavailable(MetricStatus::unsupported);
+      destination.system.cpu_max_mhz =
+          MetricValue<double>::unavailable(MetricStatus::unsupported);
+      return MetricStatus::unsupported;
+    }
+    double weighted_current{};
+    double weighted_maximum{};
+    std::uint64_t cpu_count{};
+    std::size_t policy_count{};
+    for (std::filesystem::directory_iterator iterator{root, error}, end;
+         !error && iterator != end; iterator.increment(error)) {
+      const auto name = iterator->path().filename().string();
+      if (!name.starts_with("policy")) continue;
+      if (++policy_count > maximum_frequency_policies) {
+        return MetricStatus::temporarily_unavailable;
+      }
+      if (!read_bounded_proc_file(
+              (iterator->path() / "scaling_cur_freq").c_str(),
+              frequency_contents)) {
+        return MetricStatus::temporarily_unavailable;
+      }
+      auto maximum_path = iterator->path() / "cpuinfo_max_freq";
+      if (!read_bounded_proc_file(maximum_path.c_str(), frequency_max_contents)) {
+        maximum_path = iterator->path() / "scaling_max_freq";
+        if (!read_bounded_proc_file(maximum_path.c_str(), frequency_max_contents)) {
+          return MetricStatus::temporarily_unavailable;
+        }
+      }
+      auto cpu_path = iterator->path() / "affected_cpus";
+      if (!read_bounded_proc_file(cpu_path.c_str(), frequency_cpu_contents)) {
+        cpu_path = iterator->path() / "related_cpus";
+        if (!read_bounded_proc_file(cpu_path.c_str(), frequency_cpu_contents)) {
+          return MetricStatus::temporarily_unavailable;
+        }
+      }
+      const auto current = parse_sysfs_frequency_mhz(frequency_contents);
+      const auto maximum = parse_sysfs_frequency_mhz(frequency_max_contents);
+      const auto policy_cpus = parse_sysfs_cpu_list_count(frequency_cpu_contents);
+      if (!current || !maximum || !policy_cpus || *policy_cpus == 0U) {
+        return MetricStatus::temporarily_unavailable;
+      }
+      weighted_current += *current * static_cast<double>(*policy_cpus);
+      weighted_maximum += *maximum * static_cast<double>(*policy_cpus);
+      cpu_count += *policy_cpus;
+    }
+    if (error) return MetricStatus::temporarily_unavailable;
+    if (policy_count == 0U || cpu_count == 0U) {
+      destination.system.cpu_current_mhz =
+          MetricValue<double>::unavailable(MetricStatus::unsupported);
+      destination.system.cpu_max_mhz =
+          MetricValue<double>::unavailable(MetricStatus::unsupported);
+      return MetricStatus::unsupported;
+    }
+    destination.system.cpu_current_mhz =
+        MetricValue<double>::available(weighted_current /
+                                       static_cast<double>(cpu_count));
+    destination.system.cpu_max_mhz =
+        MetricValue<double>::available(weighted_maximum /
+                                       static_cast<double>(cpu_count));
+    return MetricStatus::available;
+  }
+
+  [[nodiscard]] MetricStatus read_platform_profile(
+      RawTelemetrySnapshot &destination) {
+    const auto path = std::filesystem::path{"/sys/firmware/acpi/platform_profile"};
+    std::error_code error{};
+    if (!std::filesystem::exists(path, error) || error) {
+      destination.system.battery_saver =
+          MetricValue<bool>::unavailable(MetricStatus::unsupported);
+      return MetricStatus::unsupported;
+    }
+    if (!read_bounded_proc_file(path.c_str(), platform_profile_contents)) {
+      destination.system.battery_saver = temporary<bool>();
+      return MetricStatus::temporarily_unavailable;
+    }
+    const auto saver = parse_linux_low_power_profile(platform_profile_contents);
+    if (!saver) {
+      destination.system.battery_saver = temporary<bool>();
+      return MetricStatus::temporarily_unavailable;
+    }
+    destination.system.battery_saver = MetricValue<bool>::available(*saver);
+    return MetricStatus::available;
+  }
+
   std::array<IoEntityCounters, maximum_io_entities> disks{};
   std::array<DiskQualityCounters, maximum_io_entities> disk_quality_counters{};
   std::array<IoEntityCounters, maximum_io_entities> interfaces{};
@@ -278,6 +377,13 @@ struct LinuxTelemetryProvider::NativeState {
   std::string tcp_contents{};
   std::string uptime_contents{};
   std::string power_contents{};
+  std::string frequency_contents{};
+  std::string frequency_max_contents{};
+  std::string frequency_cpu_contents{};
+  std::string platform_profile_contents{};
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+  LinuxX11ForegroundReader foreground_reader{};
+#endif
 };
 
 LinuxTelemetryProvider::LinuxTelemetryProvider(
@@ -322,6 +428,18 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   destination.system.battery_saver =
       MetricValue<bool>::unavailable(MetricStatus::unsupported);
   destination.system.system_uptime = temporary<Seconds>();
+  destination.system.cpu_current_mhz = temporary<double>();
+  destination.system.cpu_max_mhz = temporary<double>();
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+  destination.system.foreground_process = request.collect_foreground_application
+      ? temporary<ProcessIdentity>()
+      : MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+#else
+  destination.system.foreground_process =
+      MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+#endif
+  destination.system.foreground_gpu_usage =
+      MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
   std::uint32_t attempted{};
   std::uint32_t failed{};
   auto &contents = native_state_->system_contents;
@@ -340,6 +458,12 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
         ++failed;
       }
     } else {
+      ++failed;
+    }
+    ++attempted;
+    if (native_state_ == nullptr ||
+        native_state_->read_cpu_frequency(destination) ==
+            MetricStatus::temporarily_unavailable) {
       ++failed;
     }
     ++attempted;
@@ -378,6 +502,13 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
   }
 
   if (request.tiers.contains(SamplingTier::normal)) {
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+    const auto foreground_pid = request.collect_foreground_application &&
+                                        native_state_ != nullptr
+                                    ? native_state_->foreground_reader.read()
+                                    : MetricValue<ProcessId>::unavailable(
+                                          MetricStatus::unsupported);
+#endif
     ++attempted;
     if (read_bounded_proc_file("/proc/meminfo", contents)) {
       const auto parsed = parse_proc_meminfo(contents);
@@ -399,11 +530,33 @@ LinuxTelemetryProvider::sample(const SamplingRequest request,
     }
     ++attempted;
     if (native_state_ == nullptr ||
+        native_state_->read_platform_profile(destination) ==
+            MetricStatus::temporarily_unavailable) {
+      ++failed;
+    }
+    ++attempted;
+    if (native_state_ == nullptr ||
         native_state_->process_collector.collect(
             request.tiers.contains(SamplingTier::slow), destination) !=
             MetricStatus::available) {
       ++failed;
     }
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+    if (foreground_pid.has_value()) {
+      const auto match = std::find_if(
+          destination.processes.begin(), destination.processes.end(),
+          [pid = foreground_pid.value](const RawProcessCounters &process) {
+            return process.identity.pid == pid;
+          });
+      if (match != destination.processes.end()) {
+        destination.system.foreground_process =
+            MetricValue<ProcessIdentity>::available(match->identity);
+      }
+    } else if (request.collect_foreground_application) {
+      destination.system.foreground_process =
+          MetricValue<ProcessIdentity>::unavailable(foreground_pid.status);
+    }
+#endif
   }
 
   const auto status = failed == 0U ? ProviderSampleStatus::complete
@@ -427,6 +580,10 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
   result.network_usage = true;
   result.network_connectivity = true;
   result.network_transport_quality = true;
+  result.cpu_frequency = true;
+#if defined(BLACKBOX_HAS_X11_FOREGROUND)
+  result.foreground_application = true;
+#endif
   result.power_status = true;
   result.system_uptime = true;
   return result;
