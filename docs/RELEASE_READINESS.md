@@ -1,10 +1,10 @@
 # V1.0 qualification plan
 
-The current application version is 0.19.0. V1.0 is reserved for the completed product and is not
+The current application version is 0.20.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
 Roadmap headings `V0.16` and `V0.17` are engineering stages. The runtime/package version now follows
-the completed cross-platform evidence engineering stage as `0.19.0`; it changes to `1.0.0` only for the
+the completed Wayland desktop-integration engineering stage as `0.20.0`; it changes to `1.0.0` only for the
 exact final candidate revision that must repeat and compose the complete evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may
@@ -48,16 +48,20 @@ server kernels supplement rather than replace those client tests.
 Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
-and smoke the native desktop. Its platform boundary now has a tray, per-user lock, and XDG
-autostart, but GPU, event, power, physical-desktop, session, and installer qualification remain open.
-Its platform adapter now reads standardized contrast and reduced-motion settings asynchronously
-through XDG Settings; physical desktop behavior is unqualified. Linux and macOS also publish a fixed,
+and smoke the native desktop. Its platform boundary has a tray, per-user lock, exact XDG autostart,
+portal-first notifications with freedesktop fallback, coalesced portal background status, and a
+restart-aware XDG GlobalShortcuts session. Hosted Weston/Mutter/KWin/Sway compositor smokes are
+engineering evidence only; physical-desktop, portal-permission, session, accessibility, GPU-hardware,
+power, and installer qualification remain open. Its platform adapter reads standardized contrast and
+reduced-motion settings asynchronously through XDG Settings; physical desktop behavior is unqualified.
+Wayland foreground identity remains unsupported because the public portal surface has no standardized
+active-window identity. Linux and macOS also publish a fixed,
 bounded local POSIX signal record behind the portable crash-diagnostics boundary. macOS has an
 engineering-only native system/process provider and `.app` shell with a single-instance lock, tray,
 ServiceManagement login item, permission-gated local notifications, and AppKit accessibility
-preferences. Native network throughput, power source, battery, and uptime are implemented;
-disk/quality/GPU/events, global shortcut, physical-client, signing, notarization, and distribution
-qualification remain open.
+preferences. Native network throughput, disk quality, power source, battery, uptime, GPU inventory,
+privacy-reduced events, and a passive permission-gated global shortcut are implemented;
+physical-client, signing, notarization, and distribution qualification remain open.
 No platform support is claimed until a real backend lives in its OS directory, passes the same
 contracts, represents unsupported data explicitly, and meets equivalent quality gates.
 

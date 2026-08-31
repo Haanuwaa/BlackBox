@@ -5,14 +5,18 @@ only after a manual or automatic capture; ordinary recording does not stream tel
 
 Windows is the only production target in this pre-release. Linux DEB/RPM/TGZ and macOS TGZ outputs
 are explicitly unsupported engineering previews used to exercise platform boundaries. Linux can
-collect native telemetry, publish bounded desktop notifications, and request its configured global
-shortcut through the XDG Desktop Portal; desktop policy may require user approval or leave either
-service unavailable. Both previews supply native CPU/memory/disk/network/power/uptime/process
+collect native telemetry, publish bounded notifications through the XDG portal with a freedesktop
+service fallback, publish coalesced background status, and request its configured global shortcut
+through the XDG Desktop Portal. Shortcut sessions recover after a portal restart, while a shortcut
+removed by the desktop remains visibly unavailable until reapplied. Desktop policy may require user
+approval or leave any service unavailable. Wayland foreground-application identity remains explicitly
+unsupported because no standardized permission-bounded portal exposes an active-window PID. Both
+previews supply native CPU/memory/disk/network/power/uptime/process
 telemetry and passive local-link/TCP-quality evidence, but no qualified product experience. macOS's
 unsigned engineering `.app` can expose menu-bar controls, request launch at
 login through macOS ServiceManagement, deliver permission-gated local notifications, and follow the
-system's increased-contrast/reduced-motion preferences. Global shortcuts, signing/notarization, and
-physical-client qualification remain open.
+system's increased-contrast/reduced-motion preferences. Its passive Input Monitoring-gated global
+shortcut is implemented; signing/notarization and physical-client qualification remain open.
 
 ## Start and capture
 
@@ -304,10 +308,13 @@ snapshot time, writer attempts/retries/exhaustion, writer time/failures, and arc
 Transient busy/I/O writes are retried at most twice after the first attempt; permanent or exhausted
 failures remain visible and never stop collection. A long suspend is counted separately
 from scheduling jitter and resets cumulative-counter baselines before collection resumes.
-The Windows executable is PerMonitorV2 DPI-aware and follows the window display scale. While the
-dashboard is visible it rechecks Windows accessibility preferences at most once per second, applies
+The window follows SDL display-scale, drawable-size, and display-membership events on Windows,
+Wayland/X11, and macOS. A scale transition rebuilds the local font atlas and style from canonical
+values, so repeated monitor moves cannot accumulate scaling error; Diagnostics reports the effective
+scale, display count, and drawable pixel size. Windows remains PerMonitorV2 DPI-aware. While the
+dashboard is visible it rechecks platform accessibility preferences at most once per second, applies
 or reverses its complete maximum-contrast palette without restarting, and reports whether system
-animations are enabled. A change made while BlackBox is hidden is applied on the first visible
+animations are enabled. A preference change made while BlackBox is hidden is applied on the first visible
 dashboard refresh; background recording is independent of this UI work.
 
 The same page reports whether the Windows crash handler is armed and how many completed local dumps

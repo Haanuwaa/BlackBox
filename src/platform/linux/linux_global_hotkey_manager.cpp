@@ -4,7 +4,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -20,6 +22,8 @@ constexpr char portal_path[] = "/org/freedesktop/portal/desktop";
 constexpr char shortcuts_interface[] = "org.freedesktop.portal.GlobalShortcuts";
 constexpr char request_interface[] = "org.freedesktop.portal.Request";
 constexpr char session_interface[] = "org.freedesktop.portal.Session";
+constexpr char properties_interface[] = "org.freedesktop.DBus.Properties";
+constexpr char bus_interface[] = "org.freedesktop.DBus";
 constexpr char shortcut_id[] = "capture-incident";
 constexpr int portal_timeout_milliseconds = 2'000;
 
@@ -52,16 +56,115 @@ constexpr int portal_timeout_milliseconds = 2'000;
 }
 
 [[nodiscard]] DBusMessage* call(DBusConnection* connection,
-                                DBusMessage* request) noexcept {
+                                DBusMessage* request,
+                                const int timeout_milliseconds =
+                                    portal_timeout_milliseconds) noexcept {
     if (connection == nullptr || request == nullptr) return nullptr;
     DBusMessage* reply = dbus_connection_send_with_reply_and_block(
-        connection, request, portal_timeout_milliseconds, nullptr);
+        connection, request, timeout_milliseconds, nullptr);
     dbus_message_unref(request);
     if (reply != nullptr && dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
         dbus_message_unref(reply);
         return nullptr;
     }
     return reply;
+}
+
+[[nodiscard]] std::uint32_t portal_version(DBusConnection* connection) noexcept {
+    DBusMessage* request = dbus_message_new_method_call(
+        portal_service, portal_path, properties_interface, "Get");
+    if (request == nullptr) return 0U;
+    DBusMessageIter arguments{};
+    dbus_message_iter_init_append(request, &arguments);
+    const char* interface_name = shortcuts_interface;
+    const char* property_name = "version";
+    if (!append_basic(arguments, DBUS_TYPE_STRING, &interface_name) ||
+        !append_basic(arguments, DBUS_TYPE_STRING, &property_name)) {
+        dbus_message_unref(request);
+        return 0U;
+    }
+    DBusMessage* reply = call(connection, request, 500);
+    if (reply == nullptr) return 0U;
+    DBusMessageIter value{};
+    bool valid = dbus_message_iter_init(reply, &value) != FALSE;
+    if (valid && dbus_message_iter_get_arg_type(&value) == DBUS_TYPE_VARIANT) {
+        DBusMessageIter nested{};
+        dbus_message_iter_recurse(&value, &nested);
+        value = nested;
+    }
+    dbus_uint32_t result{};
+    valid = valid && dbus_message_iter_get_arg_type(&value) == DBUS_TYPE_UINT32;
+    if (valid) dbus_message_iter_get_basic(&value, &result);
+    dbus_message_unref(reply);
+    return valid ? static_cast<std::uint32_t>(result) : 0U;
+}
+
+[[nodiscard]] bool add_match(DBusConnection* connection,
+                             const char* rule) noexcept {
+    DBusError error{};
+    dbus_error_init(&error);
+    dbus_bus_add_match(connection, rule, &error);
+    const bool valid = !dbus_error_is_set(&error);
+    if (!valid) dbus_error_free(&error);
+    return valid;
+}
+
+[[nodiscard]] bool service_owner_changed(DBusMessage* message) noexcept {
+    if (dbus_message_is_signal(message, bus_interface, "NameOwnerChanged") == FALSE) {
+        return false;
+    }
+    DBusMessageIter iterator{};
+    if (!dbus_message_iter_init(message, &iterator) ||
+        dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_STRING) {
+        return false;
+    }
+    const char* name{};
+    dbus_message_iter_get_basic(&iterator, &name);
+    return name != nullptr && std::strcmp(name, portal_service) == 0;
+}
+
+[[nodiscard]] bool matching_session_signal(DBusMessage* message,
+                                           const char* interface_name,
+                                           const char* member,
+                                           const std::string& session_handle) noexcept {
+    if (dbus_message_is_signal(message, interface_name, member) == FALSE) return false;
+    const char* path = dbus_message_get_path(message);
+    if (std::string_view{interface_name} == session_interface) {
+        return path != nullptr && session_handle == path;
+    }
+    DBusMessageIter iterator{};
+    if (!dbus_message_iter_init(message, &iterator) ||
+        dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_OBJECT_PATH) {
+        return false;
+    }
+    const char* session{};
+    dbus_message_iter_get_basic(&iterator, &session);
+    return session != nullptr && session_handle == session;
+}
+
+[[nodiscard]] bool shortcut_signal_contains_capture(DBusMessage* message) noexcept {
+    DBusMessageIter iterator{};
+    if (!dbus_message_iter_init(message, &iterator) ||
+        dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_OBJECT_PATH ||
+        !dbus_message_iter_next(&iterator) ||
+        dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_ARRAY) {
+        return false;
+    }
+    DBusMessageIter shortcuts{};
+    dbus_message_iter_recurse(&iterator, &shortcuts);
+    while (dbus_message_iter_get_arg_type(&shortcuts) == DBUS_TYPE_STRUCT) {
+        DBusMessageIter shortcut{};
+        dbus_message_iter_recurse(&shortcuts, &shortcut);
+        const char* identifier{};
+        if (dbus_message_iter_get_arg_type(&shortcut) == DBUS_TYPE_STRING) {
+            dbus_message_iter_get_basic(&shortcut, &identifier);
+        }
+        if (identifier != nullptr && std::string_view{identifier} == shortcut_id) {
+            return true;
+        }
+        dbus_message_iter_next(&shortcuts);
+    }
+    return false;
 }
 
 [[nodiscard]] std::string reply_object_path(DBusMessage* reply) {
@@ -277,7 +380,10 @@ template <typename Response>
 
 void close_session(DBusConnection* connection,
                    const std::string& session_handle) noexcept {
-    if (connection == nullptr || session_handle.empty()) return;
+    if (connection == nullptr || session_handle.empty() ||
+        dbus_connection_get_is_connected(connection) == FALSE) {
+        return;
+    }
     DBusMessage* request = dbus_message_new_method_call(
         portal_service, session_handle.c_str(), session_interface, "Close");
     if (request == nullptr) return;
@@ -304,43 +410,159 @@ struct LinuxGlobalHotkeyManager::NativeState {
     DBusConnection* connection{};
     std::jthread worker{};
     mutable std::mutex mutex{};
+    std::condition_variable_any retry_condition{};
     HotkeyCallback callback{};
+    std::string accelerator{};
     std::string session_handle{};
     std::atomic<bool> registered{};
+    LinuxGlobalHotkeyDiagnostics diagnostics{};
+
+    void transition(const PortalShortcutEvent event) noexcept {
+        const std::scoped_lock lock{mutex};
+        diagnostics.state = portal_shortcut_transition(diagnostics.state, event);
+        registered.store(diagnostics.state == PortalShortcutState::active,
+                         std::memory_order_release);
+    }
+
+    void close_connection() noexcept {
+        close_session(connection, session_handle);
+        session_handle.clear();
+        if (connection != nullptr) {
+            dbus_connection_close(connection);
+            dbus_connection_unref(connection);
+            connection = nullptr;
+        }
+    }
+
+    [[nodiscard]] bool establish_session() noexcept {
+        close_connection();
+        DBusError error{};
+        dbus_error_init(&error);
+        connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
+        if (dbus_error_is_set(&error)) dbus_error_free(&error);
+        if (connection == nullptr) return false;
+        dbus_connection_set_exit_on_disconnect(connection, FALSE);
+
+        dbus_error_init(&error);
+        const bool owner = dbus_bus_name_has_owner(
+            connection, portal_service, &error) != FALSE;
+        if (dbus_error_is_set(&error)) dbus_error_free(&error);
+        const auto version = owner ? portal_version(connection) : 0U;
+        const bool matches = owner && version >= 1U &&
+            add_match(connection,
+                "type='signal',interface='org.freedesktop.portal.Request',member='Response'") &&
+            add_match(connection,
+                "type='signal',interface='org.freedesktop.portal.GlobalShortcuts'") &&
+            add_match(connection,
+                "type='signal',interface='org.freedesktop.portal.Session',member='Closed'") &&
+            add_match(connection,
+                "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged',"
+                "arg0='org.freedesktop.portal.Desktop'");
+        if (!matches) {
+            close_connection();
+            return false;
+        }
+        dbus_connection_flush(connection);
+        session_handle = create_session(connection);
+        if (session_handle.empty() ||
+            !bind_shortcut(connection, session_handle, accelerator)) {
+            close_connection();
+            return false;
+        }
+        {
+            const std::scoped_lock lock{mutex};
+            diagnostics.portal_version = version;
+        }
+        transition(PortalShortcutEvent::session_established);
+        return true;
+    }
+
+    void mark_session_lost() noexcept {
+        {
+            const std::scoped_lock lock{mutex};
+            ++diagnostics.session_losses;
+        }
+        transition(PortalShortcutEvent::session_lost);
+        close_connection();
+    }
+
+    [[nodiscard]] bool capture_activated(DBusMessage* message) noexcept {
+        if (!matching_session_signal(message, shortcuts_interface, "Activated",
+                                     session_handle)) {
+            return false;
+        }
+        DBusMessageIter iterator{};
+        if (!dbus_message_iter_init(message, &iterator) ||
+            !dbus_message_iter_next(&iterator) ||
+            dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_STRING) {
+            return false;
+        }
+        const char* identifier{};
+        dbus_message_iter_get_basic(&iterator, &identifier);
+        return identifier != nullptr && std::string_view{identifier} == shortcut_id;
+    }
+
+    void dispatch_activation() noexcept {
+        try {
+            HotkeyCallback activation{};
+            {
+                const std::scoped_lock lock{mutex};
+                activation = callback;
+                ++diagnostics.activations;
+            }
+            if (activation) activation();
+        } catch (...) {
+            // Portal dispatch cannot unwind into libdbus.
+        }
+    }
+
+    [[nodiscard]] bool process_messages() noexcept {
+        while (DBusMessage* message = dbus_connection_pop_message(connection)) {
+            bool session_lost = service_owner_changed(message) ||
+                matching_session_signal(message, session_interface, "Closed",
+                                        session_handle);
+            if (!session_lost && capture_activated(message) && registered.load(
+                    std::memory_order_acquire)) {
+                dispatch_activation();
+            }
+            if (!session_lost && matching_session_signal(
+                    message, shortcuts_interface, "ShortcutsChanged", session_handle)) {
+                const bool retained = shortcut_signal_contains_capture(message);
+                {
+                    const std::scoped_lock lock{mutex};
+                    ++diagnostics.shortcut_changes;
+                }
+                transition(retained ? PortalShortcutEvent::shortcut_restored
+                                    : PortalShortcutEvent::shortcut_removed);
+            }
+            dbus_message_unref(message);
+            if (session_lost) return false;
+        }
+        return true;
+    }
 
     void listen(const std::stop_token stop_token) noexcept {
-        while (!stop_token.stop_requested() && connection != nullptr &&
-               dbus_connection_read_write(connection, 100) != FALSE) {
-            while (DBusMessage* message = dbus_connection_pop_message(connection)) {
-                if (dbus_message_is_signal(
-                        message, shortcuts_interface, "Activated") != FALSE) {
-                    DBusMessageIter iterator{};
-                    const char* session{};
-                    const char* identifier{};
-                    if (dbus_message_iter_init(message, &iterator) &&
-                        dbus_message_iter_get_arg_type(&iterator) == DBUS_TYPE_OBJECT_PATH) {
-                        dbus_message_iter_get_basic(&iterator, &session);
-                        if (dbus_message_iter_next(&iterator) &&
-                            dbus_message_iter_get_arg_type(&iterator) == DBUS_TYPE_STRING) {
-                            dbus_message_iter_get_basic(&iterator, &identifier);
-                        }
-                    }
-                    if (session != nullptr && identifier != nullptr &&
-                        session_handle == session &&
-                        std::string_view{identifier} == shortcut_id) {
-                        try {
-                            HotkeyCallback activation{};
-                            {
-                                const std::scoped_lock lock{mutex};
-                                activation = callback;
-                            }
-                            if (activation) activation();
-                        } catch (...) {
-                            // Portal dispatch cannot unwind into libdbus.
-                        }
-                    }
-                }
-                dbus_message_unref(message);
+        std::uint32_t retry_attempt{};
+        while (!stop_token.stop_requested()) {
+            if (connection != nullptr &&
+                dbus_connection_read_write(connection, 100) != FALSE &&
+                process_messages()) {
+                retry_attempt = 0U;
+                continue;
+            }
+
+            if (connection != nullptr) mark_session_lost();
+            const auto delay = portal_reconnect_delay(retry_attempt++);
+            std::unique_lock lock{mutex};
+            const bool stopped = retry_condition.wait_for(
+                lock, stop_token, delay, [] { return false; });
+            if (stopped || stop_token.stop_requested()) break;
+            ++diagnostics.reconnect_attempts;
+            lock.unlock();
+            if (establish_session()) {
+                const std::scoped_lock success_lock{mutex};
+                ++diagnostics.reconnect_successes;
+                retry_attempt = 0U;
             }
         }
     }
@@ -362,33 +584,15 @@ HotkeyRegistrationResult LinuxGlobalHotkeyManager::register_hotkey(
         return HotkeyRegistrationResult::invalid_combination;
     }
     static_cast<void>(dbus_threads_init_default());
-    DBusError error{};
-    dbus_error_init(&error);
-    native_->connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
-    if (dbus_error_is_set(&error)) dbus_error_free(&error);
-    if (native_->connection == nullptr) return HotkeyRegistrationResult::unavailable;
-    dbus_connection_set_exit_on_disconnect(native_->connection, FALSE);
-    dbus_bus_add_match(
-        native_->connection,
-        "type='signal',interface='org.freedesktop.portal.Request',member='Response'",
-        nullptr);
-    dbus_bus_add_match(
-        native_->connection,
-        "type='signal',interface='org.freedesktop.portal.GlobalShortcuts',member='Activated'",
-        nullptr);
-    dbus_connection_flush(native_->connection);
-
-    native_->session_handle = create_session(native_->connection);
-    if (native_->session_handle.empty() ||
-        !bind_shortcut(native_->connection, native_->session_handle, accelerator)) {
-        unregister_hotkey();
-        return HotkeyRegistrationResult::unavailable;
-    }
     {
         const std::scoped_lock lock{native_->mutex};
         native_->callback = std::move(callback);
+        native_->accelerator = accelerator;
     }
-    native_->registered.store(true);
+    if (!native_->establish_session()) {
+        unregister_hotkey();
+        return HotkeyRegistrationResult::unavailable;
+    }
     native_->worker = std::jthread{
         [state = native_.get()](const std::stop_token stop_token) {
             state->listen(stop_token);
@@ -397,26 +601,28 @@ HotkeyRegistrationResult LinuxGlobalHotkeyManager::register_hotkey(
 }
 
 void LinuxGlobalHotkeyManager::unregister_hotkey() noexcept {
-    native_->registered.store(false);
+    native_->transition(PortalShortcutEvent::stop);
     if (native_->worker.joinable()) {
         native_->worker.request_stop();
+        native_->retry_condition.notify_all();
         native_->worker.join();
     }
-    close_session(native_->connection, native_->session_handle);
-    native_->session_handle.clear();
+    native_->close_connection();
     {
         const std::scoped_lock lock{native_->mutex};
         native_->callback = {};
-    }
-    if (native_->connection != nullptr) {
-        dbus_connection_close(native_->connection);
-        dbus_connection_unref(native_->connection);
-        native_->connection = nullptr;
+        native_->accelerator.clear();
+        native_->diagnostics.portal_version = 0U;
     }
 }
 
 bool LinuxGlobalHotkeyManager::registered() const noexcept {
-    return native_->registered.load();
+    return native_->registered.load(std::memory_order_acquire);
+}
+
+LinuxGlobalHotkeyDiagnostics LinuxGlobalHotkeyManager::diagnostics() const noexcept {
+    const std::scoped_lock lock{native_->mutex};
+    return native_->diagnostics;
 }
 
 } // namespace blackbox::platform::linux

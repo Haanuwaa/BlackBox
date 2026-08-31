@@ -2,7 +2,7 @@
 
 ## Intended release target
 
-V0.19 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
+V0.20 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
 Windows 11 and an ordinary, interactive user session. It has not completed the clean-client,
 wall-clock soak, usability, accessibility, or official-signing gates required for V1.0. The native
 APIs selected are non-elevated. Protected processes may remain inaccessible and are represented
@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.19.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.20.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 
@@ -60,8 +60,12 @@ In its disposable container only, the lifecycle gate then performs a real native
 the installed `/usr/bin/blackbox` under Xvfb, uninstalls it, and proves the owned executable, desktop
 entry, and icon were removed. The script refuses to run without both `CI=true` and the explicit
 `BLACKBOX_ALLOW_SYSTEM_PACKAGE_TEST=1` guard, refuses a pre-existing installation, and installs only a
-package whose native name is exactly `blackbox`. A dedicated packaged-app job still identifies the SDL Wayland driver under
-Weston. Its direct-v1 reports compare package bytes, provider P95, and maximum observed process
+package whose native name is exactly `blackbox`. Dedicated packaged-app jobs identify SDL's Wayland
+driver under headless Weston, Mutter, KWin, and Sway compositor engines, require clean diagnostic
+shutdown, and enforce the safe visible-window fallback when no tray integration exists. These jobs
+exercise package/compositor startup and portal-loss-safe boundaries; they do not reproduce a full
+physical GNOME/KDE session, permission dialog, shell extension, assistive technology, or real mixed-
+scale displays. The direct-v1 reports compare package bytes, provider P95, and maximum observed process
 cardinality. Passing this workflow is cross-distribution engineering evidence; it is not physical
 Linux product qualification.
 

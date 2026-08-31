@@ -16,9 +16,9 @@ Push-Location out/build/windows-vs2026-release
 cpack --config CPackConfig.cmake -C Release
 Pop-Location
 ./scripts/write-release-checksum.ps1 `
-  -PackagePath ./out/build/windows-vs2026-release/BlackBox-0.19.0-windows-x64.zip
+  -PackagePath ./out/build/windows-vs2026-release/BlackBox-0.20.0-windows-x64.zip
 ./scripts/run-client-qualification.ps1 `
-  -PackagePath ./out/build/windows-vs2026-release/BlackBox-0.19.0-windows-x64.zip `
+  -PackagePath ./out/build/windows-vs2026-release/BlackBox-0.20.0-windows-x64.zip `
   -OutputDirectory ./out/client-smoke-<revision> -Mode smoke
 ```
 
@@ -48,7 +48,7 @@ directory before relying on the bundle:
 For an official interactive bundle, add `-RequireInteractive -RequireAuthenticode`. Never pass
 `-AllowStaging` during independent review; that switch exists only for the runner's pre-publication
 check of its own `.partial` directory. The package-smoke example above deliberately names the
-current `0.19.0` engineering build. Final release evidence must instead use the exact signed
+current `0.20.0` engineering build. Final release evidence must instead use the exact signed
 `BlackBox-1.0.0-windows-x64.zip`; no prerelease filename can satisfy the V1 composition gate.
 
 ## Interactive profiles

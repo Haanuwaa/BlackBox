@@ -1593,7 +1593,7 @@ hosted, signed-package, physical-client, and wall-clock sources do not yet all e
 revision, and V0.15.1 still lacks its consented multi-hardware corpus and passing one-shot result.
 The final runner/verifier now also require the exact `BlackBox-1.0.0-windows-x64.zip` package,
 `application_version=1.0.0` in both wall-clock reports, and `product_version=1.0.0` in the final
-ledger. The engineering line is `0.19.0`; `1.0.0` remains reserved until those gates are real.
+ledger. The engineering line is `0.20.0`; `1.0.0` remains reserved until those gates are real.
 All five Windows product/qualification executables now derive their complete PE `VERSIONINFO` from
 that same CMake project version. A Windows runtime contract rejects blank or inconsistent string/
 numeric versions, descriptions, product identity, internal names, and original filenames, so the
@@ -2141,6 +2141,35 @@ semantics, adding compatibility paths, or weakening the Windows-first release ga
   [quality/security](https://github.com/Haanuwaa/BlackBox/actions/runs/33316078214).
 - [ ] Physically qualify Linux/macOS installation, desktop behavior, event delivery, sleep/resume,
   accessibility, signing/notarization, and long-run behavior before any support claim.
+
+## V0.20 — Wayland portal and display integration
+
+**Objective:** Make the Linux engineering desktop boundary resilient across current Wayland
+compositor families without inventing foreground identity or promoting hosted smoke to product
+support.
+
+- [x] Harden the XDG GlobalShortcuts adapter with interface-version negotiation, session closure,
+  portal-owner restart and D-Bus-loss detection, bounded stop-aware recovery, activation/change
+  diagnostics, and explicit user-removal state. Keep callback delivery exception-contained and all
+  portal work outside telemetry, storage, analysis, and rendering.
+- [x] Prefer the XDG Notification portal on Linux, retain a bounded freedesktop-notification fallback,
+  rediscover services after loss, and coalesce Background portal status updates on the existing shell
+  worker. Keep the exact owned XDG autostart entry authoritative for native packages so no second
+  interactive autostart owner is created.
+- [x] React to SDL window display, display-scale, drawable pixel-size, and display-membership events;
+  rebuild fonts and style from canonical geometry only on effective scale changes, preserve current
+  accessibility state, and expose platform-neutral scale/display/pixel diagnostics.
+- [x] Add one reproducible packaged-app compositor harness and a fail-independent Weston, Mutter,
+  KWin, and Sway hosted matrix. Require SDL Wayland, exact source identity, bounded collection,
+  clean shutdown, and a visible window whenever tray integration is unavailable.
+- [x] Keep Wayland foreground identity explicitly unsupported. The public XDG Desktop Portal surface
+  has no standardized permission-bounded active-window/PID API; do not substitute ScreenCast or a
+  compositor-private protocol.
+- [ ] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
+  clean V0.20 revision, including all four Wayland compositor jobs, before integrating into `main`.
+- [ ] Physically qualify GNOME/KDE/Sway portal permission/denial UX, notifications, shortcut removal
+  and recovery, tray/background behavior, fractional DPI, mixed-scale multi-monitor moves, keyboard
+  accessibility, and package lifecycle before any Linux product-support claim.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 

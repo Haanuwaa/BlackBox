@@ -3,9 +3,25 @@
 #include "platform/background_shell.hpp"
 
 #include <filesystem>
+#include <cstdint>
 #include <memory>
 
 namespace blackbox::platform::linux {
+
+enum class LinuxNotificationBackend : std::uint8_t {
+    none,
+    portal,
+    freedesktop,
+};
+
+[[nodiscard]] constexpr LinuxNotificationBackend select_notification_backend(
+    const std::uint32_t portal_version,
+    const bool freedesktop_available) noexcept {
+    return portal_version >= 1U
+        ? LinuxNotificationBackend::portal
+        : freedesktop_available ? LinuxNotificationBackend::freedesktop
+                                : LinuxNotificationBackend::none;
+}
 
 struct LinuxBackgroundShellOptions {
     std::filesystem::path config_home{};

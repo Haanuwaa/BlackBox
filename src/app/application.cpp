@@ -50,7 +50,7 @@ namespace {
 
 using namespace std::chrono_literals;
 
-void load_product_font(ImGuiIO& io) {
+void load_product_font(ImGuiIO& io, const float display_scale) {
 #if defined(_WIN32)
     constexpr std::array candidates{"C:/Windows/Fonts/segoeui.ttf",
                                     "C:/Windows/Fonts/arial.ttf"};
@@ -64,9 +64,14 @@ void load_product_font(ImGuiIO& io) {
     for (const auto* candidate : candidates) {
         std::error_code error{};
         if (!std::filesystem::is_regular_file(candidate, error) || error) continue;
-        if (io.Fonts->AddFontFromFileTTF(candidate, 17.0F) != nullptr) return;
+        if (io.Fonts->AddFontFromFileTTF(
+                candidate, 17.0F * ui::normalize_display_scale(display_scale)) != nullptr) {
+            return;
+        }
     }
-    static_cast<void>(io.Fonts->AddFontDefault());
+    ImFontConfig fallback{};
+    fallback.SizePixels = 13.0F * ui::normalize_display_scale(display_scale);
+    static_cast<void>(io.Fonts->AddFontDefault(&fallback));
 }
 
 [[nodiscard]] constexpr bool any_event_source_enabled(
@@ -399,7 +404,9 @@ ApplicationInitializationResult Application::initialize() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
-    load_product_font(io);
+    display_scale_ = ui::normalize_display_scale(
+        SDL_GetWindowDisplayScale(window_));
+    load_product_font(io, display_scale_);
 #if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
 #elif defined(__APPLE__)
@@ -413,7 +420,7 @@ ApplicationInitializationResult Application::initialize() {
     high_contrast_enabled_ = accessibility.high_contrast;
     animations_enabled_ = accessibility.animations_enabled;
 #endif
-    ui::apply_accessibility_style(high_contrast_enabled_);
+    ui::apply_accessibility_style(high_contrast_enabled_, display_scale_);
 
     if (!ImGui_ImplSDL3_InitForSDLRenderer(window_, renderer_)) {
         core::Logger::write(core::LogLevel::error, "Failed to initialize the ImGui SDL3 backend");
@@ -461,7 +468,7 @@ ApplicationInitializationResult Application::initialize() {
     dashboard_state_.background_status = background_status_text_;
     dashboard_state_.accessibility_high_contrast = high_contrast_enabled_;
     dashboard_state_.accessibility_animations_enabled = animations_enabled_;
-    dashboard_state_.display_scale = SDL_GetWindowDisplayScale(window_);
+    refresh_display_metrics();
     next_dashboard_refresh_at_ = telemetry_clock_.now();
     next_accessibility_refresh_at_ = telemetry_clock_.now() + 1s;
     next_background_refresh_at_ = telemetry_clock_.now();
@@ -488,7 +495,7 @@ ApplicationInitializationResult Application::initialize() {
     hotkey_manager_ = std::make_unique<platform::macos::MacosGlobalHotkeyManager>();
     static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
 #endif
-    dashboard_state_.hotkey_status = hotkey_status_;
+    refresh_hotkey_status();
 
     if (background_shell_started_) {
         const auto tray_available = background_shell_->diagnostics().tray_available;
@@ -537,6 +544,21 @@ int Application::run() {
             } else {
                 running = false;
             }
+        }
+        const bool display_window_event =
+            event.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED ||
+            event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED ||
+            event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+        if (display_window_event &&
+            event.window.windowID == SDL_GetWindowID(window_)) {
+            refresh_display_metrics(
+                event.type != SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED);
+        } else if (event.type == SDL_EVENT_DISPLAY_ADDED ||
+                   event.type == SDL_EVENT_DISPLAY_REMOVED ||
+                   event.type == SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED ||
+                   event.type == SDL_EVENT_DISPLAY_USABLE_BOUNDS_CHANGED) {
+            refresh_display_metrics(
+                event.type == SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED);
         }
     };
 
@@ -884,6 +906,7 @@ bool Application::register_configured_hotkey(
 #endif
     }
     name += "F" + std::to_string(static_cast<unsigned>(combination.key));
+    hotkey_display_name_ = name;
     switch (result) {
     case platform::HotkeyRegistrationResult::registered:
         hotkey_status_ = name + " registered";
@@ -903,6 +926,28 @@ bool Application::register_configured_hotkey(
         break;
     }
     return false;
+}
+
+void Application::refresh_hotkey_status() noexcept {
+#if defined(__linux__)
+    if (hotkey_manager_ != nullptr) {
+        const auto* linux_manager = static_cast<
+            const platform::linux::LinuxGlobalHotkeyManager*>(
+                hotkey_manager_.get());
+        const auto portal = linux_manager->diagnostics();
+        if (portal.state == platform::linux::PortalShortcutState::active) {
+            hotkey_status_ = hotkey_display_name_ + " registered through portal";
+        } else if (portal.state ==
+                   platform::linux::PortalShortcutState::reconnecting) {
+            hotkey_status_ = hotkey_display_name_ +
+                             " reconnecting to desktop portal";
+        } else if (portal.state ==
+                   platform::linux::PortalShortcutState::unavailable) {
+            hotkey_status_ = "Desktop shortcut removed; reapply it in Settings";
+        }
+    }
+#endif
+    dashboard_state_.hotkey_status = hotkey_status_;
 }
 
 void Application::apply_product_settings(
@@ -1026,7 +1071,7 @@ void Application::apply_product_settings(
         recorder_settings_status_text_ =
             "Applied and saved. Archive path/capacity changes take effect next launch.";
     }
-    dashboard_state_.hotkey_status = hotkey_status_;
+    refresh_hotkey_status();
     next_dashboard_refresh_at_ = telemetry_clock_.now();
 }
 
@@ -1057,7 +1102,7 @@ void Application::refresh_dashboard_if_due() {
         dashboard_state_.gpu_render_device_available =
             gpu_inventory.render_device_available.value;
     }
-    dashboard_state_.display_scale = SDL_GetWindowDisplayScale(window_);
+    dashboard_state_.display_scale = display_scale_;
     const auto snapshot = collector_->snapshot(ui::dashboard_history_capacity);
     auto active_processes = collector_->active_process_snapshot();
     dashboard_state_.recorder_status = diagnostics.running ? "Recording" : "Stopped";
@@ -1164,7 +1209,7 @@ void Application::refresh_dashboard_if_due() {
 #endif
         }
     }
-    dashboard_state_.hotkey_status = hotkey_status_;
+    refresh_hotkey_status();
     dashboard_state_.recorder_settings_status = recorder_settings_status_text_;
     dashboard_state_.incident_capture_status = capture_phase_text(
         diagnostics.incident_capture.phase);
@@ -1591,6 +1636,43 @@ void Application::refresh_dashboard_if_due() {
     }
 }
 
+void Application::refresh_display_metrics(const bool force_style_refresh) {
+    if (window_ == nullptr) return;
+    const auto raw_scale = SDL_GetWindowDisplayScale(window_);
+    const auto requested_scale = raw_scale > 0.0F
+        ? ui::normalize_display_scale(raw_scale) : display_scale_;
+    const bool scale_changed = ui::display_scale_changed(
+        display_scale_, requested_scale);
+    if ((scale_changed || force_style_refresh) &&
+        ImGui::GetCurrentContext() != nullptr) {
+        display_scale_ = requested_scale;
+        if (scale_changed) {
+            auto& io = ImGui::GetIO();
+            io.Fonts->Clear();
+            load_product_font(io, display_scale_);
+        }
+        ui::apply_accessibility_style(
+            high_contrast_enabled_, display_scale_);
+    } else if (scale_changed) {
+        display_scale_ = requested_scale;
+    }
+
+    dashboard_state_.display_scale = display_scale_;
+    int pixel_width{};
+    int pixel_height{};
+    if (SDL_GetWindowSizeInPixels(window_, &pixel_width, &pixel_height)) {
+        dashboard_state_.window_pixel_width = static_cast<std::uint32_t>(
+            std::max(0, pixel_width));
+        dashboard_state_.window_pixel_height = static_cast<std::uint32_t>(
+            std::max(0, pixel_height));
+    }
+    int display_count{};
+    SDL_DisplayID* displays = SDL_GetDisplays(&display_count);
+    dashboard_state_.display_count = static_cast<std::uint32_t>(
+        std::max(0, display_count));
+    SDL_free(displays);
+}
+
 void Application::refresh_accessibility_if_due() {
 #if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
     const auto now = telemetry_clock_.now();
@@ -1610,7 +1692,8 @@ void Application::refresh_accessibility_if_due() {
         linux_accessibility_monitor_->snapshot().preferences;
 #endif
     static_cast<void>(ui::update_accessibility_style(
-        high_contrast_enabled_, accessibility.high_contrast));
+        high_contrast_enabled_, accessibility.high_contrast,
+        display_scale_));
     animations_enabled_ = accessibility.animations_enabled;
     dashboard_state_.accessibility_high_contrast = high_contrast_enabled_;
     dashboard_state_.accessibility_animations_enabled = animations_enabled_;
@@ -1694,9 +1777,17 @@ void Application::refresh_background_shell_if_due() {
 #if defined(__linux__)
     background_status_text_ += !shell.notifications_available
                                    ? " | notifications unavailable"
-                                   : shell.notifications_enabled
-                                       ? " | notifications on"
-                                       : " | notifications quiet";
+                                   : !shell.notifications_enabled
+                                       ? " | notifications quiet"
+                                       : shell.portal_notifications_active
+                                           ? " | portal notifications on"
+                                           : " | notifications on";
+    if (shell.background_status_available) {
+        background_status_text_ += " | portal background status";
+    }
+    if (shell.desktop_service_reconnects != 0U) {
+        background_status_text_ += " | desktop service recovered";
+    }
 #else
     background_status_text_ += shell.notifications_enabled
                                    ? " | notifications on"

@@ -1309,14 +1309,19 @@ DashboardCommand render_dashboard(const DashboardState& state,
             row("Background shell", state.background_status.data());
             row("Incident archive", state.storage_status.data());
             row("Accessibility", state.accessibility_high_contrast
-                                     ? "Windows high contrast" : "Standard contrast");
+                                     ? "Increased contrast" : "Standard contrast");
             row("System animations", state.accessibility_animations_enabled
-                                     ? "Enabled" : "Disabled by Windows");
+                                     ? "Enabled" : "Reduced by desktop preference");
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::TextUnformatted("Display scale");
             ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%.0f%% (PerMonitorV2)", state.display_scale * 100.0);
+            ImGui::Text("%.0f%% | %u display%s | %ux%u px",
+                        state.display_scale * 100.0,
+                        state.display_count,
+                        state.display_count == 1U ? "" : "s",
+                        state.window_pixel_width,
+                        state.window_pixel_height);
             row("Version", core::version.data());
             ImGui::EndTable();
         }

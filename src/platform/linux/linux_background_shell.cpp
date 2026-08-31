@@ -5,9 +5,12 @@
 #include <dbus/dbus.h>
 
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <condition_variable>
 #include <cstdlib>
+#include <cstdint>
+#include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <iterator>
@@ -89,18 +92,90 @@ struct PendingNotification {
     std::string message{};
 };
 
+constexpr char portal_service[] = "org.freedesktop.portal.Desktop";
+constexpr char portal_path[] = "/org/freedesktop/portal/desktop";
+constexpr char portal_notification_interface[] =
+    "org.freedesktop.portal.Notification";
+constexpr char portal_background_interface[] =
+    "org.freedesktop.portal.Background";
+constexpr char properties_interface[] = "org.freedesktop.DBus.Properties";
+constexpr char freedesktop_notification_service[] =
+    "org.freedesktop.Notifications";
+
 [[nodiscard]] bool append_string(DBusMessageIter& destination,
                                  const char* value) noexcept {
     return dbus_message_iter_append_basic(
                &destination, DBUS_TYPE_STRING, &value) != FALSE;
 }
 
-[[nodiscard]] bool send_notification(DBusConnection* connection,
-                                     const PendingNotification& notification) noexcept {
+[[nodiscard]] bool append_string_variant(DBusMessageIter& options,
+                                         const char* key,
+                                         const char* value) noexcept {
+    DBusMessageIter entry{};
+    DBusMessageIter variant{};
+    return dbus_message_iter_open_container(
+               &options, DBUS_TYPE_DICT_ENTRY, nullptr, &entry) != FALSE &&
+           append_string(entry, key) &&
+           dbus_message_iter_open_container(
+               &entry, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING,
+               &variant) != FALSE &&
+           append_string(variant, value) &&
+           dbus_message_iter_close_container(&entry, &variant) != FALSE &&
+           dbus_message_iter_close_container(&options, &entry) != FALSE;
+}
+
+[[nodiscard]] bool service_available(DBusConnection* connection,
+                                     const char* service) noexcept {
+    if (connection == nullptr) return false;
+    DBusError error{};
+    dbus_error_init(&error);
+    const bool available = dbus_bus_name_has_owner(
+        connection, service, &error) != FALSE;
+    if (dbus_error_is_set(&error)) dbus_error_free(&error);
+    return available;
+}
+
+[[nodiscard]] std::uint32_t interface_version(
+    DBusConnection* connection, const char* interface_name) noexcept {
+    DBusMessage* request = dbus_message_new_method_call(
+        portal_service, portal_path, properties_interface, "Get");
+    if (request == nullptr) return 0U;
+    DBusMessageIter arguments{};
+    dbus_message_iter_init_append(request, &arguments);
+    const char* property = "version";
+    const bool valid = append_string(arguments, interface_name) &&
+                       append_string(arguments, property);
+    DBusMessage* reply = valid ? dbus_connection_send_with_reply_and_block(
+                                     connection, request, 500, nullptr)
+                               : nullptr;
+    dbus_message_unref(request);
+    if (reply == nullptr ||
+        dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
+        if (reply != nullptr) dbus_message_unref(reply);
+        return 0U;
+    }
+    DBusMessageIter value{};
+    bool decoded = dbus_message_iter_init(reply, &value) != FALSE;
+    if (decoded && dbus_message_iter_get_arg_type(&value) == DBUS_TYPE_VARIANT) {
+        DBusMessageIter nested{};
+        dbus_message_iter_recurse(&value, &nested);
+        value = nested;
+    }
+    dbus_uint32_t version{};
+    decoded = decoded &&
+              dbus_message_iter_get_arg_type(&value) == DBUS_TYPE_UINT32;
+    if (decoded) dbus_message_iter_get_basic(&value, &version);
+    dbus_message_unref(reply);
+    return decoded ? static_cast<std::uint32_t>(version) : 0U;
+}
+
+[[nodiscard]] bool send_freedesktop_notification(
+    DBusConnection* connection,
+    const PendingNotification& notification) noexcept {
     if (connection == nullptr) return false;
     DBusMessage* request = dbus_message_new_method_call(
-        "org.freedesktop.Notifications", "/org/freedesktop/Notifications",
-        "org.freedesktop.Notifications", "Notify");
+        freedesktop_notification_service, "/org/freedesktop/Notifications",
+        freedesktop_notification_service, "Notify");
     if (request == nullptr) return false;
 
     DBusMessageIter values{};
@@ -142,6 +217,78 @@ struct PendingNotification {
     DBusMessage* reply = valid
         ? dbus_connection_send_with_reply_and_block(connection, request, 750, nullptr)
         : nullptr;
+    dbus_message_unref(request);
+    if (reply == nullptr) return false;
+    const bool success = dbus_message_get_type(reply) != DBUS_MESSAGE_TYPE_ERROR;
+    dbus_message_unref(reply);
+    return success;
+}
+
+[[nodiscard]] bool send_portal_notification(
+    DBusConnection* connection, const PendingNotification& notification,
+    const std::uint64_t sequence) noexcept {
+    if (connection == nullptr) return false;
+    DBusMessage* request = dbus_message_new_method_call(
+        portal_service, portal_path, portal_notification_interface,
+        "AddNotification");
+    if (request == nullptr) return false;
+    DBusMessageIter arguments{};
+    DBusMessageIter options{};
+    dbus_message_iter_init_append(request, &arguments);
+    const auto identifier = std::string{"blackbox-"} + std::to_string(sequence);
+    const char* id = identifier.c_str();
+    const char* title = notification.title.c_str();
+    const char* body = notification.message.c_str();
+    bool valid = append_string(arguments, id) &&
+        dbus_message_iter_open_container(
+            &arguments, DBUS_TYPE_ARRAY, "{sv}", &options) != FALSE &&
+        append_string_variant(options, "title", title) &&
+        append_string_variant(options, "body", body) &&
+        dbus_message_iter_close_container(&arguments, &options) != FALSE;
+    DBusMessage* reply = valid ? dbus_connection_send_with_reply_and_block(
+                                     connection, request, 750, nullptr)
+                               : nullptr;
+    dbus_message_unref(request);
+    if (reply == nullptr) return false;
+    const bool success = dbus_message_get_type(reply) != DBUS_MESSAGE_TYPE_ERROR;
+    dbus_message_unref(reply);
+    return success;
+}
+
+[[nodiscard]] const char* portal_status_text(
+    const BackgroundShellStatus status) noexcept {
+    switch (status) {
+    case BackgroundShellStatus::recording:
+        return "Recording system performance locally";
+    case BackgroundShellStatus::capturing:
+        return "Capturing an incident locally";
+    case BackgroundShellStatus::paused:
+        return "Recording paused";
+    case BackgroundShellStatus::retrying_storage:
+        return "Recording; retrying the local archive";
+    case BackgroundShellStatus::error:
+        return "Recording needs attention";
+    }
+    return "Running";
+}
+
+[[nodiscard]] bool send_portal_background_status(
+    DBusConnection* connection, const BackgroundShellStatus status) noexcept {
+    if (connection == nullptr) return false;
+    DBusMessage* request = dbus_message_new_method_call(
+        portal_service, portal_path, portal_background_interface, "SetStatus");
+    if (request == nullptr) return false;
+    DBusMessageIter arguments{};
+    DBusMessageIter options{};
+    dbus_message_iter_init_append(request, &arguments);
+    const char* text = portal_status_text(status);
+    bool valid = dbus_message_iter_open_container(
+                     &arguments, DBUS_TYPE_ARRAY, "{sv}", &options) != FALSE &&
+                 append_string_variant(options, "status", text) &&
+                 dbus_message_iter_close_container(&arguments, &options) != FALSE;
+    DBusMessage* reply = valid ? dbus_connection_send_with_reply_and_block(
+                                     connection, request, 500, nullptr)
+                               : nullptr;
     dbus_message_unref(request);
     if (reply == nullptr) return false;
     const bool success = dbus_message_get_type(reply) != DBUS_MESSAGE_TYPE_ERROR;
@@ -191,27 +338,85 @@ struct LinuxBackgroundShell::NativeState {
         }
     }
 
-    [[nodiscard]] bool start_notifications() noexcept {
-        static_cast<void>(dbus_threads_init_default());
-        DBusError error{};
-        dbus_error_init(&error);
-        notification_connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
-        if (dbus_error_is_set(&error)) dbus_error_free(&error);
-        if (notification_connection == nullptr) return false;
-        dbus_connection_set_exit_on_disconnect(notification_connection, FALSE);
-        dbus_error_init(&error);
-        const bool service_available = dbus_bus_name_has_owner(
-            notification_connection, "org.freedesktop.Notifications", &error) != FALSE;
-        if (dbus_error_is_set(&error)) dbus_error_free(&error);
-        if (!service_available) {
+    void close_desktop_connection() noexcept {
+        if (notification_connection != nullptr) {
             dbus_connection_close(notification_connection);
             dbus_connection_unref(notification_connection);
             notification_connection = nullptr;
-            return false;
         }
+        notification_backend = LinuxNotificationBackend::none;
+        portal_background_available = false;
+    }
+
+    [[nodiscard]] bool refresh_desktop_services() noexcept {
+        const auto previous_backend = notification_backend;
+        const bool previous_background = portal_background_available.load();
+        bool reopened{};
+        if (notification_connection == nullptr ||
+            dbus_connection_get_is_connected(notification_connection) == FALSE) {
+            close_desktop_connection();
+            DBusError error{};
+            dbus_error_init(&error);
+            notification_connection = dbus_bus_get_private(DBUS_BUS_SESSION, &error);
+            if (dbus_error_is_set(&error)) dbus_error_free(&error);
+            if (notification_connection == nullptr) {
+                const std::scoped_lock lock{mutex};
+                diagnostics.notifications_available = false;
+                diagnostics.portal_notifications_active = false;
+                diagnostics.background_status_available = false;
+                if (desktop_services_initialized &&
+                    (previous_backend != LinuxNotificationBackend::none ||
+                     previous_background)) {
+                    ++diagnostics.desktop_service_reconnects;
+                }
+                desktop_services_initialized = true;
+                return false;
+            }
+            dbus_connection_set_exit_on_disconnect(notification_connection, FALSE);
+            reopened = desktop_services_initialized;
+        }
+
+        const bool portal = service_available(notification_connection, portal_service);
+        const auto notification_version = portal
+            ? interface_version(notification_connection,
+                                portal_notification_interface)
+            : 0U;
+        const auto background_version = portal
+            ? interface_version(notification_connection, portal_background_interface)
+            : 0U;
+        const bool direct = service_available(
+            notification_connection, freedesktop_notification_service);
+        notification_backend = select_notification_backend(
+            notification_version, direct);
+        portal_background_available.store(background_version >= 1U);
+
+        const std::scoped_lock lock{mutex};
+        diagnostics.notifications_available =
+            notification_backend != LinuxNotificationBackend::none;
+        diagnostics.portal_notifications_active =
+            notification_backend == LinuxNotificationBackend::portal;
+        diagnostics.background_status_available = portal_background_available.load();
+        if (desktop_services_initialized &&
+            (reopened || previous_backend != notification_backend ||
+             previous_background != portal_background_available.load())) {
+            ++diagnostics.desktop_service_reconnects;
+        }
+        if (!previous_background && portal_background_available.load()) {
+            status_dirty = true;
+        }
+        desktop_services_initialized = true;
+        return diagnostics.notifications_available ||
+               diagnostics.background_status_available;
+    }
+
+    [[nodiscard]] bool start_notifications() noexcept {
+        static_cast<void>(dbus_threads_init_default());
+        desktop_services_initialized = false;
+        const bool available = refresh_desktop_services();
+        status_dirty = portal_background_available.load();
         notification_worker = std::jthread{
             [this](const std::stop_token stop_token) { notification_loop(stop_token); }};
-        return true;
+        return available && notification_backend != LinuxNotificationBackend::none;
     }
 
     void stop_notifications() noexcept {
@@ -220,41 +425,82 @@ struct LinuxBackgroundShell::NativeState {
             notification_condition.notify_all();
             notification_worker.join();
         }
-        if (notification_connection != nullptr) {
-            dbus_connection_close(notification_connection);
-            dbus_connection_unref(notification_connection);
-            notification_connection = nullptr;
-        }
+        close_desktop_connection();
         const std::scoped_lock lock{mutex};
         diagnostics.notifications_dropped += notification_size;
         notification_head = 0U;
         notification_size = 0U;
+        status_dirty = false;
         diagnostics.notifications_available = false;
+        diagnostics.portal_notifications_active = false;
+        diagnostics.background_status_available = false;
     }
 
     void notification_loop(const std::stop_token stop_token) noexcept {
         while (!stop_token.stop_requested()) {
             PendingNotification pending{};
+            bool has_notification{};
+            bool has_status{};
+            BackgroundShellStatus pending_status{};
             {
                 std::unique_lock lock{mutex};
-                notification_condition.wait(
-                    lock, stop_token, [this] { return notification_size != 0U; });
+                const auto refresh_interval =
+                    diagnostics.notifications_available ||
+                            diagnostics.background_status_available
+                        ? std::chrono::seconds{5}
+                        : std::chrono::seconds{1};
+                static_cast<void>(notification_condition.wait_for(
+                    lock, stop_token, refresh_interval,
+                    [this] { return notification_size != 0U || status_dirty; }));
                 if (stop_token.stop_requested()) break;
-                pending = std::move(notifications[notification_head]);
-                notification_head = (notification_head + 1U) % notifications.size();
-                --notification_size;
+                if (notification_size != 0U) {
+                    pending = std::move(notifications[notification_head]);
+                    notification_head =
+                        (notification_head + 1U) % notifications.size();
+                    --notification_size;
+                    has_notification = true;
+                }
+                if (status_dirty) {
+                    pending_status = status;
+                    status_dirty = false;
+                    has_status = true;
+                }
             }
-            const bool sent = send_notification(notification_connection, pending);
+
+            static_cast<void>(refresh_desktop_services());
+            bool status_sent{};
+            if (has_status && portal_background_available.load()) {
+                status_sent = send_portal_background_status(
+                    notification_connection, pending_status);
+            }
+            bool sent{};
+            if (has_notification) {
+                if (notification_backend == LinuxNotificationBackend::portal) {
+                    sent = send_portal_notification(
+                        notification_connection, pending, ++notification_sequence);
+                    if (!sent && service_available(
+                            notification_connection,
+                            freedesktop_notification_service)) {
+                        sent = send_freedesktop_notification(
+                            notification_connection, pending);
+                    }
+                } else if (notification_backend == LinuxNotificationBackend::freedesktop) {
+                    sent = send_freedesktop_notification(
+                        notification_connection, pending);
+                }
+            }
             const std::scoped_lock lock{mutex};
-            if (sent) ++diagnostics.notifications_sent;
-            else ++diagnostics.notifications_dropped;
+            if (has_notification) {
+                if (sent) ++diagnostics.notifications_sent;
+                else ++diagnostics.notifications_dropped;
+            }
+            if (status_sent) ++diagnostics.background_status_updates;
         }
     }
 
     [[nodiscard]] bool queue_notification(std::string_view title,
                                           std::string_view message) noexcept {
-        if (!notifications_enabled || notification_connection == nullptr ||
-            title.empty() || title.size() > 128U || message.empty() ||
+        if (!notifications_enabled || title.empty() || title.size() > 128U || message.empty() ||
             message.size() > 1'024U || title.find('\0') != std::string_view::npos ||
             message.find('\0') != std::string_view::npos) {
             const std::scoped_lock lock{mutex};
@@ -263,7 +509,8 @@ struct LinuxBackgroundShell::NativeState {
         }
         try {
             const std::scoped_lock lock{mutex};
-            if (notification_size == notifications.size()) {
+            if (!diagnostics.notifications_available ||
+                notification_size == notifications.size()) {
                 ++diagnostics.notifications_dropped;
                 return false;
             }
@@ -376,6 +623,12 @@ struct LinuxBackgroundShell::NativeState {
     SDL_TrayEntry* notifications_entry{};
     SDL_TrayEntry* exit_entry{};
     DBusConnection* notification_connection{};
+    LinuxNotificationBackend notification_backend{
+        LinuxNotificationBackend::none};
+    std::atomic<bool> portal_background_available{};
+    bool desktop_services_initialized{};
+    bool status_dirty{};
+    std::uint64_t notification_sequence{};
     std::jthread notification_worker{};
     std::array<PendingNotification, 8U> notifications{};
     std::size_t notification_head{};
@@ -410,11 +663,14 @@ BackgroundShellStartResult LinuxBackgroundShell::start(BackgroundShellCallback c
                         : BackgroundShellStartResult::unavailable;
     }
     native_->callback = std::move(callback);
+    {
+        const std::scoped_lock lock{native_->mutex};
+        native_->diagnostics = {};
+    }
     const bool tray_available = native_->create_tray();
     const bool notifications_available = native_->start_notifications();
     {
         const std::scoped_lock lock{native_->mutex};
-        native_->diagnostics = {};
         native_->diagnostics.running = true;
         native_->diagnostics.tray_available = tray_available;
         native_->diagnostics.window_visible = native_->window_visible;
@@ -439,7 +695,14 @@ void LinuxBackgroundShell::stop() noexcept {
 }
 
 void LinuxBackgroundShell::set_status(const BackgroundShellStatus status) noexcept {
-    native_->status = status;
+    {
+        const std::scoped_lock lock{native_->mutex};
+        if (native_->status != status) {
+            native_->status = status;
+            native_->status_dirty = native_->portal_background_available.load();
+        }
+    }
+    native_->notification_condition.notify_one();
     if (native_->tray == nullptr) return;
     const bool paused = status == BackgroundShellStatus::paused;
     SDL_SetTrayEntryLabel(native_->pause_entry,

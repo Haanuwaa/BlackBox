@@ -185,6 +185,11 @@ TEST_CASE("DPI metrics remain bounded and proportional", "[ui][dpi][layout]") {
     CHECK(ui::scale_for_dpi(20.0F) == 0.75F);
     CHECK(ui::scale_for_dpi(1'000.0F) == 3.0F);
     CHECK(ui::scaled_ui_metric(44.0F, 144.0F) == 66.0F);
+    CHECK(ui::normalize_display_scale(1.5F) == 1.5F);
+    CHECK(ui::normalize_display_scale(0.0F) == 1.0F);
+    CHECK(ui::normalize_display_scale(20.0F) == 3.0F);
+    CHECK_FALSE(ui::display_scale_changed(1.0F, 1.005F));
+    CHECK(ui::display_scale_changed(1.0F, 1.25F));
 }
 
 TEST_CASE("onboarding remains bounded on compact and scaled work areas",
@@ -280,6 +285,17 @@ TEST_CASE("accessibility style switches to high contrast and reverses cleanly",
     CHECK(restored[ImGuiCol_Button].x == normal_button.x);
     CHECK(restored[ImGuiCol_Button].y == normal_button.y);
     CHECK(restored[ImGuiCol_Button].z == normal_button.z);
+}
+
+TEST_CASE("product style rescales from its canonical geometry",
+          "[ui][dpi][style]") {
+    const ScopedImGuiContext context;
+    ui::apply_accessibility_style(false, 1.5F);
+    CHECK(ImGui::GetStyle().WindowPadding.x == 24.0F);
+    CHECK(ImGui::GetStyle().FramePadding.y == 9.0F);
+    ui::apply_accessibility_style(false, 1.0F);
+    CHECK(ImGui::GetStyle().WindowPadding.x == 16.0F);
+    CHECK(ImGui::GetStyle().FramePadding.y == 6.0F);
 }
 
 TEST_CASE("default UI source stays inside the bundled Basic Latin font",

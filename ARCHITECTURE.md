@@ -1097,3 +1097,36 @@ the handle bound cannot weaken PID-reuse or lifecycle semantics. The sampling wo
 non-real-time priority and best-effort disables only its own execution-speed throttling. No realtime
 priority, global power-policy change, schema field, compatibility reader, migration path, or new edge
 into `TelemetryProvider -> Normalizer -> Recorder` is introduced.
+
+## V0.20 Wayland desktop integration note
+
+Wayland desktop integration remains entirely inside `platform/linux` and the SDL application/UI
+boundary. The GlobalShortcuts adapter negotiates the portal interface version, owns one portal
+session, observes `Activated`, `ShortcutsChanged`, session `Closed`, and portal owner changes, and
+recovers a lost session on one stop-aware exponentially backed-off worker. A shortcut removed by the
+desktop remains explicitly unavailable for that session; the adapter does not silently rebind it.
+Callbacks stay exception-contained and neither portal availability nor retry work enters telemetry,
+normalization, recording, storage, analysis, or the render thread.
+
+The Linux background shell prefers the standardized Notification portal when present and falls back
+to `org.freedesktop.Notifications` for unconfined desktops. Notification payloads remain bounded and
+flow through the existing fixed queue on its owned worker. The same worker coalesces Background
+portal `SetStatus` transitions and rediscovers desktop services after loss. The exact owned XDG
+autostart entry remains the launch-at-login source of truth for the native DEB/RPM/TGZ application;
+BlackBox does not issue an interactive portal autostart request that could create a second owner.
+Missing portals, services, tray support, or permissions stay visible and preserve the safe visible-
+window fallback.
+
+SDL continues to own all window/compositor interaction. Window display, display-scale, pixel-size,
+and display-membership events refresh the current display scale and drawable diagnostics on the main
+thread. Dear ImGui style geometry and its local font atlas are rebuilt from canonical values only
+when the effective scale changes, avoiding cumulative scaling while preserving high-contrast state.
+Hosted Weston, Mutter, KWin, and Sway jobs launch the packaged application through SDL's Wayland
+driver and prove bounded collection, shutdown, source identity, and the no-tray visible fallback.
+Those compositor-engine smokes do not claim a physical GNOME/KDE session, assistive-technology input,
+fractional-scale visual review, real multi-monitor placement, portal permission UX, or product support.
+
+Foreground identity on Wayland remains explicitly unsupported. The public XDG Desktop Portal API
+still has no standardized permission-bounded active-window/PID interface; screen-cast and private
+compositor protocols are not substitutes. No compatibility reader, migration path, alternate schema,
+native identifier, or direct-schema change is introduced by this slice.

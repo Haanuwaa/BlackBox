@@ -22,14 +22,15 @@ qualified.
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal open | Native power/battery/uptime and Low Power Mode; CPU frequency/thermal open |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free device/audio/storage/display/network uevents, logind power, systemd job result class, and coredump crash marker | Identifier-free application lifecycle, audio/default, storage, display, network, and power context; general service events unsupported |
-| Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX | Native SDL/POSIX |
-| Desktop notifications | Native | Bounded session D-Bus queue | Bounded, permission-aware UserNotifications |
+| Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX plus coalesced XDG Background portal status; exact XDG autostart remains authoritative | Native SDL/POSIX |
+| Desktop notifications | Native | Bounded XDG Notification portal queue with freedesktop-service fallback and service rediscovery | Bounded, permission-aware UserNotifications |
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
-| Global incident shortcut | Native registration | XDG GlobalShortcuts portal | AppKit global/local key monitor with Input Monitoring permission; passive and not conflict-aware |
+| Global incident shortcut | Native registration | Versioned XDG GlobalShortcuts session with closure/service-loss recovery and user-removal detection | AppKit global/local key monitor with Input Monitoring permission; passive and not conflict-aware |
 | Increased contrast and reduced motion | Native | Nonblocking XDG Settings portal | Native AppKit preferences |
+| DPI and display membership | Per-monitor SDL/PerMonitorV2 | SDL Wayland display-scale/pixel-size/membership events; canonical font/style rebuild | SDL native high-density display-scale/pixel-size/membership events |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
-| Hosted native compiler/provider/package checks | Windows runners passed on `ddf3535` | Ubuntu, Debian, Fedora, X11, Wayland, GPU parsers/backends, and provider overhead passed on `ddf3535` | Apple Silicon and Intel Metal inventory/provider/package checks passed on `ddf3535` |
+| Hosted native compiler/provider/package checks | V0.19 Windows matrix passed on `46023e3` | V0.19 Ubuntu, Debian, Fedora, package lifecycle, and Weston matrix passed on `46023e3`; V0.20 Weston/Mutter/KWin/Sway matrix pending | V0.19 Apple Silicon and Intel package matrix passed on `46023e3` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
@@ -51,9 +52,12 @@ qualified.
    Keep macOS passive whole-system GPU utilization unsupported. Implement Linux PSI only against
    `PRESSURE_CONTRACT.md`; macOS remains unsupported until a public cumulative-stall source with the
    same semantics is identified. PSI is not Windows DPC/ISR activity.
-5. Retain and physically qualify the implemented Linux/macOS telemetry, accessibility, crash,
-   background, notification, autostart, package, sleep/resume, and shortcut boundaries.
-6. Run physical GNOME/KDE and macOS client matrices, accessibility/DPI review, sleep/resume and long-run
+5. Retain and physically qualify portal permission/denial/restart behavior, the implemented
+   Linux/macOS telemetry, accessibility, crash, background, notification, autostart, package,
+   sleep/resume, and shortcut boundaries. Hosted compositor smoke cannot exercise a real user's
+   permission dialogs or notification/tray shell extensions.
+6. Run physical GNOME/KDE/Sway and macOS client matrices, fractional-scale and mixed-scale
+   accessibility/DPI review, sleep/resume and long-run
    campaigns, then design signed/notarized distribution. Hosted compilation alone cannot establish
    product support.
 
@@ -77,6 +81,9 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Linux TCP SNMP counters](https://docs.kernel.org/networking/snmp_counter.html)
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)
 - [XDG Settings portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html)
+- [XDG Notification portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Notification.html)
+- [XDG Background portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Background.html)
+- [SDL3 high-DPI guidance](https://wiki.libsdl.org/SDL3/README-highdpi)
 - [Apple Quartz event taps](https://developer.apple.com/documentation/coregraphics/cgevent/tapcreate%28tap%3Aplace%3Aoptions%3Aeventsofinterest%3Acallback%3Auserinfo%3A%29)
 - [Apple AppKit global event monitors](https://developer.apple.com/documentation/appkit/nsevent/addglobalmonitorforevents%28matching%3Ahandler%3A%29)
 - [Apple event-listening permission](https://developer.apple.com/forums/thread/811443)

@@ -353,6 +353,9 @@ struct DashboardState {
     bool accessibility_high_contrast{};
     bool accessibility_animations_enabled{true};
     double display_scale{1.0};
+    std::uint32_t display_count{};
+    std::uint32_t window_pixel_width{};
+    std::uint32_t window_pixel_height{};
     bool archive_healthy{};
     bool archive_recoverable_incident{};
     std::uint64_t archive_recoverable_sequence{};

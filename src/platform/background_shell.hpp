@@ -35,10 +35,14 @@ struct BackgroundShellDiagnostics {
     bool tray_available{};
     bool window_visible{true};
     bool notifications_available{};
+    bool portal_notifications_active{};
+    bool background_status_available{};
     bool notifications_enabled{true};
     std::uint64_t commands_dispatched{};
     std::uint64_t notifications_sent{};
     std::uint64_t notifications_dropped{};
+    std::uint64_t background_status_updates{};
+    std::uint64_t desktop_service_reconnects{};
     std::uint64_t explorer_restarts{};
     std::uint64_t tray_readd_failures{};
     bool session_notifications_available{};

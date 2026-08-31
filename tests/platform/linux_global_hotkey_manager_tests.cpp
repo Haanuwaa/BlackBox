@@ -24,3 +24,36 @@ TEST_CASE("Linux portal hotkey rejects invalid keys before desktop access",
           platform::HotkeyRegistrationResult::invalid_combination);
     CHECK_FALSE(manager.registered());
 }
+
+TEST_CASE("Linux portal shortcut lifecycle recovers sessions without overriding removal",
+          "[platform][linux][hotkey][portal][lifecycle]") {
+    using Event = linux_platform::PortalShortcutEvent;
+    using State = linux_platform::PortalShortcutState;
+
+    auto state = State::idle;
+    state = linux_platform::portal_shortcut_transition(
+        state, Event::session_established);
+    CHECK(state == State::active);
+    state = linux_platform::portal_shortcut_transition(state, Event::session_lost);
+    CHECK(state == State::reconnecting);
+    state = linux_platform::portal_shortcut_transition(
+        state, Event::session_established);
+    CHECK(state == State::active);
+
+    state = linux_platform::portal_shortcut_transition(
+        state, Event::shortcut_removed);
+    CHECK(state == State::unavailable);
+    CHECK(linux_platform::portal_shortcut_transition(
+              state, Event::shortcut_restored) == State::active);
+    CHECK(linux_platform::portal_shortcut_transition(
+              state, Event::stop) == State::idle);
+}
+
+TEST_CASE("Linux portal shortcut retry cadence is bounded",
+          "[platform][linux][hotkey][portal][lifecycle]") {
+    using namespace std::chrono_literals;
+    CHECK(linux_platform::portal_reconnect_delay(0U) == 250ms);
+    CHECK(linux_platform::portal_reconnect_delay(1U) == 500ms);
+    CHECK(linux_platform::portal_reconnect_delay(4U) == 4s);
+    CHECK(linux_platform::portal_reconnect_delay(100U) == 4s);
+}

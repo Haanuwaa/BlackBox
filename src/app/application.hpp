@@ -69,6 +69,7 @@ public:
 private:
     void refresh_dashboard_if_due();
     void refresh_accessibility_if_due();
+    void refresh_display_metrics(bool force_style_refresh = false);
     void refresh_background_shell_if_due();
     void process_background_commands(bool& running);
     void show_window() noexcept;
@@ -80,6 +81,7 @@ private:
     void write_diagnostic_report() noexcept;
     [[nodiscard]] bool register_configured_hotkey(
         platform::HotkeyCombination combination) noexcept;
+    void refresh_hotkey_status() noexcept;
     void shutdown() noexcept;
 
     core::SystemMonotonicClock telemetry_clock_{};
@@ -115,6 +117,7 @@ private:
     core::MonotonicTimePoint next_accessibility_refresh_at_{};
     std::string_view provider_name_{"Not configured"};
     std::string hotkey_status_{"Unsupported"};
+    std::string hotkey_display_name_{};
     std::string background_status_text_{"Unavailable"};
     std::string storage_status_text_{"Disabled"};
     std::filesystem::path recorder_settings_path_{};
@@ -144,6 +147,7 @@ private:
     bool recorder_paused_{};
     bool high_contrast_enabled_{};
     bool animations_enabled_{true};
+    float display_scale_{1.0F};
     ApplicationDiagnosticOptions diagnostic_options_{};
     core::MonotonicTimePoint diagnostic_monotonic_anchor_{};
     std::chrono::system_clock::time_point diagnostic_utc_anchor_{};

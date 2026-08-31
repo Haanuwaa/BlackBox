@@ -16,6 +16,17 @@ float scaled_ui_metric(const float logical_pixels, const float dpi) noexcept {
     return logical_pixels * scale_for_dpi(dpi);
 }
 
+float normalize_display_scale(const float scale) noexcept {
+    if (!std::isfinite(scale) || scale <= 0.0F) return 1.0F;
+    return std::clamp(scale, 0.75F, 3.0F);
+}
+
+bool display_scale_changed(const float current,
+                           const float requested) noexcept {
+    return std::abs(normalize_display_scale(current) -
+                    normalize_display_scale(requested)) >= 0.01F;
+}
+
 OnboardingLayout onboarding_layout(const float viewport_width,
                                     const float viewport_height) noexcept {
     const auto finite_width = std::isfinite(viewport_width) ? viewport_width : 0.0F;
@@ -115,7 +126,8 @@ IncidentArchivePresentation incident_archive_presentation(
     return IncidentArchivePresentation::unavailable;
 }
 
-void apply_accessibility_style(const bool high_contrast) noexcept {
+void apply_accessibility_style(const bool high_contrast,
+                               const float display_scale) noexcept {
     ImGui::StyleColorsDark();
     const auto color = [](const std::array<float, 4U>& value) noexcept {
         return ImVec4{value[0], value[1], value[2], value[3]};
@@ -186,13 +198,15 @@ void apply_accessibility_style(const bool high_contrast) noexcept {
     colors[ImGuiCol_TableRowBgAlt] = ImVec4{raised.x, raised.y, raised.z, 0.38F};
     colors[ImGuiCol_TextSelectedBg] = accent_hovered;
     colors[ImGuiCol_NavCursor] = accent;
+    style.ScaleAllSizes(normalize_display_scale(display_scale));
 }
 
 bool update_accessibility_style(bool& current_high_contrast,
-                                const bool requested_high_contrast) noexcept {
+                                const bool requested_high_contrast,
+                                const float display_scale) noexcept {
     if (current_high_contrast == requested_high_contrast) return false;
     current_high_contrast = requested_high_contrast;
-    apply_accessibility_style(current_high_contrast);
+    apply_accessibility_style(current_high_contrast, display_scale);
     return true;
 }
 

@@ -110,3 +110,16 @@ TEST_CASE("Linux preview reports unavailable session-bus notifications honestly"
     CHECK_FALSE(shell.notifications_enabled());
     CHECK_FALSE(shell.notify("Capture complete", "Saved locally"));
 }
+
+TEST_CASE("Linux notification integration prefers the permission-bounded portal",
+          "[platform][linux][background][notification][portal]") {
+    using Backend = linux_platform::LinuxNotificationBackend;
+    CHECK(linux_platform::select_notification_backend(2U, true) ==
+          Backend::portal);
+    CHECK(linux_platform::select_notification_backend(1U, false) ==
+          Backend::portal);
+    CHECK(linux_platform::select_notification_backend(0U, true) ==
+          Backend::freedesktop);
+    CHECK(linux_platform::select_notification_backend(0U, false) ==
+          Backend::none);
+}

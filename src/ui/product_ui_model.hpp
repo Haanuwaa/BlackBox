@@ -62,6 +62,9 @@ enum class IncidentArchivePresentation : std::uint8_t {
 }
 [[nodiscard]] float scale_for_dpi(float dpi) noexcept;
 [[nodiscard]] float scaled_ui_metric(float logical_pixels, float dpi) noexcept;
+[[nodiscard]] float normalize_display_scale(float scale) noexcept;
+[[nodiscard]] bool display_scale_changed(float current,
+                                         float requested) noexcept;
 [[nodiscard]] OnboardingLayout onboarding_layout(float viewport_width,
                                                   float viewport_height) noexcept;
 [[nodiscard]] std::size_t navigation_column_count(float available_width) noexcept;
@@ -74,8 +77,10 @@ enum class IncidentArchivePresentation : std::uint8_t {
 [[nodiscard]] IncidentArchivePresentation incident_archive_presentation(
     IncidentViewerLoadState state, std::uint64_t total_matching,
     bool search_active) noexcept;
-void apply_accessibility_style(bool high_contrast) noexcept;
+void apply_accessibility_style(bool high_contrast,
+                               float display_scale = 1.0F) noexcept;
 [[nodiscard]] bool update_accessibility_style(bool& current_high_contrast,
-                                              bool requested_high_contrast) noexcept;
+                                              bool requested_high_contrast,
+                                              float display_scale = 1.0F) noexcept;
 
 } // namespace blackbox::ui
