@@ -30,7 +30,7 @@ qualified.
 | DPI and display membership | Per-monitor SDL/PerMonitorV2 | SDL Wayland display-scale/pixel-size/membership events; canonical font/style rebuild | SDL native high-density display-scale/pixel-size/membership events |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
-| Hosted native compiler/provider/package checks | V0.19 Windows matrix passed on `46023e3` | V0.19 Ubuntu, Debian, Fedora, package lifecycle, and Weston matrix passed on `46023e3`; V0.20 Weston/Mutter/KWin/Sway matrix pending | V0.19 Apple Silicon and Intel package matrix passed on `46023e3` |
+| Hosted native compiler/provider/package checks | V0.20 Windows matrix passed on `ff31a4f` | V0.20 Ubuntu, Debian, Fedora, package lifecycle, and Weston/Mutter/KWin/Sway matrix passed on `ff31a4f` | V0.20 Apple Silicon and Intel package matrix passed on `ff31a4f` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 

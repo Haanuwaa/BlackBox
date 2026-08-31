@@ -2165,7 +2165,7 @@ support.
 - [x] Keep Wayland foreground identity explicitly unsupported. The public XDG Desktop Portal surface
   has no standardized permission-bounded active-window/PID API; do not substitute ScreenCast or a
   compositor-private protocol.
-- [ ] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
+- [x] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
   clean V0.20 revision, including all four Wayland compositor jobs, before integrating into `main`.
 - [ ] Physically qualify GNOME/KDE/Sway portal permission/denial UX, notifications, shortcut removal
   and recovery, tray/background behavior, fractional DPI, mixed-scale multi-monitor moves, keyboard
@@ -2295,3 +2295,26 @@ Ubuntu/Debian/Fedora, Wayland, DEB/RPM install lifecycle, Apple Silicon/Intel DM
 dependency review, CodeQL, MSVC analysis, ASan, UBSan, fuzzing, and coverage. The exact next milestone
 is physical Linux/macOS desktop and installation qualification plus Developer ID signing/notarization;
 the operator-assisted 72-hour campaign remains a separate open V1 release gate.
+
+V0.20 completes the Wayland portal and display-integration engineering slice on exact code revision
+`ff31a4f30428489dd8376f61402228c4494cac06`. The local Windows Release graph passed all 354 tests,
+and the real unhandled-exception probe plus delayed dump-publication test each passed ten consecutive
+repetitions. Exact-revision hosted evidence passed in
+[Windows run 33357553599](https://github.com/Haanuwaa/BlackBox/actions/runs/33357553599),
+[Linux run 33357553596](https://github.com/Haanuwaa/BlackBox/actions/runs/33357553596),
+[macOS run 33357553595](https://github.com/Haanuwaa/BlackBox/actions/runs/33357553595), and
+[quality/security run 33357553611](https://github.com/Haanuwaa/BlackBox/actions/runs/33357553611).
+Linux passed Ubuntu, Debian, Fedora, packaging/overhead comparison, and packaged-app Weston, Mutter,
+KWin, and Sway sessions; macOS passed Apple Silicon and Intel. The first Windows execution exposed a
+newer hosted-runner endpoint-contention interval while publishing a flushed minidump. Production now
+retries only transient access/sharing/lock errors with a bounded 4.75-second capped backoff; permanent
+failure still remains visibly `.partial`. A later same-revision Windows configure attempt encountered
+a GitHub runner SSL download failure before source configuration and passed on the failed-job rerun.
+
+The exact next V0.20 gate is physical GNOME, KDE, and Sway review of portal permission denial/removal,
+service restart, notifications, tray/background behavior, fractional DPI, mixed-scale monitor moves,
+keyboard accessibility, and package lifecycle. Hosted headless compositors do not replace that
+operator evidence. Wayland foreground identity remains explicitly unsupported until a standardized,
+permission-bounded public API exists. The operator-assisted 72-hour Windows campaign, physical Windows
+client matrix, signing, consented diagnostic corpus, and one-shot held-out result remain separate V1
+qualification gates; none is relaxed by this engineering milestone.
