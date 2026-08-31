@@ -100,7 +100,9 @@ TEST_CASE("Windows crash dump publication tolerates bounded file contention",
         nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     REQUIRE(blocker != INVALID_HANDLE_VALUE);
     std::jthread release_blocker{[blocker] {
-        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        // This exceeds the former 500 ms publication budget and models the
+        // delayed endpoint-scanner handle observed on hosted Windows 2022.
+        std::this_thread::sleep_for(std::chrono::milliseconds{750});
         static_cast<void>(CloseHandle(blocker));
     }};
 
@@ -108,8 +110,8 @@ TEST_CASE("Windows crash dump publication tolerates bounded file contention",
     CHECK(blackbox::platform::windows::detail::publish_completed_dump(
         pending.c_str(), completed.c_str()));
     const auto elapsed = std::chrono::steady_clock::now() - started;
-    CHECK(elapsed >= std::chrono::milliseconds{50});
-    CHECK(elapsed < std::chrono::seconds{1});
+    CHECK(elapsed >= std::chrono::milliseconds{500});
+    CHECK(elapsed < std::chrono::seconds{3});
     CHECK_FALSE(std::filesystem::exists(pending));
     CHECK(std::filesystem::is_regular_file(completed));
 }

@@ -21,8 +21,14 @@ bool detail::publish_completed_dump(const wchar_t* const pending_path,
         return false;
     }
 
+    // Endpoint security can retain a just-flushed dump for longer than the
+    // original 500 ms publication window. Keep the crash path bounded while
+    // allowing only known file-contention failures to recover. The capped
+    // backoff waits at most 4.75 seconds in total.
     constexpr unsigned maximum_attempts = 51U;
-    constexpr DWORD retry_delay_milliseconds = 10U;
+    constexpr DWORD initial_retry_delay_milliseconds = 10U;
+    constexpr DWORD maximum_retry_delay_milliseconds = 100U;
+    DWORD retry_delay_milliseconds = initial_retry_delay_milliseconds;
     for (unsigned attempt = 0U; attempt < maximum_attempts; ++attempt) {
         if (MoveFileExW(pending_path, completed_path, MOVEFILE_WRITE_THROUGH)) {
             return true;
@@ -33,6 +39,10 @@ bool detail::publish_completed_dump(const wchar_t* const pending_path,
                                error == ERROR_LOCK_VIOLATION;
         if (!transient || attempt + 1U == maximum_attempts) return false;
         Sleep(retry_delay_milliseconds);
+        retry_delay_milliseconds =
+            (retry_delay_milliseconds >= maximum_retry_delay_milliseconds / 2U)
+                ? maximum_retry_delay_milliseconds
+                : retry_delay_milliseconds * 2U;
     }
     return false;
 }
