@@ -801,10 +801,12 @@ already running”; a PID match without creation-token equality is ignored.
 
 Crash evidence is a platform service, not telemetry. The Windows implementation creates its local
 directory and pre-opens one unique `.dmp.partial` handle before normal application initialization;
-the top-level exception filter writes a minimal dump without entering SQLite, UI, collection, or
-analysis, then publishes it by rename. Clean shutdown removes the unused staging file. The app sees
-only an `ICrashDiagnostics` snapshot, completed dumps are never deleted automatically, and raw dump
-content never enters core domain types.
+the top-level exception filter publishes the exception pointer and source-thread ID to a pre-created
+dedicated writer thread, then waits for one bounded result. That worker writes a minimal dump through
+the pre-opened handle without entering SQLite, UI, collection, or analysis, then publishes it by
+rename. No crash-time thread, handle, file, or dynamic buffer is created. Clean shutdown stops the
+worker and removes the unused staging file. The app sees only an `ICrashDiagnostics` snapshot,
+completed dumps are never deleted automatically, and raw dump content never enters core domain types.
 
 Linux and macOS use one POSIX implementation under the same platform boundary. Installation creates
 one mode-0600 `.crash.partial` file and writes its canonical direct-v1 header before registering fatal

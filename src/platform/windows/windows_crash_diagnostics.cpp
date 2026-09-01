@@ -16,8 +16,8 @@ namespace blackbox::platform::windows {
 
 bool detail::publish_completed_dump(const wchar_t* const pending_path,
                                     const wchar_t* const completed_path) noexcept {
-    if (pending_path == nullptr || completed_path == nullptr ||
-        *pending_path == L'\0' || *completed_path == L'\0') {
+    if (pending_path == nullptr || completed_path == nullptr || *pending_path == L'\0' ||
+        *completed_path == L'\0') {
         return false;
     }
 
@@ -34,8 +34,7 @@ bool detail::publish_completed_dump(const wchar_t* const pending_path,
             return true;
         }
         const auto error = GetLastError();
-        const auto transient = error == ERROR_ACCESS_DENIED ||
-                               error == ERROR_SHARING_VIOLATION ||
+        const auto transient = error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION ||
                                error == ERROR_LOCK_VIOLATION;
         if (!transient || attempt + 1U == maximum_attempts) return false;
         Sleep(retry_delay_milliseconds);
@@ -51,16 +50,10 @@ struct WindowsCrashDiagnostics::Impl final {
     explicit Impl(std::filesystem::path output_directory)
         : directory{std::move(output_directory)} {}
 
-    static LONG WINAPI unhandled_exception_filter(EXCEPTION_POINTERS* pointers) noexcept {
-        auto* state = active.load(std::memory_order_acquire);
-        if (state == nullptr ||
-            state->handling.exchange(true, std::memory_order_acq_rel) ||
-            state->dump_file == INVALID_HANDLE_VALUE) {
-            return EXCEPTION_CONTINUE_SEARCH;
-        }
-
+    [[nodiscard]] bool write_dump(EXCEPTION_POINTERS* const pointers,
+                                  const DWORD source_thread_id) noexcept {
         MINIDUMP_EXCEPTION_INFORMATION exception_information{};
-        exception_information.ThreadId = GetCurrentThreadId();
+        exception_information.ThreadId = source_thread_id;
         exception_information.ExceptionPointers = pointers;
         exception_information.ClientPointers = FALSE;
         constexpr unsigned maximum_dump_attempts = 6U;
@@ -69,36 +62,100 @@ struct WindowsCrashDiagnostics::Impl final {
         for (unsigned attempt = 0U; attempt < maximum_dump_attempts; ++attempt) {
             if (attempt != 0U) {
                 LARGE_INTEGER beginning{};
-                if (!SetFilePointerEx(state->dump_file, beginning, nullptr, FILE_BEGIN) ||
-                    !SetEndOfFile(state->dump_file)) {
+                if (!SetFilePointerEx(dump_file, beginning, nullptr, FILE_BEGIN) ||
+                    !SetEndOfFile(dump_file)) {
                     break;
                 }
             }
             wrote = MiniDumpWriteDump(
-                GetCurrentProcess(), GetCurrentProcessId(), state->dump_file,
-                MiniDumpNormal, pointers == nullptr ? nullptr : &exception_information,
-                nullptr, nullptr);
+                GetCurrentProcess(), GetCurrentProcessId(), dump_file, MiniDumpNormal,
+                pointers == nullptr ? nullptr : &exception_information, nullptr, nullptr);
             if (wrote != FALSE) break;
             if (attempt + 1U != maximum_dump_attempts) {
                 Sleep(dump_retry_delay_milliseconds);
             }
         }
-        static_cast<void>(FlushFileBuffers(state->dump_file));
-        static_cast<void>(CloseHandle(state->dump_file));
-        state->dump_file = INVALID_HANDLE_VALUE;
-        if (wrote != FALSE) {
-            static_cast<void>(detail::publish_completed_dump(
-                state->pending_path.c_str(), state->completed_path.c_str()));
+        static_cast<void>(FlushFileBuffers(dump_file));
+        static_cast<void>(CloseHandle(dump_file));
+        dump_file = INVALID_HANDLE_VALUE;
+        if (wrote == FALSE) return false;
+        return detail::publish_completed_dump(pending_path.c_str(), completed_path.c_str());
+    }
+
+    static DWORD WINAPI dump_worker_entry(void* const context) noexcept {
+        auto* const state = static_cast<Impl*>(context);
+        const std::array<HANDLE, 2U> events{state->stop_event, state->dump_requested_event};
+        const auto wait = WaitForMultipleObjects(static_cast<DWORD>(events.size()), events.data(),
+                                                 FALSE, INFINITE);
+        if (wait == WAIT_OBJECT_0 + 1U) {
+            static_cast<void>(
+                state->write_dump(state->exception_pointers.load(std::memory_order_acquire),
+                                  state->crashing_thread_id.load(std::memory_order_acquire)));
+            static_cast<void>(SetEvent(state->dump_finished_event));
+        }
+        return 0U;
+    }
+
+    [[nodiscard]] bool start_dump_worker() noexcept {
+        stop_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        dump_requested_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        dump_finished_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        if (stop_event == nullptr || dump_requested_event == nullptr ||
+            dump_finished_event == nullptr) {
+            stop_dump_worker();
+            return false;
+        }
+        dump_worker = CreateThread(nullptr, 0U, &Impl::dump_worker_entry, this, 0U, nullptr);
+        if (dump_worker == nullptr) {
+            stop_dump_worker();
+            return false;
+        }
+        return true;
+    }
+
+    void stop_dump_worker() noexcept {
+        if (dump_worker != nullptr) {
+            if (stop_event != nullptr) {
+                static_cast<void>(SetEvent(stop_event));
+            }
+            static_cast<void>(WaitForSingleObject(dump_worker, INFINITE));
+            static_cast<void>(CloseHandle(dump_worker));
+            dump_worker = nullptr;
+        }
+        for (auto* event : {&dump_finished_event, &dump_requested_event, &stop_event}) {
+            if (*event != nullptr) {
+                static_cast<void>(CloseHandle(*event));
+                *event = nullptr;
+            }
+        }
+    }
+
+    static LONG WINAPI unhandled_exception_filter(EXCEPTION_POINTERS* pointers) noexcept {
+        auto* state = active.load(std::memory_order_acquire);
+        if (state == nullptr || state->handling.exchange(true, std::memory_order_acq_rel) ||
+            state->dump_file == INVALID_HANDLE_VALUE) {
+            return EXCEPTION_CONTINUE_SEARCH;
+        }
+
+        state->exception_pointers.store(pointers, std::memory_order_release);
+        state->crashing_thread_id.store(GetCurrentThreadId(), std::memory_order_release);
+        constexpr DWORD maximum_dump_wait_milliseconds = 15'000U;
+        if (state->dump_requested_event != nullptr && state->dump_finished_event != nullptr &&
+            SetEvent(state->dump_requested_event)) {
+            static_cast<void>(
+                WaitForSingleObject(state->dump_finished_event, maximum_dump_wait_milliseconds));
+        } else {
+            static_cast<void>(state->write_dump(pointers, GetCurrentThreadId()));
         }
         return EXCEPTION_EXECUTE_HANDLER;
     }
 
     void uninstall() noexcept {
         auto* expected = this;
-        if (active.compare_exchange_strong(expected, nullptr,
-                                           std::memory_order_acq_rel)) {
+        if (active.compare_exchange_strong(expected, nullptr, std::memory_order_acq_rel)) {
             static_cast<void>(SetUnhandledExceptionFilter(previous_filter));
         }
+        stop_dump_worker();
         if (dump_file != INVALID_HANDLE_VALUE) {
             static_cast<void>(CloseHandle(dump_file));
             dump_file = INVALID_HANDLE_VALUE;
@@ -115,22 +172,19 @@ struct WindowsCrashDiagnostics::Impl final {
         const auto process = GetCurrentProcessId();
         for (unsigned sequence = 0U; sequence < 1'000U; ++sequence) {
             std::array<wchar_t, 128U> filename{};
-            const auto length = swprintf_s(
-                filename.data(), filename.size(),
-                L"crash-%04hu%02hu%02huT%02hu%02hu%02hu.%03huZ-pid%lu-%03u.dmp",
-                utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute,
-                utc.wSecond, utc.wMilliseconds, static_cast<unsigned long>(process),
-                sequence);
+            const auto length =
+                swprintf_s(filename.data(), filename.size(),
+                           L"crash-%04hu%02hu%02huT%02hu%02hu%02hu.%03huZ-pid%lu-%03u.dmp",
+                           utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond,
+                           utc.wMilliseconds, static_cast<unsigned long>(process), sequence);
             if (length <= 0) return false;
             completed_path = directory / filename.data();
             pending_path = completed_path;
             pending_path += L".partial";
-            dump_file = CreateFileW(
-                pending_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
-                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
+            dump_file = CreateFileW(pending_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
             if (dump_file != INVALID_HANDLE_VALUE) return true;
-            if (GetLastError() != ERROR_FILE_EXISTS &&
-                GetLastError() != ERROR_ALREADY_EXISTS) {
+            if (GetLastError() != ERROR_FILE_EXISTS && GetLastError() != ERROR_ALREADY_EXISTS) {
                 return false;
             }
         }
@@ -141,8 +195,14 @@ struct WindowsCrashDiagnostics::Impl final {
     std::filesystem::path pending_path{};
     std::filesystem::path completed_path{};
     HANDLE dump_file{INVALID_HANDLE_VALUE};
+    HANDLE stop_event{};
+    HANDLE dump_requested_event{};
+    HANDLE dump_finished_event{};
+    HANDLE dump_worker{};
     LPTOP_LEVEL_EXCEPTION_FILTER previous_filter{};
     std::atomic_bool handling{};
+    std::atomic<EXCEPTION_POINTERS*> exception_pointers{};
+    std::atomic<DWORD> crashing_thread_id{};
     bool installed{};
     std::string failure{"Crash diagnostics are not installed"};
     static std::atomic<Impl*> active;
@@ -181,8 +241,15 @@ bool WindowsCrashDiagnostics::install() noexcept {
             impl_->failure = "Crash dump staging file cannot be created";
             return false;
         }
-        impl_->previous_filter = SetUnhandledExceptionFilter(
-            &Impl::unhandled_exception_filter);
+        if (!impl_->start_dump_worker()) {
+            Impl::active.store(nullptr, std::memory_order_release);
+            static_cast<void>(CloseHandle(impl_->dump_file));
+            impl_->dump_file = INVALID_HANDLE_VALUE;
+            static_cast<void>(DeleteFileW(impl_->pending_path.c_str()));
+            impl_->failure = "Crash dump worker cannot be started";
+            return false;
+        }
+        impl_->previous_filter = SetUnhandledExceptionFilter(&Impl::unhandled_exception_filter);
         impl_->installed = true;
         impl_->failure.clear();
         return true;
@@ -202,10 +269,9 @@ CrashDiagnosticsSnapshot WindowsCrashDiagnostics::snapshot() const noexcept {
         auto newest_time = std::filesystem::file_time_type::min();
         if (std::filesystem::is_directory(impl_->directory, filesystem_error) &&
             !filesystem_error) {
-            for (std::filesystem::directory_iterator iterator{impl_->directory,
-                                                               filesystem_error}, end;
-                 iterator != end && !filesystem_error;
-                 iterator.increment(filesystem_error)) {
+            for (std::filesystem::directory_iterator iterator{impl_->directory, filesystem_error},
+                 end;
+                 iterator != end && !filesystem_error; iterator.increment(filesystem_error)) {
                 const auto status = iterator->symlink_status(filesystem_error);
                 if (filesystem_error) break;
                 if (status.type() != std::filesystem::file_type::regular ||

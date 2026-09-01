@@ -240,21 +240,6 @@ automatic_signal_text(const core::AutomaticIncidentSignal signal) noexcept {
     }
 }
 
-[[nodiscard]] constexpr const char* thermal_pressure_text(const std::uint8_t state) noexcept {
-    switch (state) {
-    case 0U:
-        return "Nominal";
-    case 1U:
-        return "Fair";
-    case 2U:
-        return "Serious";
-    case 3U:
-        return "Critical";
-    default:
-        return "Unknown";
-    }
-}
-
 void request_page(DashboardCommand& command, const IncidentViewerState& state,
                   const std::size_t offset) {
     command.action = DashboardAction::refresh_incidents;

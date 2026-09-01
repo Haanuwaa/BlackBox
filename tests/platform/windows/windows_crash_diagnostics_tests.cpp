@@ -27,9 +27,8 @@ public:
         static std::atomic<std::uint64_t> sequence{};
         path = std::filesystem::temp_directory_path() /
                ("blackbox-crash-diagnostics-test-" +
-                std::to_string(std::chrono::steady_clock::now()
-                                   .time_since_epoch().count()) +
-                "-" + std::to_string(sequence.fetch_add(1U)));
+                std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" +
+                std::to_string(sequence.fetch_add(1U)));
         std::filesystem::create_directories(path);
     }
     ~TemporaryCrashDirectory() {
@@ -39,18 +38,17 @@ public:
     std::filesystem::path path{};
 };
 
-[[nodiscard]] std::filesystem::path sibling_executable(
-    const std::wstring_view name) {
+[[nodiscard]] std::filesystem::path sibling_executable(const std::wstring_view name) {
     std::wstring buffer(32'768U, L'\0');
-    const auto length = GetModuleFileNameW(
-        nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    const auto length =
+        GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
     if (length == 0U || length >= buffer.size()) return {};
     buffer.resize(length);
     return std::filesystem::path{buffer}.parent_path() / name;
 }
 
-[[nodiscard]] std::vector<std::filesystem::path> completed_dumps(
-    const std::filesystem::path& directory) {
+[[nodiscard]] std::vector<std::filesystem::path>
+completed_dumps(const std::filesystem::path& directory) {
     std::vector<std::filesystem::path> result;
     for (const auto& entry : std::filesystem::directory_iterator{directory}) {
         if (entry.is_regular_file() && entry.path().extension() == ".dmp") {
@@ -71,8 +69,7 @@ TEST_CASE("Windows crash diagnostics inventories evidence and cleans normal stag
         output << "MDMPfixture";
     }
     {
-        blackbox::platform::windows::WindowsCrashDiagnostics diagnostics{
-            temporary.path};
+        blackbox::platform::windows::WindowsCrashDiagnostics diagnostics{temporary.path};
         REQUIRE(diagnostics.install());
         const auto state = diagnostics.snapshot();
         CHECK(state.available);
@@ -80,6 +77,26 @@ TEST_CASE("Windows crash diagnostics inventories evidence and cleans normal stag
         CHECK(state.completed_evidence == 1U);
         CHECK(state.latest_evidence == prior);
     }
+    for (const auto& entry : std::filesystem::directory_iterator{temporary.path}) {
+        CHECK(entry.path().extension() != ".partial");
+    }
+}
+
+TEST_CASE("Windows crash diagnostics closes every dedicated worker handle",
+          "[platform][windows][crash]") {
+    TemporaryCrashDirectory temporary;
+    DWORD handles_before{};
+    REQUIRE(GetProcessHandleCount(GetCurrentProcess(), &handles_before));
+
+    for (std::size_t iteration = 0U; iteration < 24U; ++iteration) {
+        blackbox::platform::windows::WindowsCrashDiagnostics diagnostics{temporary.path};
+        REQUIRE(diagnostics.install());
+        CHECK(diagnostics.snapshot().armed);
+    }
+
+    DWORD handles_after{};
+    REQUIRE(GetProcessHandleCount(GetCurrentProcess(), &handles_after));
+    CHECK(handles_after <= handles_before + 1U);
     for (const auto& entry : std::filesystem::directory_iterator{temporary.path}) {
         CHECK(entry.path().extension() != ".partial");
     }
@@ -95,9 +112,9 @@ TEST_CASE("Windows crash dump publication tolerates bounded file contention",
         output << "MDMPfixture";
     }
 
-    const auto blocker = CreateFileW(
-        pending.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    const auto blocker =
+        CreateFileW(pending.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     REQUIRE(blocker != INVALID_HANDLE_VALUE);
     std::jthread release_blocker{[blocker] {
         // This exceeds the former 500 ms publication budget and models the
@@ -107,8 +124,8 @@ TEST_CASE("Windows crash dump publication tolerates bounded file contention",
     }};
 
     const auto started = std::chrono::steady_clock::now();
-    CHECK(blackbox::platform::windows::detail::publish_completed_dump(
-        pending.c_str(), completed.c_str()));
+    CHECK(blackbox::platform::windows::detail::publish_completed_dump(pending.c_str(),
+                                                                      completed.c_str()));
     const auto elapsed = std::chrono::steady_clock::now() - started;
     CHECK(elapsed >= std::chrono::milliseconds{500});
     CHECK(elapsed < std::chrono::seconds{3});
@@ -124,13 +141,13 @@ TEST_CASE("Windows unhandled exception probe writes a bounded minidump",
 
     std::vector<std::filesystem::path> dumps;
     for (std::size_t attempt = 0U; attempt < 3U && dumps.empty(); ++attempt) {
-        std::wstring command = L"\"" + probe.wstring() + L"\" \"" +
-                               temporary.path.wstring() + L"\"";
+        std::wstring command =
+            L"\"" + probe.wstring() + L"\" \"" + temporary.path.wstring() + L"\"";
         STARTUPINFOW startup{};
         startup.cb = sizeof(startup);
         PROCESS_INFORMATION process{};
-        REQUIRE(CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
-                               CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process));
+        REQUIRE(CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                               nullptr, nullptr, &startup, &process));
         const auto waited = WaitForSingleObject(process.hProcess, 20'000U);
         DWORD exit_code{};
         REQUIRE(waited == WAIT_OBJECT_0);

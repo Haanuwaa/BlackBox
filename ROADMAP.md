@@ -2369,18 +2369,21 @@ V0.21 and V0.22 now implement the durable viewer-mutation boundary, bounded dash
 portable terminology cleanup, characterization-led source decomposition, stronger quality graphs,
 Linux PSI evidence, macOS thermal-pressure evidence, and direct-V1 pressure persistence/UI/export.
 The engineering version is `0.22.0`; final `1.0.0` remains reserved for actual V1 qualification.
-The local Windows Release graph passes 363/363 tests, including architecture, direct-V1, durability,
+The local Windows Release graph passes 364/364 tests, including architecture, direct-V1, durability,
 pressure, performance, repository, and release-documentation contracts. The full product-and-test MSVC
 native-analysis graph also passes with warnings treated as errors. These are local implementation
 results until the revision is frozen and the hosted evidence below succeeds.
 
 The pre-freeze hosted diagnostic pass hardened four toolchain boundaries without weakening a gate:
 CodeQL now creates its restored vcpkg binary-cache directory before dependency resolution; the Linux
-ThreadSanitizer graph is explicitly headless; the direct-V1 SQL source is split below the Visual Studio
-2022 per-literal limit without changing its concatenated schema; and PSI average validation uses a
-bounded fixed-point grammar that compiles on the supported macOS deployment target. Shared GPU
+ThreadSanitizer graph is explicitly headless and carries the same Clang/libstdc++ C++23 feature
+compatibility setting as the native fuzz graph; the direct-V1 SQL source is split below the Visual
+Studio 2022 per-literal limit without changing its concatenated schema; and PSI average validation
+uses a bounded fixed-point grammar that compiles on the supported macOS deployment target. Shared GPU
 capability selection is compiled on every platform, preventing platform-conditional UI code from
-referring to stale provider fields.
+referring to stale provider fields. Windows crash capture now hands its preallocated exception state
+to a dedicated bounded dump thread, avoiding the hosted Debug failure mode where DbgHelp could leave
+only incomplete staging data when invoked on the damaged thread.
 
 The exact next gate is one clean V0.22 revision: rebuild and pass the complete local Release and MSVC
 native-analysis graphs, then obtain Windows, Linux, macOS, and quality/security hosted evidence for
