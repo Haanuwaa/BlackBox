@@ -64,7 +64,7 @@ TEST_CASE("Linux event provider exposes bounded native capabilities",
 TEST_CASE("Linux service job events discard unit identity and preserve result class",
           "[telemetry][linux][events][privacy]") {
     const auto completed = linux_telemetry::normalized_linux_service_job_event("done");
-    CHECK(completed.source == core::SystemEventSource::service_control_manager);
+    CHECK(completed.source == core::SystemEventSource::service_manager);
     CHECK(completed.kind == core::SystemEventKind::service_state_changed);
     CHECK(completed.level == core::SystemEventLevel::informational);
     CHECK(completed.detail == 0U);

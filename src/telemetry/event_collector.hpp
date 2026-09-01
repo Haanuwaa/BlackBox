@@ -36,16 +36,15 @@ struct EventSourceCounts {
     std::uint64_t power{};
     std::uint64_t device{};
     std::uint64_t audio{};
-    std::uint64_t service_control_manager{};
-    std::uint64_t defender{};
-    std::uint64_t windows_update{};
+    std::uint64_t service_manager{};
+    std::uint64_t security{};
+    std::uint64_t update{};
     std::uint64_t application{};
     std::uint64_t network{};
     std::uint64_t graphics{};
     std::uint64_t storage{};
     std::uint64_t process{};
-    friend constexpr bool operator==(const EventSourceCounts&,
-                                     const EventSourceCounts&) = default;
+    friend constexpr bool operator==(const EventSourceCounts&, const EventSourceCounts&) = default;
 };
 
 struct EventCollectorDiagnostics {
@@ -72,8 +71,8 @@ struct EventCollectorDiagnostics {
 class ISystemEventHistory {
 public:
     virtual ~ISystemEventHistory() = default;
-    [[nodiscard]] virtual core::RecorderSnapshot<core::SystemEvent> snapshot(
-        std::size_t maximum_events) const = 0;
+    [[nodiscard]] virtual core::RecorderSnapshot<core::SystemEvent>
+    snapshot(std::size_t maximum_events) const = 0;
 };
 
 class ISystemEventSink {
@@ -81,8 +80,7 @@ public:
     virtual ~ISystemEventSink() = default;
     // External normalized events must already satisfy the core privacy
     // contract. Returns false when an event is malformed or cannot be kept.
-    [[nodiscard]] virtual bool record_external_event(
-        const core::SystemEvent& event) noexcept = 0;
+    [[nodiscard]] virtual bool record_external_event(const core::SystemEvent& event) noexcept = 0;
 };
 
 // A power callback can arrive while the ordinary telemetry provider is already
@@ -98,8 +96,7 @@ class SystemEventCollector final : public ISystemEventHistory,
                                    public ISystemEventSink,
                                    public ISamplingCadenceResetSignal {
 public:
-    SystemEventCollector(ISystemEventProvider& provider,
-                         const core::IMonotonicClock& clock,
+    SystemEventCollector(ISystemEventProvider& provider, const core::IMonotonicClock& clock,
                          EventCollectorConfiguration configuration = {});
     ~SystemEventCollector();
 
@@ -113,10 +110,9 @@ public:
     // outlive a running collector.
     void set_incident_capture_sink(core::IIncidentCaptureRequestSink* sink) noexcept;
     [[nodiscard]] bool running() const noexcept;
-    [[nodiscard]] core::RecorderSnapshot<core::SystemEvent> snapshot(
-        std::size_t maximum_events) const override;
-    [[nodiscard]] bool record_external_event(
-        const core::SystemEvent& event) noexcept override;
+    [[nodiscard]] core::RecorderSnapshot<core::SystemEvent>
+    snapshot(std::size_t maximum_events) const override;
+    [[nodiscard]] bool record_external_event(const core::SystemEvent& event) noexcept override;
     [[nodiscard]] std::uint64_t cadence_reset_generation() const noexcept override;
     [[nodiscard]] EventCollectorDiagnostics diagnostics() const noexcept;
 

@@ -97,6 +97,22 @@ CREATE TABLE system_extended_samples (
  uptime_status INTEGER NOT NULL CHECK(uptime_status BETWEEN 0 AND 3), uptime_seconds REAL CHECK(uptime_status<>0 OR uptime_seconds IS NOT NULL),
  PRIMARY KEY(incident_id,sample_index),
  FOREIGN KEY(incident_id,sample_index) REFERENCES system_samples(incident_id,sample_index) ON DELETE CASCADE);
+CREATE TABLE system_pressure_samples (
+ incident_id INTEGER NOT NULL, sample_index INTEGER NOT NULL,
+ cpu_some_status INTEGER NOT NULL CHECK(cpu_some_status BETWEEN 0 AND 3),
+ cpu_some_fraction REAL CHECK(cpu_some_status<>0 OR cpu_some_fraction IS NOT NULL),
+ memory_some_status INTEGER NOT NULL CHECK(memory_some_status BETWEEN 0 AND 3),
+ memory_some_fraction REAL CHECK(memory_some_status<>0 OR memory_some_fraction IS NOT NULL),
+ memory_full_status INTEGER NOT NULL CHECK(memory_full_status BETWEEN 0 AND 3),
+ memory_full_fraction REAL CHECK(memory_full_status<>0 OR memory_full_fraction IS NOT NULL),
+ io_some_status INTEGER NOT NULL CHECK(io_some_status BETWEEN 0 AND 3),
+ io_some_fraction REAL CHECK(io_some_status<>0 OR io_some_fraction IS NOT NULL),
+ io_full_status INTEGER NOT NULL CHECK(io_full_status BETWEEN 0 AND 3),
+ io_full_fraction REAL CHECK(io_full_status<>0 OR io_full_fraction IS NOT NULL),
+ thermal_pressure_status INTEGER NOT NULL CHECK(thermal_pressure_status BETWEEN 0 AND 3),
+ thermal_pressure_state INTEGER CHECK(thermal_pressure_status<>0 OR thermal_pressure_state BETWEEN 0 AND 4),
+ PRIMARY KEY(incident_id,sample_index),
+ FOREIGN KEY(incident_id,sample_index) REFERENCES system_samples(incident_id,sample_index) ON DELETE CASCADE);
 CREATE TABLE system_events (
  incident_id INTEGER NOT NULL, event_index INTEGER NOT NULL, observed_ns INTEGER NOT NULL,
     source_utc_ms INTEGER, source INTEGER NOT NULL CHECK(source BETWEEN 0 AND 10),

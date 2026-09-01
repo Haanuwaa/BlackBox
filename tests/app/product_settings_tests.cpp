@@ -21,8 +21,7 @@ public:
         static std::atomic<std::uint64_t> sequence{};
         directory = std::filesystem::temp_directory_path() /
                     ("blackbox-product-settings-test-" +
-                     std::to_string(std::chrono::steady_clock::now()
-                                        .time_since_epoch().count()) +
+                     std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
                      "-" + std::to_string(sequence.fetch_add(1U)));
         path = directory / "product-settings.ini";
     }
@@ -66,8 +65,7 @@ TEST_CASE("product settings defaults and all user controls round trip",
     const auto loaded = app::load_product_settings(temporary.path);
     REQUIRE(loaded.has_value());
     CHECK(*loaded == values);
-    CHECK(std::filesystem::file_size(temporary.path) <=
-          app::maximum_product_settings_bytes);
+    CHECK(std::filesystem::file_size(temporary.path) <= app::maximum_product_settings_bytes);
 
     auto backup = temporary.path;
     backup += ".bak";
@@ -77,8 +75,7 @@ TEST_CASE("product settings defaults and all user controls round trip",
     CHECK(*recovered == values);
 }
 
-TEST_CASE("product settings reject unsafe combinations",
-          "[app][product-settings][validation]") {
+TEST_CASE("product settings reject unsafe combinations", "[app][product-settings][validation]") {
     TemporarySettings temporary;
     auto values = app::default_product_settings();
     values.archive_path = temporary.directory / "incidents.sqlite3";
@@ -87,8 +84,7 @@ TEST_CASE("product settings reject unsafe combinations",
     CHECK_FALSE(app::validate_product_settings(values));
     values.incident_hotkey = platform::default_incident_hotkey;
 
-    values.detect_cpu = values.detect_memory = values.detect_disk =
-        values.detect_network = false;
+    values.detect_cpu = values.detect_memory = values.detect_disk = values.detect_network = false;
     CHECK_FALSE(app::validate_product_settings(values));
     values.automatic_detection_enabled = false;
     CHECK(app::validate_product_settings(values));
@@ -124,8 +120,7 @@ TEST_CASE("product settings reject every non-v1 format without conversion",
     REQUIRE(app::save_product_settings(temporary.path, values).has_value());
 
     std::ifstream input{temporary.path};
-    std::string contents{std::istreambuf_iterator<char>{input},
-                         std::istreambuf_iterator<char>{}};
+    std::string contents{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     const auto marker = contents.find("format=1");
     REQUIRE(marker != std::string::npos);
     contents.replace(marker, std::string{"format=1"}.size(), "format=2");
@@ -167,8 +162,8 @@ TEST_CASE("product settings map independently gated event evidence",
     CHECK_FALSE(configuration.device_events);
     CHECK_FALSE(configuration.audio_device_events);
     CHECK_FALSE(configuration.service_events);
-    CHECK_FALSE(configuration.defender_events);
-    CHECK_FALSE(configuration.windows_update_events);
+    CHECK_FALSE(configuration.security_events);
+    CHECK_FALSE(configuration.update_events);
     CHECK_FALSE(configuration.application_events);
     CHECK_FALSE(configuration.network_events);
     CHECK_FALSE(configuration.graphics_events);
@@ -182,8 +177,8 @@ TEST_CASE("product settings map independently gated event evidence",
     CHECK(configuration.device_events);
     CHECK(configuration.audio_device_events);
     CHECK(configuration.service_events);
-    CHECK(configuration.defender_events);
-    CHECK(configuration.windows_update_events);
+    CHECK(configuration.security_events);
+    CHECK(configuration.update_events);
     CHECK(configuration.application_events);
     CHECK(configuration.network_events);
     CHECK(configuration.graphics_events);

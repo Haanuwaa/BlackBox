@@ -3,8 +3,8 @@
 ## Purpose
 
 BlackBox needs cross-platform evidence for periods where runnable work is delayed even when ordinary
-utilization counters do not explain the delay. This document fixes the semantic boundary before any
-Linux PSI or future macOS source enters telemetry or schema V1.
+utilization counters do not explain the delay. This document fixes the semantic boundary used by the
+implemented Linux PSI evidence and by any future native source entering direct schema V1.
 
 Pressure is not an alias for utilization, latency, responsiveness, or Windows DPC/ISR activity. A
 provider must expose only the dimensions its native source measures and must leave every other
@@ -12,7 +12,7 @@ dimension explicitly unsupported.
 
 ## Source-neutral dimensions
 
-The future portable observation is a group of independent dimensions:
+The portable observation is a group of independent dimensions:
 
 - `cpu_some`: time in which at least one runnable non-idle task was delayed for CPU service.
 - `memory_some`: time in which at least one non-idle task was delayed by memory reclaim or allocation.
@@ -52,9 +52,10 @@ Windows DPC time, interrupt time, and DPC rate remain Windows responsiveness evi
 existing `dpc_isr` capability. They do not measure runnable-task stall time and must not populate any
 pressure dimension.
 
-macOS currently has no accepted public source that exposes the cumulative stalled-time meanings above.
-Memory-pressure notifications or levels describe state transitions, not stalled duration, so they
-remain a possible separate event/state contract rather than a fabricated PSI equivalent.
+macOS has no accepted public source that exposes the cumulative stalled-time meanings above.
+`NSProcessInfo.thermalState` is therefore represented as a separate coarse
+nominal/fair/serious/critical state. It is never converted into a stall fraction, CPU frequency, or
+utilization value.
 
 ## Privacy, persistence, and analysis
 
@@ -62,16 +63,18 @@ Pressure evidence contains only machine-wide durations/fractions and availabilit
 no PID, process name, cgroup, container, path, device, or workload identity. Per-cgroup PSI is out of
 scope for V1.
 
-When implemented, the fields enter the direct schema-V1 snapshot and incident models once; there is no
-migration, legacy reader, dual writer, or compatibility branch. Analysis may cite pressure as observed
+The fields enter the direct schema-V1 snapshot and incident models once; there is no migration,
+legacy reader, dual writer, or compatibility branch. Analysis may cite pressure as observed
 context but must calibrate any causal claim against representative held-out incidents. Runtime ML does
 not gain access merely because the feature exists.
 
-## Implementation gate
+## Implementation evidence
 
-Linux PSI implementation may begin only with parser tests for missing/duplicate/unknown records,
-numeric bounds, malformed input, counter reset, warm-up, partial dimensions, and suspend/resume. A
-provider contract test, overhead benchmark, incident round-trip test, privacy review, UI availability
-copy, and exact-revision Linux hosted evidence are required before the capability is described as
-implemented. A macOS implementation requires a separately documented public source with the same
-semantics; adjacent memory-pressure APIs do not satisfy that gate.
+Linux uses strict bounded parsers for missing/duplicate/unknown records, numeric bounds, malformed
+input, overflow, partial dimensions, and `some`-only CPU files. Normalizer tests cover exact deltas,
+warm-up, independent reset/failure, and impossible fractions; provider-contract, direct-V1 archive
+round-trip, dataset/truth export, UI availability copy, and the existing all-tier overhead benchmark
+cover the remaining boundaries. The native parser is also part of the bounded libFuzzer graph.
+Exact-revision hosted Linux execution remains required before the V0.22 engineering evidence is
+frozen. A future macOS cumulative-stall implementation still requires a separately documented public
+source with the same semantics; the implemented thermal level does not satisfy that contract.

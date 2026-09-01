@@ -33,11 +33,10 @@ core::SystemEvent normalized_linux_sleep_event(const bool sleeping) noexcept {
 
 core::SystemEvent normalized_linux_service_job_event(const std::string_view result) noexcept {
     core::SystemEvent event{};
-    event.source = core::SystemEventSource::service_control_manager;
+    event.source = core::SystemEventSource::service_manager;
     event.kind = core::SystemEventKind::service_state_changed;
-    event.level = result == "done" || result == "skipped"
-                      ? core::SystemEventLevel::informational
-                      : core::SystemEventLevel::warning;
+    event.level = result == "done" || result == "skipped" ? core::SystemEventLevel::informational
+                                                          : core::SystemEventLevel::warning;
     // Only the bounded result class is retained. Unit name, object path, job
     // identifier, and message text are deliberately discarded.
     event.detail = event.level == core::SystemEventLevel::informational ? 0U : 1U;
@@ -77,9 +76,8 @@ namespace {
 }
 
 template <typename State>
-[[nodiscard]] EventProviderStatus source_status(
-    const EventProviderConfiguration& configuration,
-    const State& state) noexcept {
+[[nodiscard]] EventProviderStatus source_status(const EventProviderConfiguration& configuration,
+                                                const State& state) noexcept {
     const std::array pairs{
         std::pair{uevent_requested(configuration), state.device_active},
         std::pair{configuration.power_events, state.power_active},
@@ -92,8 +90,7 @@ template <typename State>
         requested += static_cast<unsigned>(wanted);
         active += static_cast<unsigned>(wanted && available);
     }
-    if (requested == 0U || active == requested)
-        return EventProviderStatus::complete;
+    if (requested == 0U || active == requested) return EventProviderStatus::complete;
     return active == 0U ? EventProviderStatus::temporarily_failed : EventProviderStatus::partial;
 }
 
@@ -107,8 +104,7 @@ LinuxSystemEventProvider::~LinuxSystemEventProvider() { stop(); }
 EventProviderStatus
 LinuxSystemEventProvider::start(const EventProviderConfiguration& configuration) noexcept {
     stop();
-    if (state_ == nullptr)
-        return EventProviderStatus::temporarily_failed;
+    if (state_ == nullptr) return EventProviderStatus::temporarily_failed;
     state_->configuration = configuration;
     state_->dropped = 0U;
     if (uevent_requested(configuration)) {
@@ -120,8 +116,9 @@ LinuxSystemEventProvider::start(const EventProviderConfiguration& configuration)
                                            &receive_buffer_bytes, sizeof(receive_buffer_bytes)));
             sockaddr_nl address{};
             address.nl_family = AF_NETLINK;
-            // Let netlink assign a unique port identifier. A process PID is not a
-            // safe socket identity when multiple in-process diagnostic clients exist.
+            // Let netlink assign a unique port identifier. A process PID is not
+            // a safe socket identity when multiple in-process diagnostic
+            // clients exist.
             address.nl_pid = 0U;
             address.nl_groups = 1U;
             if (::bind(state_->socket, reinterpret_cast<const sockaddr*>(&address),
@@ -144,11 +141,11 @@ LinuxSystemEventProvider::start(const EventProviderConfiguration& configuration)
             if (configuration.power_events) {
                 DBusError source_error;
                 dbus_error_init(&source_error);
-                dbus_bus_add_match(
-                    state_->system_bus,
-                    "type='signal',sender='org.freedesktop.login1',"
-                    "interface='org.freedesktop.login1.Manager',member='PrepareForSleep'",
-                    &source_error);
+                dbus_bus_add_match(state_->system_bus,
+                                   "type='signal',sender='org.freedesktop.login1',"
+                                   "interface='org.freedesktop.login1.Manager',member='"
+                                   "PrepareForSleep'",
+                                   &source_error);
                 dbus_connection_flush(state_->system_bus);
                 if (!dbus_error_is_set(&source_error)) state_->power_active = true;
                 dbus_error_free(&source_error);
@@ -156,11 +153,11 @@ LinuxSystemEventProvider::start(const EventProviderConfiguration& configuration)
             if (configuration.service_events) {
                 DBusError source_error;
                 dbus_error_init(&source_error);
-                dbus_bus_add_match(
-                    state_->system_bus,
-                    "type='signal',sender='org.freedesktop.systemd1',"
-                    "interface='org.freedesktop.systemd1.Manager',member='JobRemoved'",
-                    &source_error);
+                dbus_bus_add_match(state_->system_bus,
+                                   "type='signal',sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Manager',member='"
+                                   "JobRemoved'",
+                                   &source_error);
                 auto* request = dbus_message_new_method_call(
                     "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                     "org.freedesktop.systemd1.Manager", "Subscribe");
@@ -182,10 +179,9 @@ LinuxSystemEventProvider::start(const EventProviderConfiguration& configuration)
 
 #if defined(BLACKBOX_HAS_SYSTEMD_JOURNAL)
     if (configuration.application_events &&
-        sd_journal_open(&state_->crash_journal,
-                        SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM) >= 0 &&
-        sd_journal_add_match(state_->crash_journal,
-                             "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0U) >= 0 &&
+        sd_journal_open(&state_->crash_journal, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM) >= 0 &&
+        sd_journal_add_match(state_->crash_journal, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1",
+                             0U) >= 0 &&
         sd_journal_seek_tail(state_->crash_journal) >= 0) {
         state_->application_active = true;
     } else if (state_->crash_journal != nullptr) {
@@ -213,8 +209,7 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
         } else {
             while (count < destination.size()) {
                 DBusMessage* message = dbus_connection_pop_message(state_->system_bus);
-                if (message == nullptr)
-                    break;
+                if (message == nullptr) break;
                 if (dbus_message_is_signal(message, "org.freedesktop.login1.Manager",
                                            "PrepareForSleep")) {
                     dbus_bool_t sleeping{};
@@ -229,8 +224,7 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
                         ++state_->dropped;
                     }
                     dbus_error_free(&error);
-                } else if (dbus_message_is_signal(message,
-                                                  "org.freedesktop.systemd1.Manager",
+                } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager",
                                                   "JobRemoved")) {
                     dbus_uint32_t job_id{};
                     const char* object_path{};
@@ -238,13 +232,11 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
                     const char* result{};
                     DBusError error;
                     dbus_error_init(&error);
-                    if (dbus_message_get_args(message, &error,
-                                              DBUS_TYPE_UINT32, &job_id,
-                                              DBUS_TYPE_OBJECT_PATH, &object_path,
-                                              DBUS_TYPE_STRING, &unit,
-                                              DBUS_TYPE_STRING, &result,
-                                              DBUS_TYPE_INVALID) != 0 && unit != nullptr &&
-                        result != nullptr) {
+                    if (dbus_message_get_args(message, &error, DBUS_TYPE_UINT32, &job_id,
+                                              DBUS_TYPE_OBJECT_PATH, &object_path, DBUS_TYPE_STRING,
+                                              &unit, DBUS_TYPE_STRING, &result,
+                                              DBUS_TYPE_INVALID) != 0 &&
+                        unit != nullptr && result != nullptr) {
                         static_cast<void>(job_id);
                         static_cast<void>(object_path);
                         if (std::string_view{unit}.ends_with(".service")) {
@@ -290,10 +282,8 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
             const auto received =
                 ::recv(state_->socket, buffer.data(), buffer.size(), MSG_DONTWAIT | MSG_TRUNC);
             if (received < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK)
-                    break;
-                if (errno == EINTR)
-                    continue;
+                if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                if (errno == EINTR) continue;
                 if (errno == ENOBUFS) {
                     ++state_->dropped;
                     break;
@@ -301,8 +291,7 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
                 state_->device_active = false;
                 break;
             }
-            if (received == 0)
-                break;
+            if (received == 0) break;
             if (static_cast<std::size_t>(received) > buffer.size()) {
                 ++state_->dropped;
                 continue;
@@ -310,19 +299,16 @@ LinuxSystemEventProvider::poll(const core::MonotonicTimePoint observed_at,
             auto event = normalized_linux_uevent(
                 std::string_view{buffer.data(), static_cast<std::size_t>(received)},
                 state_->configuration);
-            if (!event)
-                continue;
+            if (!event) continue;
             event->observed_at = observed_at;
             destination[count++] = *event;
         }
     }
-    return {source_status(state_->configuration, *state_),
-            count, state_->dropped};
+    return {source_status(state_->configuration, *state_), count, state_->dropped};
 }
 
 void LinuxSystemEventProvider::stop() noexcept {
-    if (state_ == nullptr)
-        return;
+    if (state_ == nullptr) return;
     if (state_->socket >= 0) {
         static_cast<void>(::close(state_->socket));
         state_->socket = -1;

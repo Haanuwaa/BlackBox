@@ -21,8 +21,7 @@ constexpr int incident_hotkey_id = 0x4242;
     return VK_F1 + number - 1U;
 }
 
-[[nodiscard]] constexpr UINT native_modifiers(
-    const HotkeyCombination combination) noexcept {
+[[nodiscard]] constexpr UINT native_modifiers(const HotkeyCombination combination) noexcept {
     UINT result = MOD_NOREPEAT;
     if (combination.control) {
         result |= MOD_CONTROL;
@@ -33,7 +32,7 @@ constexpr int incident_hotkey_id = 0x4242;
     if (combination.alt) {
         result |= MOD_ALT;
     }
-    if (combination.windows) {
+    if (combination.system_modifier) {
         result |= MOD_WIN;
     }
     return result;
@@ -54,13 +53,11 @@ struct WindowsGlobalHotkeyManager::NativeState {
 WindowsGlobalHotkeyManager::WindowsGlobalHotkeyManager()
     : native_{std::make_unique<NativeState>()} {}
 
-WindowsGlobalHotkeyManager::~WindowsGlobalHotkeyManager() {
-    unregister_hotkey();
-}
+WindowsGlobalHotkeyManager::~WindowsGlobalHotkeyManager() { unregister_hotkey(); }
 
-HotkeyRegistrationResult WindowsGlobalHotkeyManager::register_hotkey(
-    const HotkeyCombination combination,
-    HotkeyCallback callback) {
+HotkeyRegistrationResult
+WindowsGlobalHotkeyManager::register_hotkey(const HotkeyCombination combination,
+                                            HotkeyCallback callback) {
     unregister_hotkey();
     const auto key = native_key(combination.key);
     if (key == 0U || !callback) {
@@ -73,46 +70,45 @@ HotkeyRegistrationResult WindowsGlobalHotkeyManager::register_hotkey(
         native_->registration_error = ERROR_SUCCESS;
         native_->thread_id = 0U;
     }
-    native_->worker = std::jthread{
-        [state = native_.get(), combination, callback = std::move(callback), key] {
-            MSG queue_initializer{};
-            static_cast<void>(PeekMessageW(
-                &queue_initializer, nullptr, WM_USER, WM_USER, PM_NOREMOVE));
-            const auto thread_id = GetCurrentThreadId();
-            const auto succeeded = RegisterHotKey(
-                nullptr, incident_hotkey_id, native_modifiers(combination), key) != FALSE;
-            const auto error = succeeded ? ERROR_SUCCESS : GetLastError();
-            {
-                const std::scoped_lock lock{state->mutex};
-                state->thread_id = thread_id;
-                state->registration_error = error;
-                state->registered.store(succeeded);
-                state->initialized = true;
-            }
-            state->ready_condition.notify_all();
-            if (!succeeded) {
-                return;
-            }
+    native_->worker = std::jthread{[state = native_.get(), combination,
+                                    callback = std::move(callback), key] {
+        MSG queue_initializer{};
+        static_cast<void>(PeekMessageW(&queue_initializer, nullptr, WM_USER, WM_USER, PM_NOREMOVE));
+        const auto thread_id = GetCurrentThreadId();
+        const auto succeeded = RegisterHotKey(nullptr, incident_hotkey_id,
+                                              native_modifiers(combination), key) != FALSE;
+        const auto error = succeeded ? ERROR_SUCCESS : GetLastError();
+        {
+            const std::scoped_lock lock{state->mutex};
+            state->thread_id = thread_id;
+            state->registration_error = error;
+            state->registered.store(succeeded);
+            state->initialized = true;
+        }
+        state->ready_condition.notify_all();
+        if (!succeeded) {
+            return;
+        }
 
-            MSG message{};
-            while (true) {
-                const auto result = GetMessageW(&message, nullptr, 0U, 0U);
-                if (result <= 0) {
-                    break;
-                }
-                if (message.message == WM_HOTKEY &&
-                    message.wParam == static_cast<WPARAM>(incident_hotkey_id)) {
-                    try {
-                        callback();
-                    } catch (...) {
-                        // Native message handling must not propagate application
-                        // callback failures across the platform thread boundary.
-                    }
+        MSG message{};
+        while (true) {
+            const auto result = GetMessageW(&message, nullptr, 0U, 0U);
+            if (result <= 0) {
+                break;
+            }
+            if (message.message == WM_HOTKEY &&
+                message.wParam == static_cast<WPARAM>(incident_hotkey_id)) {
+                try {
+                    callback();
+                } catch (...) {
+                    // Native message handling must not propagate application
+                    // callback failures across the platform thread boundary.
                 }
             }
-            static_cast<void>(UnregisterHotKey(nullptr, incident_hotkey_id));
-            state->registered.store(false);
-        }};
+        }
+        static_cast<void>(UnregisterHotKey(nullptr, incident_hotkey_id));
+        state->registered.store(false);
+    }};
 
     DWORD error = ERROR_SUCCESS;
     {
@@ -126,9 +122,8 @@ HotkeyRegistrationResult WindowsGlobalHotkeyManager::register_hotkey(
     if (native_->worker.joinable()) {
         native_->worker.join();
     }
-    return error == ERROR_HOTKEY_ALREADY_REGISTERED
-               ? HotkeyRegistrationResult::conflict
-               : HotkeyRegistrationResult::unavailable;
+    return error == ERROR_HOTKEY_ALREADY_REGISTERED ? HotkeyRegistrationResult::conflict
+                                                    : HotkeyRegistrationResult::unavailable;
 }
 
 void WindowsGlobalHotkeyManager::unregister_hotkey() noexcept {
@@ -152,9 +147,7 @@ void WindowsGlobalHotkeyManager::unregister_hotkey() noexcept {
     native_->registered.store(false);
 }
 
-bool WindowsGlobalHotkeyManager::registered() const noexcept {
-    return native_->registered.load();
-}
+bool WindowsGlobalHotkeyManager::registered() const noexcept { return native_->registered.load(); }
 
 bool WindowsGlobalHotkeyManager::post_activation_for_testing() noexcept {
     DWORD thread_id = 0U;
@@ -163,8 +156,8 @@ bool WindowsGlobalHotkeyManager::post_activation_for_testing() noexcept {
         thread_id = native_->thread_id;
     }
     return thread_id != 0U &&
-           PostThreadMessageW(thread_id, WM_HOTKEY,
-                              static_cast<WPARAM>(incident_hotkey_id), 0) != FALSE;
+           PostThreadMessageW(thread_id, WM_HOTKEY, static_cast<WPARAM>(incident_hotkey_id), 0) !=
+               FALSE;
 }
 
 } // namespace blackbox::platform::windows

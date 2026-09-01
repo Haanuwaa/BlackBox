@@ -18,8 +18,7 @@ enum class MetricStatus : std::uint8_t {
     temporarily_unavailable,
 };
 
-template <typename T>
-struct MetricValue {
+template <typename T> struct MetricValue {
     T value{};
     MetricStatus status{MetricStatus::unsupported};
 
@@ -73,6 +72,27 @@ enum class PowerSource : std::uint8_t {
     unknown,
 };
 
+enum class ThermalPressureState : std::uint8_t {
+    nominal,
+    fair,
+    serious,
+    critical,
+    unknown,
+};
+
+// Cumulative machine-wide stalled durations. Linux PSI supplies microseconds;
+// other providers leave these dimensions unsupported unless they can prove
+// the same cumulative wall-time semantics.
+struct RawPressureCounters {
+    MetricValue<std::uint64_t> cpu_some_microseconds{};
+    MetricValue<std::uint64_t> memory_some_microseconds{};
+    MetricValue<std::uint64_t> memory_full_microseconds{};
+    MetricValue<std::uint64_t> io_some_microseconds{};
+    MetricValue<std::uint64_t> io_full_microseconds{};
+    friend constexpr bool operator==(const RawPressureCounters&,
+                                     const RawPressureCounters&) = default;
+};
+
 // Disk quality values describe the physical-disk layer observed over the
 // provider interval. They are deliberately separate from process I/O bytes,
 // which do not imply device latency or queueing.
@@ -96,8 +116,7 @@ struct RawNetworkQuality {
     MetricValue<std::uint64_t> tcp_retransmitted_segments{};
     MetricValue<std::uint64_t> tcp_failed_connections{};
     MetricValue<std::uint64_t> tcp_established_resets{};
-    friend constexpr bool operator==(const RawNetworkQuality&,
-                                     const RawNetworkQuality&) = default;
+    friend constexpr bool operator==(const RawNetworkQuality&, const RawNetworkQuality&) = default;
 };
 
 struct CpuTimeCounters {
@@ -131,7 +150,8 @@ struct RawProcessCounters {
     MetricValue<ByteCount> working_set{};
     MetricValue<ByteCount> disk_read_bytes{};
     MetricValue<ByteCount> disk_write_bytes{};
-    friend constexpr bool operator==(const RawProcessCounters&, const RawProcessCounters&) = default;
+    friend constexpr bool operator==(const RawProcessCounters&,
+                                     const RawProcessCounters&) = default;
 };
 
 struct ProcessSample {
@@ -198,6 +218,8 @@ struct RawSystemCounters {
     MetricValue<Ratio> battery_fraction{};
     MetricValue<bool> battery_saver{};
     MetricValue<Seconds> system_uptime{};
+    RawPressureCounters pressure{};
+    MetricValue<ThermalPressureState> thermal_pressure_state{};
     MetricValue<std::uint32_t> logical_processor_count{};
     friend constexpr bool operator==(const RawSystemCounters&, const RawSystemCounters&) = default;
 };
@@ -239,6 +261,12 @@ struct SystemSample {
     MetricValue<Ratio> battery_fraction{};
     MetricValue<bool> battery_saver{};
     MetricValue<Seconds> system_uptime{};
+    MetricValue<Ratio> cpu_some_pressure{};
+    MetricValue<Ratio> memory_some_pressure{};
+    MetricValue<Ratio> memory_full_pressure{};
+    MetricValue<Ratio> io_some_pressure{};
+    MetricValue<Ratio> io_full_pressure{};
+    MetricValue<ThermalPressureState> thermal_pressure_state{};
     friend constexpr bool operator==(const SystemSample&, const SystemSample&) = default;
 };
 
@@ -265,8 +293,8 @@ public:
 
     friend constexpr SamplingTierSet operator|(const SamplingTierSet left,
                                                const SamplingTier right) noexcept {
-        return SamplingTierSet{static_cast<std::uint8_t>(left.bits_ |
-                                                        static_cast<std::uint8_t>(right))};
+        return SamplingTierSet{
+            static_cast<std::uint8_t>(left.bits_ | static_cast<std::uint8_t>(right))};
     }
 
     friend constexpr bool operator==(const SamplingTierSet&, const SamplingTierSet&) = default;

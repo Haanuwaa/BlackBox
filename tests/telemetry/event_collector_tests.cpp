@@ -16,39 +16,31 @@ namespace {
 
 class ScriptedEventProvider final : public telemetry::ISystemEventProvider {
 public:
-    telemetry::EventProviderStatus start(
-        const telemetry::EventProviderConfiguration& configuration) noexcept override {
+    telemetry::EventProviderStatus
+    start(const telemetry::EventProviderConfiguration& configuration) noexcept override {
         last_configuration = configuration;
         ++starts;
         return telemetry::EventProviderStatus::complete;
     }
 
-    telemetry::EventProviderPollResult poll(
-        const core::MonotonicTimePoint observed_at,
-        const std::span<core::SystemEvent> destination) noexcept override {
+    telemetry::EventProviderPollResult
+    poll(const core::MonotonicTimePoint observed_at,
+         const std::span<core::SystemEvent> destination) noexcept override {
         const auto sequence = polls.fetch_add(1U);
         if (!destination.empty()) {
             destination[0].observed_at = observed_at;
-            destination[0].source = emit_storage_retry
-                                        ? core::SystemEventSource::storage
-                                         : emit_display_recovery
-                                         ? core::SystemEventSource::graphics
-                                         : emit_application_crash
-                                         ? core::SystemEventSource::application
-                                         : emit_application_hang
-                                              ? core::SystemEventSource::application
-                                              : core::SystemEventSource::power;
-            destination[0].kind = emit_storage_retry
-                                      ? core::SystemEventKind::storage_io_retry
-                                       : emit_display_recovery
-                                       ? core::SystemEventKind::display_driver_recovery
-                                       : emit_application_crash
-                                       ? core::SystemEventKind::application_crash
-                                       : emit_application_hang
-                                            ? core::SystemEventKind::application_hang
-                                            : sequence % 2U == 0U
-                                      ? core::SystemEventKind::suspend
-                                      : core::SystemEventKind::resume_automatic;
+            destination[0].source = emit_storage_retry       ? core::SystemEventSource::storage
+                                    : emit_display_recovery  ? core::SystemEventSource::graphics
+                                    : emit_application_crash ? core::SystemEventSource::application
+                                    : emit_application_hang  ? core::SystemEventSource::application
+                                                             : core::SystemEventSource::power;
+            destination[0].kind =
+                emit_storage_retry       ? core::SystemEventKind::storage_io_retry
+                : emit_display_recovery  ? core::SystemEventKind::display_driver_recovery
+                : emit_application_crash ? core::SystemEventKind::application_crash
+                : emit_application_hang  ? core::SystemEventKind::application_hang
+                : sequence % 2U == 0U    ? core::SystemEventKind::suspend
+                                         : core::SystemEventKind::resume_automatic;
             destination[0].detail = sequence;
         }
         return {sequence == 0U ? telemetry::EventProviderStatus::temporarily_failed
@@ -74,9 +66,9 @@ public:
 
 class RecordingCaptureSink final : public core::IIncidentCaptureRequestSink {
 public:
-    core::IncidentCaptureRequestResult request_incident_capture(
-        const core::MonotonicTimePoint event_time,
-        const core::IncidentCaptureTrigger trigger) noexcept override {
+    core::IncidentCaptureRequestResult
+    request_incident_capture(const core::MonotonicTimePoint event_time,
+                             const core::IncidentCaptureTrigger trigger) noexcept override {
         last_event_time = event_time;
         last_trigger = trigger;
         ++requests;
@@ -86,19 +78,18 @@ public:
     std::atomic<std::uint32_t> requests{};
     core::MonotonicTimePoint last_event_time{};
     core::IncidentCaptureTrigger last_trigger{};
-    core::IncidentCaptureRequestResult result{
-        core::IncidentCaptureRequestResult::started};
+    core::IncidentCaptureRequestResult result{core::IncidentCaptureRequestResult::started};
 };
 
 class SourceCyclingEventProvider final : public telemetry::ISystemEventProvider {
 public:
-    telemetry::EventProviderStatus start(
-        const telemetry::EventProviderConfiguration&) noexcept override {
+    telemetry::EventProviderStatus
+    start(const telemetry::EventProviderConfiguration&) noexcept override {
         return telemetry::EventProviderStatus::complete;
     }
-    telemetry::EventProviderPollResult poll(
-        const core::MonotonicTimePoint observed_at,
-        const std::span<core::SystemEvent> destination) noexcept override {
+    telemetry::EventProviderPollResult
+    poll(const core::MonotonicTimePoint observed_at,
+         const std::span<core::SystemEvent> destination) noexcept override {
         const auto sequence = polls.fetch_add(1U);
         if (destination.empty()) return {};
         destination[0].observed_at = observed_at;
@@ -106,14 +97,11 @@ public:
         return {telemetry::EventProviderStatus::complete, 1U, 0U};
     }
     void stop() noexcept override {}
-    telemetry::EventProviderCapabilities capabilities() const noexcept override {
-        return {};
-    }
+    telemetry::EventProviderCapabilities capabilities() const noexcept override { return {}; }
     std::atomic<std::uint32_t> polls{};
 };
 
-template <typename Predicate>
-[[nodiscard]] bool wait_until(Predicate predicate) {
+template <typename Predicate> [[nodiscard]] bool wait_until(Predicate predicate) {
     const auto deadline = std::chrono::steady_clock::now() + 2s;
     while (!predicate() && std::chrono::steady_clock::now() < deadline) {
         std::this_thread::sleep_for(1ms);
@@ -188,17 +176,16 @@ TEST_CASE("system event diagnostics retain bounded counts for every event source
     CHECK(counts.power >= 2U);
     CHECK(counts.device >= 2U);
     CHECK(counts.audio >= 2U);
-    CHECK(counts.service_control_manager >= 2U);
-    CHECK(counts.defender >= 2U);
-    CHECK(counts.windows_update >= 2U);
+    CHECK(counts.service_manager >= 2U);
+    CHECK(counts.security >= 2U);
+    CHECK(counts.update >= 2U);
     CHECK(counts.application >= 2U);
     CHECK(counts.network >= 2U);
     CHECK(counts.graphics >= 2U);
     CHECK(counts.storage >= 2U);
     CHECK(counts.process == 0U);
-    CHECK(counts.power + counts.device + counts.audio +
-              counts.service_control_manager + counts.defender +
-              counts.windows_update + counts.application + counts.network + counts.graphics +
+    CHECK(counts.power + counts.device + counts.audio + counts.service_manager + counts.security +
+              counts.update + counts.application + counts.network + counts.graphics +
               counts.storage + counts.process ==
           collector.diagnostics().events_recorded);
 }
@@ -264,15 +251,15 @@ TEST_CASE("system event collector rejects unbounded or nonpositive configuration
           "[telemetry][event-collector][validation]") {
     core::SystemMonotonicClock clock;
     ScriptedEventProvider provider;
-    CHECK_THROWS(telemetry::SystemEventCollector(
-        provider, clock, {.poll_interval = 0ms, .ring_capacity = 1U}));
+    CHECK_THROWS(telemetry::SystemEventCollector(provider, clock,
+                                                 {.poll_interval = 0ms, .ring_capacity = 1U}));
     CHECK_THROWS(telemetry::SystemEventCollector(
         provider, clock,
-        {.poll_interval = 1ms,
-         .ring_capacity = telemetry::maximum_event_ring_capacity + 1U}));
+        {.poll_interval = 1ms, .ring_capacity = telemetry::maximum_event_ring_capacity + 1U}));
 }
 
-TEST_CASE("measured Windows application crash events request bounded automatic capture",
+TEST_CASE("measured Windows application crash events request bounded automatic "
+          "capture",
           "[telemetry][event-collector][automatic][crash]") {
     core::SystemMonotonicClock clock;
     ScriptedEventProvider provider;
@@ -288,14 +275,14 @@ TEST_CASE("measured Windows application crash events request bounded automatic c
 
     CHECK(sink.last_trigger.kind == core::IncidentTriggerKind::automatic);
     CHECK(sink.last_trigger.resource == core::AutomaticIncidentResource::none);
-    CHECK(sink.last_trigger.signal ==
-          core::AutomaticIncidentSignal::application_crash);
+    CHECK(sink.last_trigger.signal == core::AutomaticIncidentSignal::application_crash);
     CHECK(sink.last_trigger.score == 1.0);
     CHECK(collector.diagnostics().automatic_event_requests >= 1U);
     CHECK(collector.diagnostics().automatic_event_captures_started >= 1U);
 }
 
-TEST_CASE("measured Windows application hang events request bounded automatic capture",
+TEST_CASE("measured Windows application hang events request bounded automatic "
+          "capture",
           "[telemetry][event-collector][automatic][hang]") {
     core::SystemMonotonicClock clock;
     ScriptedEventProvider provider;
@@ -311,8 +298,7 @@ TEST_CASE("measured Windows application hang events request bounded automatic ca
 
     CHECK(sink.last_trigger.kind == core::IncidentTriggerKind::automatic);
     CHECK(sink.last_trigger.resource == core::AutomaticIncidentResource::none);
-    CHECK(sink.last_trigger.signal ==
-          core::AutomaticIncidentSignal::application_hang);
+    CHECK(sink.last_trigger.signal == core::AutomaticIncidentSignal::application_hang);
     CHECK(sink.last_trigger.score == 1.0);
     CHECK(collector.diagnostics().automatic_event_requests >= 1U);
     CHECK(collector.diagnostics().automatic_event_captures_started >= 1U);
@@ -334,8 +320,7 @@ TEST_CASE("measured display recovery events request bounded automatic capture",
 
     CHECK(sink.last_trigger.kind == core::IncidentTriggerKind::automatic);
     CHECK(sink.last_trigger.resource == core::AutomaticIncidentResource::none);
-    CHECK(sink.last_trigger.signal ==
-          core::AutomaticIncidentSignal::display_driver_recovery);
+    CHECK(sink.last_trigger.signal == core::AutomaticIncidentSignal::display_driver_recovery);
     CHECK(sink.last_trigger.score == 1.0);
     CHECK(collector.diagnostics().automatic_event_requests >= 1U);
     CHECK(collector.diagnostics().automatic_event_captures_started >= 1U);

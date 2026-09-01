@@ -2171,6 +2171,52 @@ support.
   and recovery, tray/background behavior, fractional DPI, mixed-scale multi-monitor moves, keyboard
   accessibility, and package lifecycle before any Linux product-support claim.
 
+## V0.21 — Durable interaction and portable semantics
+
+**Objective:** Remove the highest-risk mutation-loss and dashboard-scaling paths while keeping the
+portable application boundary source-neutral and the unreleased product on one direct V1 contract.
+
+- [x] Separate bounded incident-viewer reads from durable accepted mutations. Coalesce or cancel
+  stale reads, never evict an accepted annotation/pin/delete mutation, drain accepted mutations on
+  shutdown, reject work explicitly after shutdown starts, and expose primitive queue diagnostics.
+- [x] Add saturation, ordering, shutdown-drain, rejection, failure, and recovery tests that prove
+  every accepted mutation is persisted once and in submission order while read traffic is bounded.
+- [x] Replace portable Windows-source terminology with source-neutral security, update, service,
+  system-modifier, and system-event names across settings, evidence, exports, and UI. Keep native API
+  names inside their platform adapters and make platform capability limitations explicit.
+- [x] Bound dashboard projection work with partial top-process selection, one stable-identity metadata
+  index, collection-generation invalidation, and slow-cadence GPU inventory refresh. Characterize
+  50, 200, 500, and 8,192-process inputs with deterministic tests and a benchmark contract.
+- [x] Split dashboard projection, application dashboard refresh, viewer queueing, archive status, and
+  pressure rendering out of the largest translation units without changing ownership boundaries.
+- [x] Add a Linux ThreadSanitizer graph, native parser/settings fuzzing, per-module coverage floors,
+  and a pinned vcpkg binary cache for CodeQL without reducing production target or query coverage.
+- [x] Keep schema and persisted settings at direct V1 with no migration or compatibility reader.
+- [ ] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
+  clean V0.21-or-later revision before treating this milestone as integrated evidence.
+
+## V0.22 — Cross-platform pressure evidence
+
+**Objective:** Add honest, normalized operating-system pressure evidence without confusing stalls,
+thermal state, utilization, or inferred cause.
+
+- [x] Define a portable pressure contract for cumulative CPU/memory/I/O stall counters and a separate
+  thermal-pressure state. Normalize only exact counter deltas over elapsed monotonic time; preserve
+  warm-up, reset, unavailable, malformed, overflow, and impossible-rate states.
+- [x] Add a strict bounded Linux PSI parser and provider integration for `/proc/pressure/cpu`,
+  `/proc/pressure/memory`, and `/proc/pressure/io`, including parser, reset, independent-dimension,
+  permission, and native-fuzzer coverage.
+- [x] Add public macOS thermal-pressure evidence while leaving PSI-style stall pressure and private
+  CPU-frequency claims unsupported.
+- [x] Persist pressure evidence directly in schema V1, round-trip it through archive/dataset/truth
+  exports, and render CPU, memory, I/O, and thermal evidence separately in live and incident views.
+- [x] Explain in product copy and engineering docs that pressure is evidence of waiting or OS thermal
+  response, not utilization and not an attribution or diagnosis by itself.
+- [ ] Obtain exact-revision Windows, Linux, macOS, ThreadSanitizer, fuzzing, coverage, CodeQL, and
+  packaging evidence for V0.22.
+- [ ] Physically validate pressure availability, overhead, suspend/resume, permission behavior, and
+  UI legibility on representative Linux and macOS systems before promoting platform support.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -2318,3 +2364,20 @@ operator evidence. Wayland foreground identity remains explicitly unsupported un
 permission-bounded public API exists. The operator-assisted 72-hour Windows campaign, physical Windows
 client matrix, signing, consented diagnostic corpus, and one-shot held-out result remain separate V1
 qualification gates; none is relaxed by this engineering milestone.
+
+V0.21 and V0.22 now implement the durable viewer-mutation boundary, bounded dashboard projection,
+portable terminology cleanup, characterization-led source decomposition, stronger quality graphs,
+Linux PSI evidence, macOS thermal-pressure evidence, and direct-V1 pressure persistence/UI/export.
+The engineering version is `0.22.0`; final `1.0.0` remains reserved for actual V1 qualification.
+The local Windows Release graph passes 362/362 tests, including architecture, direct-V1, durability,
+pressure, performance, repository, and release-documentation contracts. The full product-and-test MSVC
+native-analysis graph also passes with warnings treated as errors. These are local implementation
+results until the revision is frozen and the hosted evidence below succeeds.
+
+The exact next gate is one clean V0.22 revision: rebuild and pass the complete local Release and MSVC
+native-analysis graphs, then obtain Windows, Linux, macOS, and quality/security hosted evidence for
+that same revision. After it passes, perform physical Linux/macOS pressure and desktop review and
+restart the operator-assisted 72-hour Windows campaign only when the PC can remain available for the
+full run. Signing, notarization, physical client/accessibility qualification, the consented diagnostic
+corpus, and the held-out ML decision remain independent evidence gates; engineering breadth does not
+substitute for them.

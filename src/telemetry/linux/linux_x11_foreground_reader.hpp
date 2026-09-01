@@ -15,6 +15,7 @@ public:
     LinuxX11ForegroundReader& operator=(const LinuxX11ForegroundReader&) = delete;
 
     [[nodiscard]] MetricValue<ProcessId> read() noexcept;
+    [[nodiscard]] MetricStatus status() const noexcept;
 
 private:
     struct State;

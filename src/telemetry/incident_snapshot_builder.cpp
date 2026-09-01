@@ -6,8 +6,8 @@
 namespace blackbox::telemetry {
 namespace {
 
-[[nodiscard]] constexpr core::RecordedValueStatus recorded_status(
-    const MetricStatus status) noexcept {
+[[nodiscard]] constexpr core::RecordedValueStatus
+recorded_status(const MetricStatus status) noexcept {
     switch (status) {
     case MetricStatus::available:
         return core::RecordedValueStatus::available;
@@ -22,8 +22,7 @@ namespace {
 }
 
 template <typename Destination, typename Source, typename Conversion>
-[[nodiscard]] Destination recorded_value(const MetricValue<Source>& source,
-                                         Conversion convert) {
+[[nodiscard]] Destination recorded_value(const MetricValue<Source>& source, Conversion convert) {
     Destination result{};
     result.status = recorded_status(source.status);
     if (source.has_value()) {
@@ -32,18 +31,14 @@ template <typename Destination, typename Source, typename Conversion>
     return result;
 }
 
-template <typename T>
-[[nodiscard]] T identity_value(const T value) noexcept {
-    return value;
-}
+template <typename T> [[nodiscard]] T identity_value(const T value) noexcept { return value; }
 
-[[nodiscard]] core::IncidentProcessIdentity recorded_identity(
-    const ProcessIdentity identity) noexcept {
+[[nodiscard]] core::IncidentProcessIdentity
+recorded_identity(const ProcessIdentity identity) noexcept {
     return {identity.pid.value, identity.creation_token};
 }
 
-[[nodiscard]] core::IncidentSystemSample recorded_system_sample(
-    const SystemSample& sample) {
+[[nodiscard]] core::IncidentSystemSample recorded_system_sample(const SystemSample& sample) {
     core::IncidentSystemSample result{};
     result.observed_at = sample.observed_at;
     result.cpu_fraction = recorded_value<core::RecordedValue<double>>(
@@ -68,71 +63,74 @@ template <typename T>
         sample.disk_write_latency, [](const Seconds value) { return value.value; });
     result.disk_service_time_seconds = recorded_value<core::RecordedValue<double>>(
         sample.disk_service_time, [](const Seconds value) { return value.value; });
-    result.disk_queue_depth = recorded_value<core::RecordedValue<double>>(
-        sample.disk_queue_depth, identity_value<double>);
+    result.disk_queue_depth = recorded_value<core::RecordedValue<double>>(sample.disk_queue_depth,
+                                                                          identity_value<double>);
     result.disk_worst_device_id = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.disk_worst_device_id, identity_value<std::uint64_t>);
     result.network_connectivity_level = recorded_value<core::RecordedValue<std::uint8_t>>(
-        sample.network_connectivity, [](const NetworkConnectivityLevel value) {
-            return static_cast<std::uint8_t>(value);
-        });
+        sample.network_connectivity,
+        [](const NetworkConnectivityLevel value) { return static_cast<std::uint8_t>(value); });
     result.network_active_interfaces = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.network_active_interfaces, identity_value<std::uint64_t>);
     result.network_interface_changes = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.network_interface_changes, identity_value<std::uint64_t>);
     result.network_tcp_retransmit_fraction = recorded_value<core::RecordedValue<double>>(
-        sample.network_tcp_retransmit_fraction,
-        [](const Ratio value) { return value.value; });
-    result.network_tcp_failed_connections =
-        recorded_value<core::RecordedValue<std::uint64_t>>(
-            sample.network_tcp_failed_connections, identity_value<std::uint64_t>);
+        sample.network_tcp_retransmit_fraction, [](const Ratio value) { return value.value; });
+    result.network_tcp_failed_connections = recorded_value<core::RecordedValue<std::uint64_t>>(
+        sample.network_tcp_failed_connections, identity_value<std::uint64_t>);
     result.network_tcp_resets = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.network_tcp_resets, identity_value<std::uint64_t>);
     result.gpu_fraction = recorded_value<core::RecordedValue<double>>(
         sample.gpu_usage, [](const Ratio value) { return value.value; });
-    result.gpu_dedicated_memory_bytes =
-        recorded_value<core::RecordedValue<std::uint64_t>>(
-            sample.gpu_dedicated_memory,
-            [](const ByteCount value) { return value.value; });
-    result.gpu_shared_memory_bytes =
-        recorded_value<core::RecordedValue<std::uint64_t>>(
-            sample.gpu_shared_memory,
-            [](const ByteCount value) { return value.value; });
-    result.foreground_process =
-        recorded_value<core::RecordedValue<core::IncidentProcessIdentity>>(
-            sample.foreground_process, recorded_identity);
+    result.gpu_dedicated_memory_bytes = recorded_value<core::RecordedValue<std::uint64_t>>(
+        sample.gpu_dedicated_memory, [](const ByteCount value) { return value.value; });
+    result.gpu_shared_memory_bytes = recorded_value<core::RecordedValue<std::uint64_t>>(
+        sample.gpu_shared_memory, [](const ByteCount value) { return value.value; });
+    result.foreground_process = recorded_value<core::RecordedValue<core::IncidentProcessIdentity>>(
+        sample.foreground_process, recorded_identity);
     result.foreground_gpu_fraction = recorded_value<core::RecordedValue<double>>(
         sample.foreground_gpu_usage, [](const Ratio value) { return value.value; });
     result.dpc_fraction = recorded_value<core::RecordedValue<double>>(
         sample.dpc_usage, [](const Ratio value) { return value.value; });
     result.interrupt_fraction = recorded_value<core::RecordedValue<double>>(
         sample.interrupt_usage, [](const Ratio value) { return value.value; });
-    result.dpc_rate = recorded_value<core::RecordedValue<double>>(
-        sample.dpc_rate, identity_value<double>);
-    result.cpu_current_mhz = recorded_value<core::RecordedValue<double>>(
-        sample.cpu_current_mhz, identity_value<double>);
-    result.cpu_max_mhz = recorded_value<core::RecordedValue<double>>(
-        sample.cpu_max_mhz, identity_value<double>);
+    result.dpc_rate =
+        recorded_value<core::RecordedValue<double>>(sample.dpc_rate, identity_value<double>);
+    result.cpu_current_mhz =
+        recorded_value<core::RecordedValue<double>>(sample.cpu_current_mhz, identity_value<double>);
+    result.cpu_max_mhz =
+        recorded_value<core::RecordedValue<double>>(sample.cpu_max_mhz, identity_value<double>);
     result.cpu_thermal_limit_mhz = recorded_value<core::RecordedValue<double>>(
         sample.cpu_thermal_limit_mhz, identity_value<double>);
     result.cpu_thermal_limit_fraction = recorded_value<core::RecordedValue<double>>(
-        sample.cpu_thermal_limit_fraction,
-        [](const Ratio value) { return value.value; });
+        sample.cpu_thermal_limit_fraction, [](const Ratio value) { return value.value; });
     result.power_source = recorded_value<core::RecordedValue<std::uint8_t>>(
         sample.power_source,
         [](const PowerSource value) { return static_cast<std::uint8_t>(value); });
     result.battery_fraction = recorded_value<core::RecordedValue<double>>(
         sample.battery_fraction, [](const Ratio value) { return value.value; });
-    result.battery_saver = recorded_value<core::RecordedValue<bool>>(
-        sample.battery_saver, identity_value<bool>);
+    result.battery_saver =
+        recorded_value<core::RecordedValue<bool>>(sample.battery_saver, identity_value<bool>);
     result.system_uptime_seconds = recorded_value<core::RecordedValue<double>>(
         sample.system_uptime, [](const Seconds value) { return value.value; });
+    result.cpu_some_pressure_fraction = recorded_value<core::RecordedValue<double>>(
+        sample.cpu_some_pressure, [](const Ratio value) { return value.value; });
+    result.memory_some_pressure_fraction = recorded_value<core::RecordedValue<double>>(
+        sample.memory_some_pressure, [](const Ratio value) { return value.value; });
+    result.memory_full_pressure_fraction = recorded_value<core::RecordedValue<double>>(
+        sample.memory_full_pressure, [](const Ratio value) { return value.value; });
+    result.io_some_pressure_fraction = recorded_value<core::RecordedValue<double>>(
+        sample.io_some_pressure, [](const Ratio value) { return value.value; });
+    result.io_full_pressure_fraction = recorded_value<core::RecordedValue<double>>(
+        sample.io_full_pressure, [](const Ratio value) { return value.value; });
+    result.thermal_pressure_state = recorded_value<core::RecordedValue<std::uint8_t>>(
+        sample.thermal_pressure_state,
+        [](const ThermalPressureState value) { return static_cast<std::uint8_t>(value); });
     return result;
 }
 
-[[nodiscard]] core::IncidentProcessSample recorded_process_sample(
-    const core::MonotonicTimePoint observed_at,
-    const ProcessSample& sample) {
+[[nodiscard]] core::IncidentProcessSample
+recorded_process_sample(const core::MonotonicTimePoint observed_at, const ProcessSample& sample) {
     core::IncidentProcessSample result{};
     result.observed_at = observed_at;
     result.identity = recorded_identity(sample.identity);
@@ -147,14 +145,13 @@ template <typename T>
     return result;
 }
 
-[[nodiscard]] core::IncidentProcessInfo recorded_process_info(
-    const ProcessInfo& info) {
+[[nodiscard]] core::IncidentProcessInfo recorded_process_info(const ProcessInfo& info) {
     core::IncidentProcessInfo result{};
     result.identity = recorded_identity(info.identity);
     result.parent_pid = recorded_value<core::RecordedValue<std::uint32_t>>(
         info.parent_pid, [](const ProcessId value) { return value.value; });
-    result.name = recorded_value<core::RecordedValue<std::string>>(
-        info.name, identity_value<std::string>);
+    result.name =
+        recorded_value<core::RecordedValue<std::string>>(info.name, identity_value<std::string>);
     result.executable_path = recorded_value<core::RecordedValue<std::string>>(
         info.executable_path, identity_value<std::string>);
     return result;
@@ -162,13 +159,13 @@ template <typename T>
 
 } // namespace
 
-std::shared_ptr<const core::IncidentSnapshot> build_incident_snapshot(
-    const core::IncidentCaptureWindow& window,
-    const core::MonotonicTimePoint completion_observed_at,
-    const core::RecorderSnapshot<SystemSample>& system_history,
-    const core::RecorderSnapshot<ProcessFrame>& process_history,
-    const std::span<const ProcessInfo> metadata,
-    const core::RecorderSnapshot<core::SystemEvent>* event_history) {
+std::shared_ptr<const core::IncidentSnapshot>
+build_incident_snapshot(const core::IncidentCaptureWindow& window,
+                        const core::MonotonicTimePoint completion_observed_at,
+                        const core::RecorderSnapshot<SystemSample>& system_history,
+                        const core::RecorderSnapshot<ProcessFrame>& process_history,
+                        const std::span<const ProcessInfo> metadata,
+                        const core::RecorderSnapshot<core::SystemEvent>* event_history) {
     std::vector<core::IncidentSystemSample> system_samples;
     system_samples.reserve(system_history.size());
     for (const auto& sample : system_history.samples()) {
@@ -225,14 +222,13 @@ std::shared_ptr<const core::IncidentSnapshot> build_incident_snapshot(
     process_metadata.reserve(std::min(metadata.size(), referenced_identities.size()));
     for (const auto& info : metadata) {
         const auto identity = recorded_identity(info.identity);
-        if (std::binary_search(referenced_identities.begin(),
-                               referenced_identities.end(), identity)) {
+        if (std::binary_search(referenced_identities.begin(), referenced_identities.end(),
+                               identity)) {
             process_metadata.push_back(recorded_process_info(info));
         }
     }
     std::sort(process_metadata.begin(), process_metadata.end(),
-              [](const core::IncidentProcessInfo& left,
-                 const core::IncidentProcessInfo& right) {
+              [](const core::IncidentProcessInfo& left, const core::IncidentProcessInfo& right) {
                   return left.identity < right.identity;
               });
 

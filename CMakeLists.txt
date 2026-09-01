@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
     BlackBox
-    VERSION 0.20.0
+    VERSION 0.22.0
     DESCRIPTION "A lightweight native computer flight recorder"
     LANGUAGES CXX
 )
@@ -23,6 +23,7 @@ option(BLACKBOX_ENABLE_AUTOMATIC_DETECTION "Build optional automatic incident de
 option(BLACKBOX_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BLACKBOX_ENABLE_ADDRESS_SANITIZER "Instrument BlackBox targets with AddressSanitizer" OFF)
 option(BLACKBOX_ENABLE_UNDEFINED_SANITIZER "Instrument BlackBox targets with UndefinedBehaviorSanitizer" OFF)
+option(BLACKBOX_ENABLE_THREAD_SANITIZER "Instrument BlackBox targets with ThreadSanitizer" OFF)
 option(BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS "Run MSVC native code analysis while compiling" OFF)
 option(BLACKBOX_ENABLE_COVERAGE "Instrument BlackBox targets for compiler-native coverage" OFF)
 option(BLACKBOX_BUILD_FUZZERS "Build bounded libFuzzer entry points" OFF)
@@ -72,13 +73,27 @@ message(STATUS "BlackBox source revision: ${BLACKBOX_EFFECTIVE_SOURCE_REVISION}"
 
 if(BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS AND
    (BLACKBOX_ENABLE_ADDRESS_SANITIZER OR BLACKBOX_ENABLE_UNDEFINED_SANITIZER OR
-    BLACKBOX_ENABLE_COVERAGE OR BLACKBOX_BUILD_FUZZERS))
+    BLACKBOX_ENABLE_THREAD_SANITIZER OR BLACKBOX_ENABLE_COVERAGE OR
+    BLACKBOX_BUILD_FUZZERS))
     message(FATAL_ERROR "MSVC code analysis must run in its own build graph")
 endif()
 if(BLACKBOX_ENABLE_COVERAGE AND
    (BLACKBOX_ENABLE_ADDRESS_SANITIZER OR BLACKBOX_ENABLE_UNDEFINED_SANITIZER OR
-    BLACKBOX_BUILD_FUZZERS))
+    BLACKBOX_ENABLE_THREAD_SANITIZER OR BLACKBOX_BUILD_FUZZERS))
     message(FATAL_ERROR "Coverage must run in its own build graph")
+endif()
+set(BLACKBOX_ENABLED_SANITIZER_COUNT 0)
+foreach(blackbox_sanitizer IN ITEMS
+        BLACKBOX_ENABLE_ADDRESS_SANITIZER
+        BLACKBOX_ENABLE_UNDEFINED_SANITIZER
+        BLACKBOX_ENABLE_THREAD_SANITIZER)
+    if(${blackbox_sanitizer})
+        math(EXPR BLACKBOX_ENABLED_SANITIZER_COUNT
+            "${BLACKBOX_ENABLED_SANITIZER_COUNT} + 1")
+    endif()
+endforeach()
+if(BLACKBOX_ENABLED_SANITIZER_COUNT GREATER 1)
+    message(FATAL_ERROR "Address, undefined, and thread sanitizers require separate build graphs")
 endif()
 
 if(BLACKBOX_ENABLE_ADDRESS_SANITIZER)
@@ -117,6 +132,15 @@ if(BLACKBOX_ENABLE_UNDEFINED_SANITIZER)
         add_link_options(-fsanitize=undefined -fno-sanitize-recover=all)
     else()
         message(FATAL_ERROR "UndefinedBehaviorSanitizer requires Clang or GCC mode")
+    endif()
+endif()
+
+if(BLACKBOX_ENABLE_THREAD_SANITIZER)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND NOT MSVC)
+        add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=thread)
+    else()
+        message(FATAL_ERROR "ThreadSanitizer requires Clang or GCC mode")
     endif()
 endif()
 

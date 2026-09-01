@@ -1,5 +1,5 @@
-#include "storage/incident_archive.hpp"
 #include "storage/archive_schema.hpp"
+#include "storage/incident_archive.hpp"
 #include "storage/sqlite_incident_archive_internal.hpp"
 
 #include <sqlite3.h>
@@ -8,8 +8,8 @@
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <mutex>
@@ -50,12 +50,10 @@ namespace detail {
     }
 }
 
-[[nodiscard]] StorageError database_error(sqlite3* database,
-                                          const std::string_view context,
+[[nodiscard]] StorageError database_error(sqlite3* database, const std::string_view context,
                                           const int override_code) {
-    const auto code = override_code == SQLITE_OK
-                          ? sqlite3_extended_errcode(database)
-                          : override_code;
+    const auto code =
+        override_code == SQLITE_OK ? sqlite3_extended_errcode(database) : override_code;
     std::string message{context};
     message += ": ";
     message += database != nullptr ? sqlite3_errmsg(database) : sqlite3_errstr(code);
@@ -67,26 +65,23 @@ namespace detail {
     return {code, 0, std::string{message}};
 }
 
-[[nodiscard]] std::expected<void, StorageError> validate_existing_archive_header(
-    const std::filesystem::path& path) {
+[[nodiscard]] std::expected<void, StorageError>
+validate_existing_archive_header(const std::filesystem::path& path) {
     if (!std::filesystem::exists(path)) return {};
     if (!std::filesystem::is_regular_file(std::filesystem::symlink_status(path))) {
-        return std::unexpected{simple_error(StorageErrorCode::cannot_open,
-                                             "archive is not a regular file")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::cannot_open, "archive is not a regular file")};
     }
     if (std::filesystem::file_size(path) == 0U) return {};
 
-    constexpr std::array<char, 16U> sqlite_header{
-        'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
-        'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
+    constexpr std::array<char, 16U> sqlite_header{'S', 'Q', 'L', 'i', 't', 'e', ' ', 'f',
+                                                  'o', 'r', 'm', 'a', 't', ' ', '3', '\0'};
     std::array<char, sqlite_header.size()> actual{};
     std::ifstream input{path, std::ios::binary};
     input.read(actual.data(), static_cast<std::streamsize>(actual.size()));
-    if (input.gcount() != static_cast<std::streamsize>(actual.size()) ||
-        actual != sqlite_header) {
+    if (input.gcount() != static_cast<std::streamsize>(actual.size()) || actual != sqlite_header) {
         return std::unexpected{simple_error(
-            StorageErrorCode::corrupt,
-            "existing archive does not have a valid SQLite header")};
+            StorageErrorCode::corrupt, "existing archive does not have a valid SQLite header")};
     }
     return {};
 }
@@ -113,8 +108,8 @@ namespace detail {
 #endif
 }
 
-[[nodiscard]] std::expected<void, StorageError> execute(
-    sqlite3* database, const char* sql, const std::string_view context) {
+[[nodiscard]] std::expected<void, StorageError> execute(sqlite3* database, const char* sql,
+                                                        const std::string_view context) {
     char* error_message = nullptr;
     const auto result = sqlite3_exec(database, sql, nullptr, nullptr, &error_message);
     if (result == SQLITE_OK) {
@@ -128,8 +123,7 @@ namespace detail {
     } else {
         message += sqlite3_errmsg(database);
     }
-    return std::unexpected{StorageError{classify_error(result), result,
-                                         std::move(message)}};
+    return std::unexpected{StorageError{classify_error(result), result, std::move(message)}};
 }
 
 class Statement final {
@@ -143,8 +137,7 @@ public:
     }
     Statement(const Statement&) = delete;
     Statement& operator=(const Statement&) = delete;
-    Statement(Statement&& other) noexcept
-        : statement_{std::exchange(other.statement_, nullptr)} {}
+    Statement(Statement&& other) noexcept : statement_{std::exchange(other.statement_, nullptr)} {}
     Statement& operator=(Statement&& other) noexcept {
         if (this != &other) {
             if (statement_ != nullptr) {
@@ -160,8 +153,8 @@ private:
     sqlite3_stmt* statement_{};
 };
 
-[[nodiscard]] std::expected<Statement, StorageError> prepare(
-    sqlite3* database, const char* sql, const std::string_view context) {
+[[nodiscard]] std::expected<Statement, StorageError> prepare(sqlite3* database, const char* sql,
+                                                             const std::string_view context) {
     sqlite3_stmt* statement = nullptr;
     const auto result = sqlite3_prepare_v2(database, sql, -1, &statement, nullptr);
     if (result != SQLITE_OK) {
@@ -196,20 +189,16 @@ private:
     bool active_{};
 };
 
-[[nodiscard]] std::int64_t monotonic_nanoseconds(
-    const core::MonotonicTimePoint time) noexcept {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               time.time_since_epoch()).count();
+[[nodiscard]] std::int64_t monotonic_nanoseconds(const core::MonotonicTimePoint time) noexcept {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count();
 }
 
 [[nodiscard]] core::MonotonicTimePoint monotonic_time(const std::int64_t value) noexcept {
-    return core::MonotonicTimePoint{
-        std::chrono::duration_cast<core::MonotonicClock::duration>(
-            std::chrono::nanoseconds{value})};
+    return core::MonotonicTimePoint{std::chrono::duration_cast<core::MonotonicClock::duration>(
+        std::chrono::nanoseconds{value})};
 }
 
-[[nodiscard]] std::array<unsigned char, 8U> unsigned_bytes(
-    const std::uint64_t value) noexcept {
+[[nodiscard]] std::array<unsigned char, 8U> unsigned_bytes(const std::uint64_t value) noexcept {
     std::array<unsigned char, 8U> result{};
     for (std::size_t index = 0U; index < result.size(); ++index) {
         const auto shift = static_cast<unsigned int>((result.size() - 1U - index) * 8U);
@@ -218,22 +207,20 @@ private:
     return result;
 }
 
-int bind_unsigned(sqlite3_stmt* statement, const int index,
-                  const std::uint64_t value) noexcept {
+int bind_unsigned(sqlite3_stmt* statement, const int index, const std::uint64_t value) noexcept {
     const auto bytes = unsigned_bytes(value);
-    return sqlite3_bind_blob(statement, index, bytes.data(),
-                             static_cast<int>(bytes.size()), SQLITE_TRANSIENT);
+    return sqlite3_bind_blob(statement, index, bytes.data(), static_cast<int>(bytes.size()),
+                             SQLITE_TRANSIENT);
 }
 
-[[nodiscard]] std::expected<std::uint64_t, StorageError> read_unsigned(
-    sqlite3_stmt* statement, const int column, const std::string_view field) {
+[[nodiscard]] std::expected<std::uint64_t, StorageError>
+read_unsigned(sqlite3_stmt* statement, const int column, const std::string_view field) {
     const auto size = sqlite3_column_bytes(statement, column);
-    const auto* bytes = static_cast<const unsigned char*>(
-        sqlite3_column_blob(statement, column));
+    const auto* bytes = static_cast<const unsigned char*>(sqlite3_column_blob(statement, column));
     if (size != 8 || bytes == nullptr) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::invalid_data,
-            std::string{"invalid unsigned field: "} + std::string{field})};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_data,
+                         std::string{"invalid unsigned field: "} + std::string{field})};
     }
     std::uint64_t result = 0U;
     for (int index = 0; index < size; ++index) {
@@ -242,38 +229,35 @@ int bind_unsigned(sqlite3_stmt* statement, const int index,
     return result;
 }
 
-[[nodiscard]] std::expected<IncidentExportKey, StorageError> read_export_key(
-    sqlite3_stmt* statement, const int column) {
+[[nodiscard]] std::expected<IncidentExportKey, StorageError>
+read_export_key(sqlite3_stmt* statement, const int column) {
     const auto size = sqlite3_column_bytes(statement, column);
-    const auto* bytes = static_cast<const std::uint8_t*>(
-        sqlite3_column_blob(statement, column));
+    const auto* bytes = static_cast<const std::uint8_t*>(sqlite3_column_blob(statement, column));
     if (size != static_cast<int>(IncidentExportKey{}.bytes.size()) || bytes == nullptr) {
-        return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                             "invalid incident export key")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_data, "invalid incident export key")};
     }
     IncidentExportKey key{};
     std::memcpy(key.bytes.data(), bytes, key.bytes.size());
     return key;
 }
 
-[[nodiscard]] constexpr int stored_status(
-    const core::RecordedValueStatus status) noexcept {
+[[nodiscard]] constexpr int stored_status(const core::RecordedValueStatus status) noexcept {
     return static_cast<int>(status);
 }
 
-[[nodiscard]] std::expected<core::RecordedValueStatus, StorageError> read_status(
-    sqlite3_stmt* statement, const int column) {
+[[nodiscard]] std::expected<core::RecordedValueStatus, StorageError>
+read_status(sqlite3_stmt* statement, const int column) {
     const auto value = sqlite3_column_int(statement, column);
     if (value < static_cast<int>(core::RecordedValueStatus::available) ||
         value > static_cast<int>(core::RecordedValueStatus::temporarily_unavailable)) {
-        return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                             "invalid recorded value status")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_data, "invalid recorded value status")};
     }
     return static_cast<core::RecordedValueStatus>(value);
 }
 
-int bind_double_value(sqlite3_stmt* statement, const int status_index,
-                      const int value_index,
+int bind_double_value(sqlite3_stmt* statement, const int status_index, const int value_index,
                       const core::RecordedValue<double>& value) noexcept {
     auto result = sqlite3_bind_int(statement, status_index, stored_status(value.status));
     if (result == SQLITE_OK) {
@@ -284,9 +268,8 @@ int bind_double_value(sqlite3_stmt* statement, const int status_index,
     return result;
 }
 
-int bind_unsigned_value(
-    sqlite3_stmt* statement, const int status_index, const int value_index,
-    const core::RecordedValue<std::uint64_t>& value) noexcept {
+int bind_unsigned_value(sqlite3_stmt* statement, const int status_index, const int value_index,
+                        const core::RecordedValue<std::uint64_t>& value) noexcept {
     auto result = sqlite3_bind_int(statement, status_index, stored_status(value.status));
     if (result == SQLITE_OK) {
         result = value.status == core::RecordedValueStatus::available
@@ -296,21 +279,18 @@ int bind_unsigned_value(
     return result;
 }
 
-int bind_byte_value(sqlite3_stmt* statement, const int status_index,
-                    const int value_index,
+int bind_byte_value(sqlite3_stmt* statement, const int status_index, const int value_index,
                     const core::RecordedValue<std::uint8_t>& value) noexcept {
     auto result = sqlite3_bind_int(statement, status_index, stored_status(value.status));
     if (result == SQLITE_OK) {
         result = value.status == core::RecordedValueStatus::available
-                     ? sqlite3_bind_int(statement, value_index,
-                                        static_cast<int>(value.value))
+                     ? sqlite3_bind_int(statement, value_index, static_cast<int>(value.value))
                      : sqlite3_bind_null(statement, value_index);
     }
     return result;
 }
 
-int bind_pid_value(sqlite3_stmt* statement, const int status_index,
-                   const int value_index,
+int bind_pid_value(sqlite3_stmt* statement, const int status_index, const int value_index,
                    const core::RecordedValue<std::uint32_t>& value) noexcept {
     auto result = sqlite3_bind_int(statement, status_index, stored_status(value.status));
     if (result == SQLITE_OK) {
@@ -322,8 +302,7 @@ int bind_pid_value(sqlite3_stmt* statement, const int status_index,
     return result;
 }
 
-int bind_text_value(sqlite3_stmt* statement, const int status_index,
-                    const int value_index,
+int bind_text_value(sqlite3_stmt* statement, const int status_index, const int value_index,
                     const core::RecordedValue<std::string>& value) noexcept {
     auto result = sqlite3_bind_int(statement, status_index, stored_status(value.status));
     if (result == SQLITE_OK) {
@@ -335,8 +314,8 @@ int bind_text_value(sqlite3_stmt* statement, const int status_index,
     return result;
 }
 
-[[nodiscard]] std::expected<void, StorageError> expect_done(
-    sqlite3* database, sqlite3_stmt* statement, const std::string_view context) {
+[[nodiscard]] std::expected<void, StorageError>
+expect_done(sqlite3* database, sqlite3_stmt* statement, const std::string_view context) {
     const auto result = sqlite3_step(statement);
     if (result != SQLITE_DONE) {
         return std::unexpected{database_error(database, context, result)};
@@ -346,8 +325,8 @@ int bind_text_value(sqlite3_stmt* statement, const int status_index,
     return {};
 }
 
-[[nodiscard]] std::expected<std::int64_t, StorageError> scalar_int64(
-    sqlite3* database, const char* sql, const std::string_view context) {
+[[nodiscard]] std::expected<std::int64_t, StorageError>
+scalar_int64(sqlite3* database, const char* sql, const std::string_view context) {
     auto statement = prepare(database, sql, context);
     if (!statement) {
         return std::unexpected{statement.error()};
@@ -359,8 +338,8 @@ int bind_text_value(sqlite3_stmt* statement, const int status_index,
     return sqlite3_column_int64(statement->get(), 0);
 }
 
-[[nodiscard]] std::expected<std::string, StorageError> scalar_text(
-    sqlite3* database, const char* sql, const std::string_view context) {
+[[nodiscard]] std::expected<std::string, StorageError>
+scalar_text(sqlite3* database, const char* sql, const std::string_view context) {
     auto statement = prepare(database, sql, context);
     if (!statement) return std::unexpected{statement.error()};
     const auto result = sqlite3_step(statement->get());
@@ -368,8 +347,7 @@ int bind_text_value(sqlite3_stmt* statement, const int status_index,
         return std::unexpected{database_error(database, context, result)};
     }
     const auto* value = sqlite3_column_text(statement->get(), 0);
-    return value == nullptr ? std::string{} :
-        std::string{reinterpret_cast<const char*>(value)};
+    return value == nullptr ? std::string{} : std::string{reinterpret_cast<const char*>(value)};
 }
 
 struct DirectSchemaObject final {
@@ -377,8 +355,7 @@ struct DirectSchemaObject final {
     std::string name{};
     std::string table{};
     std::string sql{};
-    friend bool operator==(const DirectSchemaObject&,
-                           const DirectSchemaObject&) = default;
+    friend bool operator==(const DirectSchemaObject&, const DirectSchemaObject&) = default;
 };
 
 [[nodiscard]] std::expected<std::vector<DirectSchemaObject>, StorageError>
@@ -388,7 +365,8 @@ SELECT type,name,tbl_name,sql
 FROM sqlite_schema
 WHERE name NOT LIKE 'sqlite_%'
 ORDER BY type,name
-)sql", context);
+)sql",
+                             context);
     if (!statement) return std::unexpected{statement.error()};
 
     std::vector<DirectSchemaObject> result{};
@@ -400,173 +378,164 @@ ORDER BY type,name
         }
         const auto text_column = [raw = statement->get()](const int column) {
             const auto* value = sqlite3_column_text(raw, column);
-            return value == nullptr
-                       ? std::string{}
-                       : std::string{reinterpret_cast<const char*>(value)};
+            return value == nullptr ? std::string{}
+                                    : std::string{reinterpret_cast<const char*>(value)};
         };
-        result.push_back({text_column(0), text_column(1), text_column(2),
-                          text_column(3)});
+        result.push_back({text_column(0), text_column(1), text_column(2), text_column(3)});
     }
 }
 
-[[nodiscard]] std::expected<void, StorageError> validate_direct_schema_v1(
-    sqlite3* database) {
-    const auto application_id = scalar_int64(database, "PRAGMA application_id",
-                                             "validate archive application id");
+[[nodiscard]] std::expected<void, StorageError> validate_direct_schema_v1(sqlite3* database) {
+    const auto application_id =
+        scalar_int64(database, "PRAGMA application_id", "validate archive application id");
     if (!application_id) return std::unexpected{application_id.error()};
     if (*application_id != 1111644209) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::invalid_schema,
-            "archive does not match the complete pre-release version-1 baseline; "
-            "development archives must be recreated")};
+        return std::unexpected{simple_error(StorageErrorCode::invalid_schema,
+                                            "archive does not match the complete pre-release "
+                                            "version-1 baseline; "
+                                            "development archives must be recreated")};
     }
 
     sqlite3* canonical_database = nullptr;
-    const auto opened = sqlite3_open_v2(
-        ":memory:", &canonical_database,
-        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, nullptr);
+    const auto opened =
+        sqlite3_open_v2(":memory:", &canonical_database,
+                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, nullptr);
     if (opened != SQLITE_OK) {
-        auto error = database_error(canonical_database,
-                                    "create canonical direct-v1 schema", opened);
+        auto error =
+            database_error(canonical_database, "create canonical direct-v1 schema", opened);
         if (canonical_database != nullptr) sqlite3_close(canonical_database);
         return std::unexpected{std::move(error)};
     }
-    const auto created = execute(canonical_database, archive_schema_v1,
-                                 "create canonical direct-v1 schema");
+    const auto created =
+        execute(canonical_database, archive_schema_v1, "create canonical direct-v1 schema");
     if (!created) {
         auto error = created.error();
         sqlite3_close(canonical_database);
         return std::unexpected{std::move(error)};
     }
-    auto canonical = read_direct_schema_manifest(
-        canonical_database, "read canonical direct-v1 schema manifest");
+    auto canonical =
+        read_direct_schema_manifest(canonical_database, "read canonical direct-v1 schema manifest");
     sqlite3_close(canonical_database);
     if (!canonical) return std::unexpected{canonical.error()};
 
-    const auto actual = read_direct_schema_manifest(
-        database, "read archive direct-v1 schema manifest");
+    const auto actual =
+        read_direct_schema_manifest(database, "read archive direct-v1 schema manifest");
     if (!actual) return std::unexpected{actual.error()};
     if (*actual != *canonical) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::invalid_schema,
-            "archive does not match the complete pre-release version-1 baseline; "
-            "development archives must be recreated")};
+        return std::unexpected{simple_error(StorageErrorCode::invalid_schema,
+                                            "archive does not match the complete pre-release "
+                                            "version-1 baseline; "
+                                            "development archives must be recreated")};
     }
 
-    const auto metadata_rows = scalar_int64(
-        database,
-        "SELECT count(*) FROM schema_metadata "
-        "WHERE singleton=1 AND schema_version=1",
-        "validate direct version-1 metadata row");
+    const auto metadata_rows = scalar_int64(database,
+                                            "SELECT count(*) FROM schema_metadata "
+                                            "WHERE singleton=1 AND schema_version=1",
+                                            "validate direct version-1 metadata row");
     if (!metadata_rows) return std::unexpected{metadata_rows.error()};
-    const auto metadata_total = scalar_int64(database,
-        "SELECT count(*) FROM schema_metadata",
-        "validate direct version-1 metadata row count");
+    const auto metadata_total = scalar_int64(database, "SELECT count(*) FROM schema_metadata",
+                                             "validate direct version-1 metadata row count");
     if (!metadata_total) return std::unexpected{metadata_total.error()};
-    const auto feedback_rows = scalar_int64(database,
-        "SELECT count(*) FROM feedback_profile_state WHERE singleton=1",
-        "validate direct version-1 feedback state row");
+    const auto feedback_rows =
+        scalar_int64(database, "SELECT count(*) FROM feedback_profile_state WHERE singleton=1",
+                     "validate direct version-1 feedback state row");
     if (!feedback_rows) return std::unexpected{feedback_rows.error()};
     if (*metadata_rows != 1 || *metadata_total != 1 || *feedback_rows != 1) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::invalid_schema,
-            "archive is missing required direct version-1 control state; "
-            "development archives must be recreated")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_schema,
+                         "archive is missing required direct version-1 control state; "
+                         "development archives must be recreated")};
     }
     return {};
 }
 
 [[nodiscard]] std::expected<void, StorageError> initialize_schema(sqlite3* database) {
-    const auto version = scalar_int64(database, "PRAGMA user_version",
-                                      "read schema version");
+    const auto version = scalar_int64(database, "PRAGMA user_version", "read schema version");
     if (!version) return std::unexpected{version.error()};
-    if (*version == current_schema_version)
-        return validate_direct_schema_v1(database);
+    if (*version == current_schema_version) return validate_direct_schema_v1(database);
     if (*version != 0) {
-        return std::unexpected{simple_error(
-            *version > current_schema_version ? StorageErrorCode::schema_too_new
-                                              : StorageErrorCode::invalid_schema,
-            "archive schema does not match the pre-release version-1 baseline")};
+        return std::unexpected{simple_error(*version > current_schema_version
+                                                ? StorageErrorCode::schema_too_new
+                                                : StorageErrorCode::invalid_schema,
+                                            "archive schema does not match the pre-release "
+                                            "version-1 baseline")};
     }
-    const auto objects = scalar_int64(
-        database,
-        "SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'",
-        "inspect empty archive");
+    const auto objects =
+        scalar_int64(database, "SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'",
+                     "inspect empty archive");
     if (!objects) return std::unexpected{objects.error()};
     if (*objects != 0) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::invalid_schema,
-            "unversioned non-empty archives are not supported before release")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_schema,
+                         "unversioned non-empty archives are not supported before release")};
     }
     Transaction transaction{database};
     if (auto begun = transaction.begin(); !begun) return begun;
-    if (auto created = execute(database, archive_schema_v1,
-                               "initialize archive schema version 1");
-        !created) return created;
+    if (auto created = execute(database, archive_schema_v1, "initialize archive schema version 1");
+        !created)
+        return created;
     return transaction.commit();
 }
-[[nodiscard]] std::expected<void, StorageError> configure_connection(
-    sqlite3* database, const ArchiveConfiguration& configuration) {
+[[nodiscard]] std::expected<void, StorageError>
+configure_connection(sqlite3* database, const ArchiveConfiguration& configuration) {
     sqlite3_extended_result_codes(database, 1);
-    sqlite3_busy_timeout(database, static_cast<int>(std::clamp<std::int64_t>(
-        configuration.busy_timeout.count(), 0, std::numeric_limits<int>::max())));
-    if (auto result = execute(database, "PRAGMA foreign_keys=ON", "enable foreign keys");
-        !result) {
+    sqlite3_busy_timeout(
+        database, static_cast<int>(std::clamp<std::int64_t>(configuration.busy_timeout.count(), 0,
+                                                            std::numeric_limits<int>::max())));
+    if (auto result = execute(database, "PRAGMA foreign_keys=ON", "enable foreign keys"); !result) {
         return result;
     }
     if (auto result = execute(database, "PRAGMA secure_delete=ON", "enable secure delete");
         !result) {
         return result;
     }
-    if (auto result = execute(database, "PRAGMA synchronous=FULL", "set durability");
-        !result) {
+    if (auto result = execute(database, "PRAGMA synchronous=FULL", "set durability"); !result) {
         return result;
     }
     return {};
 }
 
-[[nodiscard]] std::expected<void, StorageError> configure_read_only_connection(
-    sqlite3* database, const ArchiveConfiguration& configuration) {
+[[nodiscard]] std::expected<void, StorageError>
+configure_read_only_connection(sqlite3* database, const ArchiveConfiguration& configuration) {
     sqlite3_extended_result_codes(database, 1);
-    sqlite3_busy_timeout(database, static_cast<int>(std::clamp<std::int64_t>(
-        configuration.busy_timeout.count(), 0, std::numeric_limits<int>::max())));
-    if (auto result = execute(database, "PRAGMA foreign_keys=ON", "enable foreign keys");
-        !result) {
+    sqlite3_busy_timeout(
+        database, static_cast<int>(std::clamp<std::int64_t>(configuration.busy_timeout.count(), 0,
+                                                            std::numeric_limits<int>::max())));
+    if (auto result = execute(database, "PRAGMA foreign_keys=ON", "enable foreign keys"); !result) {
         return result;
     }
     if (auto result = execute(database, "PRAGMA query_only=ON", "enforce read-only queries");
         !result) {
         return result;
     }
-    const auto version = scalar_int64(database, "PRAGMA user_version",
-                                      "read schema version");
+    const auto version = scalar_int64(database, "PRAGMA user_version", "read schema version");
     if (!version) return std::unexpected{version.error()};
     if (*version != current_schema_version) {
-        return std::unexpected{simple_error(
-            *version > current_schema_version ? StorageErrorCode::schema_too_new
-                                              : StorageErrorCode::invalid_schema,
-            "archive schema does not match the direct version-1 baseline")};
+        return std::unexpected{
+            simple_error(*version > current_schema_version ? StorageErrorCode::schema_too_new
+                                                           : StorageErrorCode::invalid_schema,
+                         "archive schema does not match the direct version-1 baseline")};
     }
     return validate_direct_schema_v1(database);
 }
 
 [[nodiscard]] std::expected<void, StorageError> configure_journal(sqlite3* database) {
-    if (auto result = execute(database, "PRAGMA journal_mode=WAL", "enable WAL mode");
-        !result) {
+    if (auto result = execute(database, "PRAGMA journal_mode=WAL", "enable WAL mode"); !result) {
         return result;
     }
-    if (auto result = execute(database, "PRAGMA wal_autocheckpoint=1000",
-                              "set WAL checkpoint policy"); !result) {
+    if (auto result =
+            execute(database, "PRAGMA wal_autocheckpoint=1000", "set WAL checkpoint policy");
+        !result) {
         return result;
     }
     return {};
 }
 
-[[nodiscard]] std::expected<void, StorageError> configure_size_limit(
-    sqlite3* database, const std::uint64_t maximum_bytes) {
+[[nodiscard]] std::expected<void, StorageError>
+configure_size_limit(sqlite3* database, const std::uint64_t maximum_bytes) {
     if (maximum_bytes == 0U) {
-        return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                             "archive maximum size must be positive")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::invalid_data, "archive maximum size must be positive")};
     }
     const auto page_size = scalar_int64(database, "PRAGMA page_size", "read page size");
     const auto page_count = scalar_int64(database, "PRAGMA page_count", "read page count");
@@ -586,8 +555,7 @@ ORDER BY type,name
 }
 
 [[nodiscard]] std::expected<core::RecordedValue<double>, StorageError>
-read_double_value(sqlite3_stmt* statement, const int status_column,
-                  const int value_column) {
+read_double_value(sqlite3_stmt* statement, const int status_column, const int value_column) {
     auto status = read_status(statement, status_column);
     if (!status) {
         return std::unexpected{status.error()};
@@ -596,8 +564,8 @@ read_double_value(sqlite3_stmt* statement, const int status_column,
     result.status = *status;
     if (*status == core::RecordedValueStatus::available) {
         if (sqlite3_column_type(statement, value_column) == SQLITE_NULL) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "available double is NULL")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "available double is NULL")};
         }
         result.value = sqlite3_column_double(statement, value_column);
     }
@@ -605,8 +573,8 @@ read_double_value(sqlite3_stmt* statement, const int status_column,
 }
 
 [[nodiscard]] std::expected<core::RecordedValue<std::uint64_t>, StorageError>
-read_unsigned_value(sqlite3_stmt* statement, const int status_column,
-                    const int value_column, const std::string_view field) {
+read_unsigned_value(sqlite3_stmt* statement, const int status_column, const int value_column,
+                    const std::string_view field) {
     auto status = read_status(statement, status_column);
     if (!status) {
         return std::unexpected{status.error()};
@@ -624,21 +592,21 @@ read_unsigned_value(sqlite3_stmt* statement, const int status_column,
 }
 
 [[nodiscard]] std::expected<core::RecordedValue<std::uint8_t>, StorageError>
-read_byte_value(sqlite3_stmt* statement, const int status_column,
-                const int value_column, const std::uint8_t maximum) {
+read_byte_value(sqlite3_stmt* statement, const int status_column, const int value_column,
+                const std::uint8_t maximum) {
     auto status = read_status(statement, status_column);
     if (!status) return std::unexpected{status.error()};
     core::RecordedValue<std::uint8_t> result{};
     result.status = *status;
     if (*status == core::RecordedValueStatus::available) {
         if (sqlite3_column_type(statement, value_column) == SQLITE_NULL) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "available byte is NULL")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "available byte is NULL")};
         }
         const auto value = sqlite3_column_int(statement, value_column);
         if (value < 0 || value > maximum) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "recorded byte is out of range")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "recorded byte is out of range")};
         }
         result.value = static_cast<std::uint8_t>(value);
     }
@@ -660,8 +628,7 @@ std::filesystem::path default_archive_path() {
         return std::filesystem::path{*data_home} / "blackbox" / "incidents.sqlite3";
     }
     if (const auto home = environment_value("HOME")) {
-        return std::filesystem::path{*home} / ".local" / "share" / "blackbox" /
-               "incidents.sqlite3";
+        return std::filesystem::path{*home} / ".local" / "share" / "blackbox" / "incidents.sqlite3";
     }
     return std::filesystem::current_path() / "blackbox-data" / "incidents.sqlite3";
 }
@@ -669,9 +636,7 @@ std::filesystem::path default_archive_path() {
 SqliteIncidentArchive::SqliteIncidentArchive(ArchiveConfiguration configuration)
     : configuration_{std::move(configuration)}, native_{std::make_unique<NativeState>()} {}
 
-SqliteIncidentArchive::~SqliteIncidentArchive() {
-    close();
-}
+SqliteIncidentArchive::~SqliteIncidentArchive() { close(); }
 
 std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
     try {
@@ -680,17 +645,16 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
             return {};
         }
         if (configuration_.path.empty()) {
-            return std::unexpected{simple_error(StorageErrorCode::cannot_open,
-                                                 "archive path is empty")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::cannot_open, "archive path is empty")};
         }
         if (configuration_.open_mode == ArchiveOpenMode::read_only &&
             configuration_.path == std::filesystem::path{":memory:"}) {
             return std::unexpected{simple_error(StorageErrorCode::cannot_open,
-                                                 "an in-memory archive cannot be read-only")};
+                                                "an in-memory archive cannot be read-only")};
         }
         if (configuration_.path != std::filesystem::path{":memory:"}) {
-            if (auto header = validate_existing_archive_header(configuration_.path);
-                !header) {
+            if (auto header = validate_existing_archive_header(configuration_.path); !header) {
                 return header;
             }
         }
@@ -698,7 +662,7 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
             const auto status = std::filesystem::symlink_status(configuration_.path);
             if (!std::filesystem::is_regular_file(status)) {
                 return std::unexpected{simple_error(StorageErrorCode::cannot_open,
-                                                     "read-only archive is not a regular file")};
+                                                    "read-only archive is not a regular file")};
             }
         } else if (configuration_.path != std::filesystem::path{":memory:"}) {
             const auto parent = configuration_.path.parent_path();
@@ -712,8 +676,7 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
         if (configuration_.open_mode == ArchiveOpenMode::read_only) {
             const auto native_utf8 = configuration_.path.u8string();
             const std::string path_utf8{native_utf8.begin(), native_utf8.end()};
-            result = sqlite3_open_v2(path_utf8.c_str(), &database,
-                                     SQLITE_OPEN_READONLY, nullptr);
+            result = sqlite3_open_v2(path_utf8.c_str(), &database, SQLITE_OPEN_READONLY, nullptr);
         } else {
 #if defined(_WIN32)
             const auto native_path = configuration_.path.native();
@@ -755,8 +718,7 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
             sqlite3_close(database);
             return std::unexpected{std::move(error)};
         }
-        if (auto limited = configure_size_limit(database, configuration_.maximum_bytes);
-            !limited) {
+        if (auto limited = configure_size_limit(database, configuration_.maximum_bytes); !limited) {
             auto error = limited.error();
             sqlite3_close(database);
             return std::unexpected{std::move(error)};
@@ -764,11 +726,10 @@ std::expected<void, StorageError> SqliteIncidentArchive::open() noexcept {
         native_->database = database;
         return {};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::cannot_open, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::cannot_open, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::cannot_open,
-                                             "unknown archive open failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::cannot_open, "unknown archive open failure")};
     }
 }
 
@@ -785,14 +746,14 @@ bool SqliteIncidentArchive::is_open() const noexcept {
     return native_->database != nullptr;
 }
 
-std::expected<std::int64_t, StorageError> SqliteIncidentArchive::store(
-    const core::IncidentSnapshot& incident) noexcept {
+std::expected<std::int64_t, StorageError>
+SqliteIncidentArchive::store(const core::IncidentSnapshot& incident) noexcept {
     try {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) {
@@ -809,13 +770,15 @@ INSERT INTO incidents(
  automatic_baseline_value, automatic_score, automatic_signal,
  event_recorder_epoch, system_event_count, export_key)
 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,randomblob(16))
-)sql", "prepare incident insert");
+)sql",
+                                       "prepare incident insert");
         if (!incident_insert) {
             return std::unexpected{incident_insert.error()};
         }
         auto* statement = incident_insert->get();
         const auto created = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+                                 std::chrono::system_clock::now().time_since_epoch())
+                                 .count();
         const auto& header = incident.header();
         sqlite3_bind_int64(statement, 1, created);
         bind_unsigned(statement, 2, header.window.sequence);
@@ -835,16 +798,14 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,randomblob(16))
                            static_cast<sqlite3_int64>(incident.process_samples().size()));
         sqlite3_bind_int64(statement, 14, header.window.manual_trigger_count);
         sqlite3_bind_int64(statement, 15, header.window.automatic_trigger_count);
-        sqlite3_bind_int(statement, 16,
-                         static_cast<int>(header.window.automatic_resource));
+        sqlite3_bind_int(statement, 16, static_cast<int>(header.window.automatic_resource));
         sqlite3_bind_double(statement, 17, header.window.automatic_observed_value);
         sqlite3_bind_double(statement, 18, header.window.automatic_baseline_value);
         sqlite3_bind_double(statement, 19, header.window.automatic_score);
-        sqlite3_bind_int(statement, 20,
-                         static_cast<int>(header.window.automatic_signal));
+        sqlite3_bind_int(statement, 20, static_cast<int>(header.window.automatic_signal));
         bind_unsigned(statement, 21, header.event_recorder_epoch);
         sqlite3_bind_int64(statement, 22,
-            static_cast<sqlite3_int64>(incident.system_events().size()));
+                           static_cast<sqlite3_int64>(incident.system_events().size()));
         if (auto inserted = expect_done(database, statement, "insert incident"); !inserted) {
             return std::unexpected{inserted.error()};
         }
@@ -854,7 +815,8 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,randomblob(16))
 INSERT INTO incident_classification_history(
  incident_id, changed_utc_ms, category, user_feedback, origin)
 VALUES(?,?,?,?,?)
-)sql", "prepare initial incident classification");
+)sql",
+                                             "prepare initial incident classification");
         if (!classification_insert) {
             return std::unexpected{classification_insert.error()};
         }
@@ -867,35 +829,44 @@ VALUES(?,?,?,?,?)
         sqlite3_bind_int(classification_insert->get(), 5,
                          static_cast<int>(ClassificationChangeOrigin::capture));
         if (auto inserted = expect_done(database, classification_insert->get(),
-                                        "insert initial incident classification"); !inserted) {
+                                        "insert initial incident classification");
+            !inserted) {
             return std::unexpected{inserted.error()};
         }
 
         auto system_insert = prepare(database, R"sql(
 INSERT INTO system_samples VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare system sample insert");
+)sql",
+                                     "prepare system sample insert");
         if (!system_insert) {
             return std::unexpected{system_insert.error()};
         }
         auto quality_insert = prepare(database, R"sql(
 INSERT INTO system_quality_samples VALUES(
  ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare system quality sample insert");
+)sql",
+                                      "prepare system quality sample insert");
         if (!quality_insert) {
             return std::unexpected{quality_insert.error()};
         }
         auto extended_insert = prepare(database, R"sql(
 INSERT INTO system_extended_samples VALUES(
  ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare system extended sample insert");
+)sql",
+                                       "prepare system extended sample insert");
         if (!extended_insert) return std::unexpected{extended_insert.error()};
+        auto pressure_insert = prepare(database, R"sql(
+INSERT INTO system_pressure_samples VALUES(
+ ?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+)sql",
+                                       "prepare system pressure sample insert");
+        if (!pressure_insert) return std::unexpected{pressure_insert.error()};
         std::size_t sample_index = 0U;
         for (const auto& sample : incident.system_samples()) {
             const auto current_sample_index = sample_index++;
             statement = system_insert->get();
             sqlite3_bind_int64(statement, 1, incident_id);
-            sqlite3_bind_int64(statement, 2,
-                               static_cast<sqlite3_int64>(current_sample_index));
+            sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(current_sample_index));
             sqlite3_bind_int64(statement, 3, monotonic_nanoseconds(sample.observed_at));
             bind_double_value(statement, 4, 5, sample.cpu_fraction);
             bind_unsigned_value(statement, 6, 7, sample.memory_used_bytes);
@@ -912,43 +883,33 @@ INSERT INTO system_extended_samples VALUES(
 
             statement = quality_insert->get();
             sqlite3_bind_int64(statement, 1, incident_id);
-            sqlite3_bind_int64(statement, 2,
-                               static_cast<sqlite3_int64>(current_sample_index));
+            sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(current_sample_index));
             bind_double_value(statement, 3, 4, sample.disk_read_latency_seconds);
             bind_double_value(statement, 5, 6, sample.disk_write_latency_seconds);
             bind_double_value(statement, 7, 8, sample.disk_service_time_seconds);
             bind_double_value(statement, 9, 10, sample.disk_queue_depth);
             bind_unsigned_value(statement, 11, 12, sample.disk_worst_device_id);
             bind_byte_value(statement, 13, 14, sample.network_connectivity_level);
-            bind_unsigned_value(statement, 15, 16,
-                                sample.network_active_interfaces);
-            bind_unsigned_value(statement, 17, 18,
-                                sample.network_interface_changes);
-            bind_double_value(statement, 19, 20,
-                              sample.network_tcp_retransmit_fraction);
-            bind_unsigned_value(statement, 21, 22,
-                                sample.network_tcp_failed_connections);
+            bind_unsigned_value(statement, 15, 16, sample.network_active_interfaces);
+            bind_unsigned_value(statement, 17, 18, sample.network_interface_changes);
+            bind_double_value(statement, 19, 20, sample.network_tcp_retransmit_fraction);
+            bind_unsigned_value(statement, 21, 22, sample.network_tcp_failed_connections);
             bind_unsigned_value(statement, 23, 24, sample.network_tcp_resets);
-            if (auto inserted = expect_done(database, statement,
-                                            "insert system quality sample");
+            if (auto inserted = expect_done(database, statement, "insert system quality sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
             }
 
             statement = extended_insert->get();
             sqlite3_bind_int64(statement, 1, incident_id);
-            sqlite3_bind_int64(statement, 2,
-                               static_cast<sqlite3_int64>(current_sample_index));
+            sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(current_sample_index));
             bind_double_value(statement, 3, 4, sample.gpu_fraction);
-            bind_unsigned_value(statement, 5, 6,
-                                sample.gpu_dedicated_memory_bytes);
-            bind_unsigned_value(statement, 7, 8,
-                                sample.gpu_shared_memory_bytes);
+            bind_unsigned_value(statement, 5, 6, sample.gpu_dedicated_memory_bytes);
+            bind_unsigned_value(statement, 7, 8, sample.gpu_shared_memory_bytes);
             sqlite3_bind_int(statement, 9, stored_status(sample.foreground_process.status));
             if (sample.foreground_process.status == core::RecordedValueStatus::available) {
                 sqlite3_bind_int64(statement, 10, sample.foreground_process.value.pid);
-                bind_unsigned(statement, 11,
-                              sample.foreground_process.value.creation_token);
+                bind_unsigned(statement, 11, sample.foreground_process.value.creation_token);
             } else {
                 sqlite3_bind_null(statement, 10);
                 sqlite3_bind_null(statement, 11);
@@ -960,28 +921,38 @@ INSERT INTO system_extended_samples VALUES(
             bind_double_value(statement, 20, 21, sample.cpu_current_mhz);
             bind_double_value(statement, 22, 23, sample.cpu_max_mhz);
             bind_double_value(statement, 24, 25, sample.cpu_thermal_limit_mhz);
-            bind_double_value(statement, 26, 27,
-                              sample.cpu_thermal_limit_fraction);
+            bind_double_value(statement, 26, 27, sample.cpu_thermal_limit_fraction);
             bind_byte_value(statement, 28, 29, sample.power_source);
             bind_double_value(statement, 30, 31, sample.battery_fraction);
-            sqlite3_bind_int(statement, 32,
-                             stored_status(sample.battery_saver.status));
+            sqlite3_bind_int(statement, 32, stored_status(sample.battery_saver.status));
             if (sample.battery_saver.status == core::RecordedValueStatus::available) {
                 sqlite3_bind_int(statement, 33, sample.battery_saver.value ? 1 : 0);
             } else {
                 sqlite3_bind_null(statement, 33);
             }
             bind_double_value(statement, 34, 35, sample.system_uptime_seconds);
-            if (auto inserted = expect_done(database, statement,
-                                            "insert system extended sample");
+            if (auto inserted = expect_done(database, statement, "insert system extended sample");
+                !inserted) {
+                return std::unexpected{inserted.error()};
+            }
+
+            statement = pressure_insert->get();
+            sqlite3_bind_int64(statement, 1, incident_id);
+            sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(current_sample_index));
+            bind_double_value(statement, 3, 4, sample.cpu_some_pressure_fraction);
+            bind_double_value(statement, 5, 6, sample.memory_some_pressure_fraction);
+            bind_double_value(statement, 7, 8, sample.memory_full_pressure_fraction);
+            bind_double_value(statement, 9, 10, sample.io_some_pressure_fraction);
+            bind_double_value(statement, 11, 12, sample.io_full_pressure_fraction);
+            bind_byte_value(statement, 13, 14, sample.thermal_pressure_state);
+            if (auto inserted = expect_done(database, statement, "insert system pressure sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
             }
         }
 
         std::vector<core::IncidentProcessIdentity> identities;
-        identities.reserve(incident.process_metadata().size() +
-                           incident.process_samples().size());
+        identities.reserve(incident.process_metadata().size() + incident.process_samples().size());
         for (const auto& info : incident.process_metadata()) {
             identities.push_back(info.identity);
         }
@@ -990,23 +961,21 @@ INSERT INTO system_extended_samples VALUES(
         }
         for (const auto& event : incident.system_events()) {
             if (event.has_process_identity) {
-                identities.push_back(
-                    {event.process_pid, event.process_creation_token});
+                identities.push_back({event.process_pid, event.process_creation_token});
             }
         }
 
         auto event_insert = prepare(database, R"sql(
 INSERT INTO system_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare system event insert");
+)sql",
+                                    "prepare system event insert");
         if (!event_insert) return std::unexpected{event_insert.error()};
         std::size_t event_index{};
         for (const auto& event : incident.system_events()) {
             statement = event_insert->get();
             sqlite3_bind_int64(statement, 1, incident_id);
-            sqlite3_bind_int64(statement, 2,
-                               static_cast<sqlite3_int64>(event_index++));
-            sqlite3_bind_int64(statement, 3,
-                               monotonic_nanoseconds(event.observed_at));
+            sqlite3_bind_int64(statement, 2, static_cast<sqlite3_int64>(event_index++));
+            sqlite3_bind_int64(statement, 3, monotonic_nanoseconds(event.observed_at));
             if (event.has_source_utc_time) {
                 sqlite3_bind_int64(statement, 4, event.source_utc_milliseconds);
             } else {
@@ -1017,8 +986,7 @@ INSERT INTO system_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             sqlite3_bind_int(statement, 7, static_cast<int>(event.level));
             sqlite3_bind_int64(statement, 8, event.native_event_id);
             sqlite3_bind_int64(statement, 9, event.detail);
-            sqlite3_bind_int(statement, 10,
-                             event.has_process_identity ? 1 : 0);
+            sqlite3_bind_int(statement, 10, event.has_process_identity ? 1 : 0);
             if (event.has_process_identity) {
                 sqlite3_bind_int64(statement, 11, event.process_pid);
                 bind_unsigned(statement, 12, event.process_creation_token);
@@ -1026,8 +994,8 @@ INSERT INTO system_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
                 sqlite3_bind_null(statement, 11);
                 sqlite3_bind_null(statement, 12);
             }
-            if (auto inserted = expect_done(database, statement,
-                                            "insert system event"); !inserted) {
+            if (auto inserted = expect_done(database, statement, "insert system event");
+                !inserted) {
                 return std::unexpected{inserted.error()};
             }
         }
@@ -1036,7 +1004,8 @@ INSERT INTO system_events VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
 
         auto identity_insert = prepare(database, R"sql(
 INSERT INTO process_identities VALUES(?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare process identity insert");
+)sql",
+                                       "prepare process identity insert");
         if (!identity_insert) {
             return std::unexpected{identity_insert.error()};
         }
@@ -1045,11 +1014,11 @@ INSERT INTO process_identities VALUES(?,?,?,?,?,?,?,?,?,?)
             sqlite3_bind_int64(statement, 1, incident_id);
             sqlite3_bind_int64(statement, 2, identity.pid);
             bind_unsigned(statement, 3, identity.creation_token);
-            const auto metadata = std::find_if(
-                incident.process_metadata().begin(), incident.process_metadata().end(),
-                [identity](const core::IncidentProcessInfo& info) {
-                    return info.identity == identity;
-                });
+            const auto metadata =
+                std::find_if(incident.process_metadata().begin(), incident.process_metadata().end(),
+                             [identity](const core::IncidentProcessInfo& info) {
+                                 return info.identity == identity;
+                             });
             if (metadata == incident.process_metadata().end()) {
                 sqlite3_bind_int(statement, 4, 0);
                 sqlite3_bind_int(statement, 5,
@@ -1075,7 +1044,8 @@ INSERT INTO process_identities VALUES(?,?,?,?,?,?,?,?,?,?)
 
         auto process_insert = prepare(database, R"sql(
 INSERT INTO process_samples VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-)sql", "prepare process sample insert");
+)sql",
+                                      "prepare process sample insert");
         if (!process_insert) {
             return std::unexpected{process_insert.error()};
         }
@@ -1102,11 +1072,10 @@ INSERT INTO process_samples VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
         }
         return incident_id;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident storage failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown incident storage failure")};
     }
 }
 
@@ -1116,20 +1085,20 @@ SqliteIncidentArchive::list(const std::size_t maximum_results) const noexcept {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto statement = prepare(database, R"sql(
 SELECT id, created_utc_ms, capture_sequence, event_monotonic_ns,
        actual_start_ns, actual_end_ns, system_sample_count,
        process_metadata_count, process_sample_count, label, note, export_key
 FROM incidents ORDER BY created_utc_ms DESC, id DESC LIMIT ?
-)sql", "prepare incident discovery");
+)sql",
+                                 "prepare incident discovery");
         if (!statement) {
             return std::unexpected{statement.error()};
         }
-        sqlite3_bind_int64(statement->get(), 1,
-                           static_cast<sqlite3_int64>(maximum_results));
+        sqlite3_bind_int64(statement->get(), 1, static_cast<sqlite3_int64>(maximum_results));
         std::vector<StoredIncidentSummary> results;
         results.reserve(std::min<std::size_t>(maximum_results, 1'000U));
         while (true) {
@@ -1151,12 +1120,12 @@ FROM incidents ORDER BY created_utc_ms DESC, id DESC LIMIT ?
             summary.event_monotonic_nanoseconds = sqlite3_column_int64(statement->get(), 3);
             summary.actual_start_nanoseconds = sqlite3_column_int64(statement->get(), 4);
             summary.actual_end_nanoseconds = sqlite3_column_int64(statement->get(), 5);
-            summary.system_sample_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 6));
-            summary.process_metadata_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 7));
-            summary.process_sample_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 8));
+            summary.system_sample_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 6));
+            summary.process_metadata_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 7));
+            summary.process_sample_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 8));
             const auto* label = sqlite3_column_text(statement->get(), 9);
             const auto* note = sqlite3_column_text(statement->get(), 10);
             summary.label = label == nullptr ? "" : reinterpret_cast<const char*>(label);
@@ -1168,25 +1137,23 @@ FROM incidents ORDER BY created_utc_ms DESC, id DESC LIMIT ?
         }
         return results;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident discovery failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown incident discovery failure")};
     }
 }
 
-std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page(
-    const IncidentListQuery& query) const noexcept {
+std::expected<StoredIncidentPage, StorageError>
+SqliteIncidentArchive::list_page(const IncidentListQuery& query) const noexcept {
     try {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        const auto limit = std::clamp<std::size_t>(query.limit, 1U,
-                                                   maximum_incident_page_size);
+        const auto limit = std::clamp<std::size_t>(query.limit, 1U, maximum_incident_page_size);
         const char* ordering = "created_utc_ms DESC, id DESC";
         switch (query.sort) {
         case IncidentListSort::newest_first:
@@ -1212,8 +1179,8 @@ std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page
                                            : " WHERE instr(lower(label),lower(?))>0 OR "
                                              "instr(lower(note),lower(?))>0";
         const auto count_sql = "SELECT COUNT(*) FROM incidents" + filter_sql;
-        auto count_statement = prepare(database, count_sql.c_str(),
-                                       "prepare filtered incident count");
+        auto count_statement =
+            prepare(database, count_sql.c_str(), "prepare filtered incident count");
         if (!count_statement) return std::unexpected{count_statement.error()};
         if (!query.search.empty()) {
             sqlite3_bind_text(count_statement->get(), 1, query.search.c_str(),
@@ -1223,14 +1190,16 @@ std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page
         }
         const auto count_result = sqlite3_step(count_statement->get());
         if (count_result != SQLITE_ROW) {
-            return std::unexpected{database_error(database, "count filtered incidents",
-                                                   count_result)};
+            return std::unexpected{
+                database_error(database, "count filtered incidents", count_result)};
         }
 
-        const auto list_sql = std::string{
-            "SELECT id,created_utc_ms,capture_sequence,event_monotonic_ns,"
-            "actual_start_ns,actual_end_ns,system_sample_count,"
-            "process_metadata_count,process_sample_count,label,note,export_key FROM incidents"} +
+        const auto list_sql =
+            std::string{"SELECT id,created_utc_ms,capture_sequence,event_monotonic_ns,"
+                        "actual_start_ns,actual_end_ns,system_sample_count,"
+                        "process_metadata_count,process_sample_count,label,note,export_"
+                        "key "
+                        "FROM incidents"} +
             filter_sql + " ORDER BY " + ordering + " LIMIT ? OFFSET ?";
         auto statement = prepare(database, list_sql.c_str(), "prepare incident page");
         if (!statement) return std::unexpected{statement.error()};
@@ -1242,12 +1211,11 @@ std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page
                               static_cast<int>(query.search.size()), SQLITE_TRANSIENT);
         }
         sqlite3_bind_int64(statement->get(), parameter++, static_cast<sqlite3_int64>(limit));
-        sqlite3_bind_int64(statement->get(), parameter,
-                           static_cast<sqlite3_int64>(query.offset));
+        sqlite3_bind_int64(statement->get(), parameter, static_cast<sqlite3_int64>(query.offset));
 
         StoredIncidentPage page{};
-        page.total_matching = static_cast<std::uint64_t>(
-            sqlite3_column_int64(count_statement->get(), 0));
+        page.total_matching =
+            static_cast<std::uint64_t>(sqlite3_column_int64(count_statement->get(), 0));
         page.offset = query.offset;
         page.incidents.reserve(limit);
         while (true) {
@@ -1265,12 +1233,12 @@ std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page
             summary.event_monotonic_nanoseconds = sqlite3_column_int64(statement->get(), 3);
             summary.actual_start_nanoseconds = sqlite3_column_int64(statement->get(), 4);
             summary.actual_end_nanoseconds = sqlite3_column_int64(statement->get(), 5);
-            summary.system_sample_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 6));
-            summary.process_metadata_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 7));
-            summary.process_sample_count = static_cast<std::size_t>(
-                sqlite3_column_int64(statement->get(), 8));
+            summary.system_sample_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 6));
+            summary.process_metadata_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 7));
+            summary.process_sample_count =
+                static_cast<std::size_t>(sqlite3_column_int64(statement->get(), 8));
             const auto* label = sqlite3_column_text(statement->get(), 9);
             const auto* note = sqlite3_column_text(statement->get(), 10);
             summary.label = label == nullptr ? "" : reinterpret_cast<const char*>(label);
@@ -1282,11 +1250,10 @@ std::expected<StoredIncidentPage, StorageError> SqliteIncidentArchive::list_page
         }
         return page;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident page failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown incident page failure")};
     }
 }
 
@@ -1296,8 +1263,8 @@ SqliteIncidentArchive::load(const std::int64_t incident_id) const noexcept {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto incident_query = prepare(database, R"sql(
 SELECT capture_sequence, event_monotonic_ns, requested_start_ns, requested_end_ns,
@@ -1307,22 +1274,23 @@ SELECT capture_sequence, event_monotonic_ns, requested_start_ns, requested_end_n
         automatic_score, automatic_signal, event_recorder_epoch,
         system_event_count
 FROM incidents WHERE id=?
-)sql", "prepare incident load");
+)sql",
+                                      "prepare incident load");
         if (!incident_query) {
             return std::unexpected{incident_query.error()};
         }
         sqlite3_bind_int64(incident_query->get(), 1, incident_id);
         const auto incident_result = sqlite3_step(incident_query->get());
         if (incident_result != SQLITE_ROW) {
-            return std::unexpected{incident_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load incident", incident_result)};
+            return std::unexpected{
+                incident_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load incident", incident_result)};
         }
         auto sequence = read_unsigned(incident_query->get(), 0, "capture_sequence");
         auto system_epoch = read_unsigned(incident_query->get(), 7, "system_recorder_epoch");
         auto process_epoch = read_unsigned(incident_query->get(), 8, "process_recorder_epoch");
-        auto event_epoch = read_unsigned(incident_query->get(), 16,
-                                         "event_recorder_epoch");
+        auto event_epoch = read_unsigned(incident_query->get(), 16, "event_recorder_epoch");
         if (!sequence) return std::unexpected{sequence.error()};
         if (!system_epoch) return std::unexpected{system_epoch.error()};
         if (!process_epoch) return std::unexpected{process_epoch.error()};
@@ -1330,22 +1298,22 @@ FROM incidents WHERE id=?
         core::IncidentHeader header{};
         header.window.sequence = *sequence;
         header.window.event_time = monotonic_time(sqlite3_column_int64(incident_query->get(), 1));
-        header.window.requested_start = monotonic_time(sqlite3_column_int64(incident_query->get(), 2));
-        header.window.requested_end = monotonic_time(sqlite3_column_int64(incident_query->get(), 3));
+        header.window.requested_start =
+            monotonic_time(sqlite3_column_int64(incident_query->get(), 2));
+        header.window.requested_end =
+            monotonic_time(sqlite3_column_int64(incident_query->get(), 3));
         header.actual_start = monotonic_time(sqlite3_column_int64(incident_query->get(), 4));
         header.actual_end = monotonic_time(sqlite3_column_int64(incident_query->get(), 5));
-        header.window.trigger_count = static_cast<std::uint32_t>(
-            sqlite3_column_int64(incident_query->get(), 6));
-        header.window.manual_trigger_count = static_cast<std::uint32_t>(
-            sqlite3_column_int64(incident_query->get(), 9));
-        header.window.automatic_trigger_count = static_cast<std::uint32_t>(
-            sqlite3_column_int64(incident_query->get(), 10));
+        header.window.trigger_count =
+            static_cast<std::uint32_t>(sqlite3_column_int64(incident_query->get(), 6));
+        header.window.manual_trigger_count =
+            static_cast<std::uint32_t>(sqlite3_column_int64(incident_query->get(), 9));
+        header.window.automatic_trigger_count =
+            static_cast<std::uint32_t>(sqlite3_column_int64(incident_query->get(), 10));
         header.window.automatic_resource = static_cast<core::AutomaticIncidentResource>(
             sqlite3_column_int(incident_query->get(), 11));
-        header.window.automatic_observed_value =
-            sqlite3_column_double(incident_query->get(), 12);
-        header.window.automatic_baseline_value =
-            sqlite3_column_double(incident_query->get(), 13);
+        header.window.automatic_observed_value = sqlite3_column_double(incident_query->get(), 12);
+        header.window.automatic_baseline_value = sqlite3_column_double(incident_query->get(), 13);
         header.window.automatic_score = sqlite3_column_double(incident_query->get(), 14);
         header.window.automatic_signal = static_cast<core::AutomaticIncidentSignal>(
             sqlite3_column_int(incident_query->get(), 15));
@@ -1361,7 +1329,8 @@ SELECT observed_ns, cpu_status, cpu_fraction, memory_used_status, memory_used_by
  network_receive_status, network_receive_bps, network_transmit_status,
  network_transmit_bps
 FROM system_samples WHERE incident_id=? ORDER BY sample_index
-)sql", "prepare system sample load");
+)sql",
+                                    "prepare system sample load");
         if (!system_query) return std::unexpected{system_query.error()};
         sqlite3_bind_int64(system_query->get(), 1, incident_id);
         while (true) {
@@ -1413,7 +1382,8 @@ SELECT sample_index,
  tcp_failures_status, tcp_failed_connections,
  tcp_resets_status, tcp_resets
 FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
-)sql", "prepare system quality sample load");
+)sql",
+                                     "prepare system quality sample load");
         if (!quality_query) return std::unexpected{quality_query.error()};
         sqlite3_bind_int64(quality_query->get(), 1, incident_id);
         std::optional<std::size_t> previous_quality_index;
@@ -1421,22 +1391,19 @@ FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
             const auto result = sqlite3_step(quality_query->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(
-                    database, "load system quality samples", result)};
+                return std::unexpected{
+                    database_error(database, "load system quality samples", result)};
             }
             const auto signed_index = sqlite3_column_int64(quality_query->get(), 0);
-            if (signed_index < 0 ||
-                static_cast<std::uint64_t>(signed_index) >= systems.size()) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system quality sample index is out of range")};
+            if (signed_index < 0 || static_cast<std::uint64_t>(signed_index) >= systems.size()) {
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "system quality sample index is out of range")};
             }
             const auto index = static_cast<std::size_t>(signed_index);
-            if (previous_quality_index.has_value() &&
-                index <= *previous_quality_index) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system quality sample indexes are not unique and ordered")};
+            if (previous_quality_index.has_value() && index <= *previous_quality_index) {
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "system quality sample indexes are not unique "
+                                                    "and ordered")};
             }
             previous_quality_index = index;
 
@@ -1444,18 +1411,16 @@ FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
             auto write_latency = read_double_value(quality_query->get(), 3, 4);
             auto service_time = read_double_value(quality_query->get(), 5, 6);
             auto queue_depth = read_double_value(quality_query->get(), 7, 8);
-            auto device = read_unsigned_value(quality_query->get(), 9, 10,
-                                              "disk_device_id");
+            auto device = read_unsigned_value(quality_query->get(), 9, 10, "disk_device_id");
             auto connectivity = read_byte_value(quality_query->get(), 11, 12, 4U);
-            auto interfaces = read_unsigned_value(quality_query->get(), 13, 14,
-                                                  "network_active_interfaces");
-            auto changes = read_unsigned_value(quality_query->get(), 15, 16,
-                                               "network_interface_changes");
+            auto interfaces =
+                read_unsigned_value(quality_query->get(), 13, 14, "network_active_interfaces");
+            auto changes =
+                read_unsigned_value(quality_query->get(), 15, 16, "network_interface_changes");
             auto retransmit = read_double_value(quality_query->get(), 17, 18);
-            auto failures = read_unsigned_value(quality_query->get(), 19, 20,
-                                                "tcp_failed_connections");
-            auto resets = read_unsigned_value(quality_query->get(), 21, 22,
-                                              "tcp_resets");
+            auto failures =
+                read_unsigned_value(quality_query->get(), 19, 20, "tcp_failed_connections");
+            auto resets = read_unsigned_value(quality_query->get(), 21, 22, "tcp_resets");
             if (!read_latency) return std::unexpected{read_latency.error()};
             if (!write_latency) return std::unexpected{write_latency.error()};
             if (!service_time) return std::unexpected{service_time.error()};
@@ -1494,7 +1459,8 @@ SELECT sample_index,
  battery_status, battery_fraction, battery_saver_status, battery_saver,
  uptime_status, uptime_seconds
 FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
-)sql", "prepare system extended sample load");
+)sql",
+                                      "prepare system extended sample load");
         if (!extended_query) return std::unexpected{extended_query.error()};
         sqlite3_bind_int64(extended_query->get(), 1, incident_id);
         std::optional<std::size_t> previous_extended_index;
@@ -1502,30 +1468,27 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
             const auto result = sqlite3_step(extended_query->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(
-                    database, "load system extended samples", result)};
+                return std::unexpected{
+                    database_error(database, "load system extended samples", result)};
             }
             const auto signed_index = sqlite3_column_int64(extended_query->get(), 0);
-            if (signed_index < 0 ||
-                static_cast<std::uint64_t>(signed_index) >= systems.size()) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system extended sample index is out of range")};
+            if (signed_index < 0 || static_cast<std::uint64_t>(signed_index) >= systems.size()) {
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data,
+                                 "system extended sample index is out of range")};
             }
             const auto index = static_cast<std::size_t>(signed_index);
-            if (previous_extended_index.has_value() &&
-                index <= *previous_extended_index) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system extended sample indexes are not unique and ordered")};
+            if (previous_extended_index.has_value() && index <= *previous_extended_index) {
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "system extended sample indexes are not "
+                                                    "unique and ordered")};
             }
             previous_extended_index = index;
             auto& sample = systems[index];
             auto gpu = read_double_value(extended_query->get(), 1, 2);
-            auto dedicated = read_unsigned_value(extended_query->get(), 3, 4,
-                                                 "gpu_dedicated_bytes");
-            auto shared = read_unsigned_value(extended_query->get(), 5, 6,
-                                              "gpu_shared_bytes");
+            auto dedicated =
+                read_unsigned_value(extended_query->get(), 3, 4, "gpu_dedicated_bytes");
+            auto shared = read_unsigned_value(extended_query->get(), 5, 6, "gpu_shared_bytes");
             auto foreground_status = read_status(extended_query->get(), 7);
             auto foreground_gpu = read_double_value(extended_query->get(), 10, 11);
             auto dpc = read_double_value(extended_query->get(), 12, 13);
@@ -1561,15 +1524,12 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
             sample.foreground_process.status = *foreground_status;
             if (*foreground_status == core::RecordedValueStatus::available) {
                 const auto pid = sqlite3_column_int64(extended_query->get(), 8);
-                auto token = read_unsigned(extended_query->get(), 9,
-                                           "foreground_creation_token");
+                auto token = read_unsigned(extended_query->get(), 9, "foreground_creation_token");
                 if (!token || pid <= 0 || pid > UINT32_MAX) {
-                    return std::unexpected{simple_error(
-                        StorageErrorCode::invalid_data,
-                        "foreground process identity is invalid")};
+                    return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                        "foreground process identity is invalid")};
                 }
-                sample.foreground_process.value = {
-                    static_cast<std::uint32_t>(pid), *token};
+                sample.foreground_process.value = {static_cast<std::uint32_t>(pid), *token};
             }
             sample.foreground_gpu_fraction = *foreground_gpu;
             sample.dpc_fraction = *dpc;
@@ -1585,13 +1545,67 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
             if (*saver_status == core::RecordedValueStatus::available) {
                 const auto value = sqlite3_column_int(extended_query->get(), 31);
                 if (value != 0 && value != 1) {
-                    return std::unexpected{simple_error(
-                        StorageErrorCode::invalid_data,
-                        "battery saver value is invalid")};
+                    return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                        "battery saver value is invalid")};
                 }
                 sample.battery_saver.value = value != 0;
             }
             sample.system_uptime_seconds = *uptime;
+        }
+
+        auto pressure_query = prepare(database, R"sql(
+SELECT sample_index,
+ cpu_some_status, cpu_some_fraction,
+ memory_some_status, memory_some_fraction,
+ memory_full_status, memory_full_fraction,
+ io_some_status, io_some_fraction,
+ io_full_status, io_full_fraction,
+ thermal_pressure_status, thermal_pressure_state
+FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
+)sql",
+                                      "prepare system pressure sample load");
+        if (!pressure_query) return std::unexpected{pressure_query.error()};
+        sqlite3_bind_int64(pressure_query->get(), 1, incident_id);
+        std::optional<std::size_t> previous_pressure_index;
+        while (true) {
+            const auto result = sqlite3_step(pressure_query->get());
+            if (result == SQLITE_DONE) break;
+            if (result != SQLITE_ROW) {
+                return std::unexpected{
+                    database_error(database, "load system pressure samples", result)};
+            }
+            const auto signed_index = sqlite3_column_int64(pressure_query->get(), 0);
+            if (signed_index < 0 || static_cast<std::uint64_t>(signed_index) >= systems.size()) {
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data,
+                                 "system pressure sample index is out of range")};
+            }
+            const auto index = static_cast<std::size_t>(signed_index);
+            if (previous_pressure_index.has_value() && index <= *previous_pressure_index) {
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "system pressure sample indexes are not "
+                                                    "unique and ordered")};
+            }
+            previous_pressure_index = index;
+            auto cpu_some = read_double_value(pressure_query->get(), 1, 2);
+            auto memory_some = read_double_value(pressure_query->get(), 3, 4);
+            auto memory_full = read_double_value(pressure_query->get(), 5, 6);
+            auto io_some = read_double_value(pressure_query->get(), 7, 8);
+            auto io_full = read_double_value(pressure_query->get(), 9, 10);
+            auto thermal = read_byte_value(pressure_query->get(), 11, 12, 4U);
+            if (!cpu_some) return std::unexpected{cpu_some.error()};
+            if (!memory_some) return std::unexpected{memory_some.error()};
+            if (!memory_full) return std::unexpected{memory_full.error()};
+            if (!io_some) return std::unexpected{io_some.error()};
+            if (!io_full) return std::unexpected{io_full.error()};
+            if (!thermal) return std::unexpected{thermal.error()};
+            auto& sample = systems[index];
+            sample.cpu_some_pressure_fraction = *cpu_some;
+            sample.memory_some_pressure_fraction = *memory_some;
+            sample.memory_full_pressure_fraction = *memory_full;
+            sample.io_some_pressure_fraction = *io_some;
+            sample.io_full_pressure_fraction = *io_full;
+            sample.thermal_pressure_state = *thermal;
         }
 
         std::vector<core::SystemEvent> events;
@@ -1599,70 +1613,64 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
 SELECT observed_ns, source_utc_ms, source, kind, level, native_event_id, detail,
        has_process_identity, process_pid, process_creation_token
 FROM system_events WHERE incident_id=? ORDER BY event_index
-)sql", "prepare system event load");
+)sql",
+                                   "prepare system event load");
         if (!event_query) return std::unexpected{event_query.error()};
         sqlite3_bind_int64(event_query->get(), 1, incident_id);
         while (true) {
             const auto result = sqlite3_step(event_query->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(database,
-                    "load system events", result)};
+                return std::unexpected{database_error(database, "load system events", result)};
             }
             const auto source = sqlite3_column_int(event_query->get(), 2);
             const auto kind = sqlite3_column_int(event_query->get(), 3);
             const auto level = sqlite3_column_int(event_query->get(), 4);
             if (source < 0 || source > 10 || kind < 0 ||
-                kind > static_cast<int>(core::SystemEventKind::process_exited) ||
-                level < 0 || level > 2) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data, "system event enum is invalid")};
+                kind > static_cast<int>(core::SystemEventKind::process_exited) || level < 0 ||
+                level > 2) {
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "system event enum is invalid")};
             }
             core::SystemEvent event{};
-            event.observed_at = monotonic_time(
-                sqlite3_column_int64(event_query->get(), 0));
-            event.has_source_utc_time =
-                sqlite3_column_type(event_query->get(), 1) != SQLITE_NULL;
+            event.observed_at = monotonic_time(sqlite3_column_int64(event_query->get(), 0));
+            event.has_source_utc_time = sqlite3_column_type(event_query->get(), 1) != SQLITE_NULL;
             if (event.has_source_utc_time) {
-                event.source_utc_milliseconds =
-                    sqlite3_column_int64(event_query->get(), 1);
+                event.source_utc_milliseconds = sqlite3_column_int64(event_query->get(), 1);
             }
             event.source = static_cast<core::SystemEventSource>(source);
             event.kind = static_cast<core::SystemEventKind>(kind);
             event.level = static_cast<core::SystemEventLevel>(level);
-            event.native_event_id = static_cast<std::uint32_t>(
-                sqlite3_column_int64(event_query->get(), 5));
-            event.detail = static_cast<std::uint32_t>(
-                sqlite3_column_int64(event_query->get(), 6));
-            const auto identity_present = sqlite3_column_int(
-                event_query->get(), 7);
+            event.native_event_id =
+                static_cast<std::uint32_t>(sqlite3_column_int64(event_query->get(), 5));
+            event.detail = static_cast<std::uint32_t>(sqlite3_column_int64(event_query->get(), 6));
+            const auto identity_present = sqlite3_column_int(event_query->get(), 7);
             const bool process_event =
                 source == static_cast<int>(core::SystemEventSource::process) &&
                 (kind == static_cast<int>(core::SystemEventKind::process_started) ||
                  kind == static_cast<int>(core::SystemEventKind::process_exited));
             if ((identity_present != 0 && identity_present != 1) ||
                 (identity_present == 1) != process_event) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system event process identity flag is invalid")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data,
+                                 "system event process identity flag is invalid")};
             }
             event.has_process_identity = identity_present == 1;
             if (event.has_process_identity) {
                 const auto pid = sqlite3_column_int64(event_query->get(), 8);
-                auto token = read_unsigned(event_query->get(), 9,
-                                           "event_process_creation_token");
+                auto token = read_unsigned(event_query->get(), 9, "event_process_creation_token");
                 if (!token || *token == 0U || pid <= 0 || pid > UINT32_MAX) {
-                    return std::unexpected{simple_error(
-                        StorageErrorCode::invalid_data,
-                        "system event process identity is invalid")};
+                    return std::unexpected{
+                        simple_error(StorageErrorCode::invalid_data,
+                                     "system event process identity is invalid")};
                 }
                 event.process_pid = static_cast<std::uint32_t>(pid);
                 event.process_creation_token = *token;
             } else if (sqlite3_column_type(event_query->get(), 8) != SQLITE_NULL ||
                        sqlite3_column_type(event_query->get(), 9) != SQLITE_NULL) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "system event has unexpected process identity data")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data,
+                                 "system event has unexpected process identity data")};
             }
             events.push_back(event);
         }
@@ -1674,7 +1682,8 @@ SELECT pid, creation_token, parent_pid_status, parent_pid, name_status, name,
 FROM process_identities
 WHERE incident_id=? AND metadata_present=1
 ORDER BY pid, creation_token
-)sql", "prepare process metadata load");
+)sql",
+                                      "prepare process metadata load");
         if (!metadata_query) return std::unexpected{metadata_query.error()};
         sqlite3_bind_int64(metadata_query->get(), 1, incident_id);
         while (true) {
@@ -1684,8 +1693,8 @@ ORDER BY pid, creation_token
                 return std::unexpected{database_error(database, "load process metadata", result)};
             }
             core::IncidentProcessInfo info{};
-            info.identity.pid = static_cast<std::uint32_t>(
-                sqlite3_column_int64(metadata_query->get(), 0));
+            info.identity.pid =
+                static_cast<std::uint32_t>(sqlite3_column_int64(metadata_query->get(), 0));
             auto token = read_unsigned(metadata_query->get(), 1, "creation_token");
             auto parent_status = read_status(metadata_query->get(), 2);
             auto name_status = read_status(metadata_query->get(), 4);
@@ -1697,18 +1706,19 @@ ORDER BY pid, creation_token
             info.identity.creation_token = *token;
             info.parent_pid.status = *parent_status;
             if (*parent_status == core::RecordedValueStatus::available) {
-                info.parent_pid.value = static_cast<std::uint32_t>(
-                    sqlite3_column_int64(metadata_query->get(), 3));
+                info.parent_pid.value =
+                    static_cast<std::uint32_t>(sqlite3_column_int64(metadata_query->get(), 3));
             }
-            const auto read_text = [statement = metadata_query->get()](
-                                       const int column,
-                                       core::RecordedValue<std::string>& destination) {
-                if (destination.status != core::RecordedValueStatus::available) return;
-                const auto* text = reinterpret_cast<const char*>(
-                    sqlite3_column_text(statement, column));
-                const auto bytes = sqlite3_column_bytes(statement, column);
-                if (text != nullptr) destination.value.assign(text, static_cast<std::size_t>(bytes));
-            };
+            const auto read_text =
+                [statement = metadata_query->get()](const int column,
+                                                    core::RecordedValue<std::string>& destination) {
+                    if (destination.status != core::RecordedValueStatus::available) return;
+                    const auto* text =
+                        reinterpret_cast<const char*>(sqlite3_column_text(statement, column));
+                    const auto bytes = sqlite3_column_bytes(statement, column);
+                    if (text != nullptr)
+                        destination.value.assign(text, static_cast<std::size_t>(bytes));
+                };
             info.name.status = *name_status;
             read_text(5, info.name);
             info.executable_path.status = *path_status;
@@ -1722,7 +1732,8 @@ SELECT observed_ns, pid, creation_token, cpu_status, cpu_fraction,
  working_set_status, working_set_bytes, disk_read_status, disk_read_bps,
  disk_write_status, disk_write_bps
 FROM process_samples WHERE incident_id=? ORDER BY sample_index
-)sql", "prepare process sample load");
+)sql",
+                                     "prepare process sample load");
         if (!process_query) return std::unexpected{process_query.error()};
         sqlite3_bind_int64(process_query->get(), 1, incident_id);
         while (true) {
@@ -1733,12 +1744,11 @@ FROM process_samples WHERE incident_id=? ORDER BY sample_index
             }
             core::IncidentProcessSample sample{};
             sample.observed_at = monotonic_time(sqlite3_column_int64(process_query->get(), 0));
-            sample.identity.pid = static_cast<std::uint32_t>(
-                sqlite3_column_int64(process_query->get(), 1));
+            sample.identity.pid =
+                static_cast<std::uint32_t>(sqlite3_column_int64(process_query->get(), 1));
             auto token = read_unsigned(process_query->get(), 2, "creation_token");
             auto cpu = read_double_value(process_query->get(), 3, 4);
-            auto working = read_unsigned_value(process_query->get(), 5, 6,
-                                               "working_set_bytes");
+            auto working = read_unsigned_value(process_query->get(), 5, 6, "working_set_bytes");
             auto read = read_double_value(process_query->get(), 7, 8);
             auto write = read_double_value(process_query->get(), 9, 10);
             if (!token) return std::unexpected{token.error()};
@@ -1754,35 +1764,37 @@ FROM process_samples WHERE incident_id=? ORDER BY sample_index
             processes.push_back(sample);
         }
         return std::make_shared<const core::IncidentSnapshot>(
-            std::move(header), std::move(systems), std::move(metadata),
-            std::move(processes), std::move(events));
+            std::move(header), std::move(systems), std::move(metadata), std::move(processes),
+            std::move(events));
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown incident load failure")};
     }
 }
 
-std::expected<IncidentAnnotation, StorageError> SqliteIncidentArchive::annotation(
-    const std::int64_t incident_id) const noexcept {
+std::expected<IncidentAnnotation, StorageError>
+SqliteIncidentArchive::annotation(const std::int64_t incident_id) const noexcept {
     try {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto statement = prepare(database, "SELECT label,note,user_feedback,category FROM incidents WHERE id=?",
+        auto statement = prepare(database,
+                                 "SELECT label,note,user_feedback,category "
+                                 "FROM incidents WHERE id=?",
                                  "prepare incident annotation load");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_int64(statement->get(), 1, incident_id);
         const auto result = sqlite3_step(statement->get());
         if (result != SQLITE_ROW) {
-            return std::unexpected{result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load incident annotation", result)};
+            return std::unexpected{
+                result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load incident annotation", result)};
         }
         const auto* label = sqlite3_column_text(statement->get(), 0);
         const auto* note = sqlite3_column_text(statement->get(), 1);
@@ -1792,25 +1804,24 @@ std::expected<IncidentAnnotation, StorageError> SqliteIncidentArchive::annotatio
             feedback > static_cast<int>(IncidentUserFeedback::did_not_notice_problem) ||
             category < static_cast<int>(IncidentCategory::unknown) ||
             category > static_cast<int>(IncidentCategory::audio)) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "invalid incident classification")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "invalid incident classification")};
         }
-        return IncidentAnnotation{
-            label == nullptr ? "" : reinterpret_cast<const char*>(label),
-            note == nullptr ? "" : reinterpret_cast<const char*>(note),
-            static_cast<IncidentUserFeedback>(feedback),
-            static_cast<IncidentCategory>(category)};
+        return IncidentAnnotation{label == nullptr ? "" : reinterpret_cast<const char*>(label),
+                                  note == nullptr ? "" : reinterpret_cast<const char*>(note),
+                                  static_cast<IncidentUserFeedback>(feedback),
+                                  static_cast<IncidentCategory>(category)};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown annotation load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown annotation load failure")};
     }
 }
 
-std::expected<void, StorageError> SqliteIncidentArchive::update_annotation(
-    const std::int64_t incident_id, const IncidentAnnotation& annotation_value) noexcept {
+std::expected<void, StorageError>
+SqliteIncidentArchive::update_annotation(const std::int64_t incident_id,
+                                         const IncidentAnnotation& annotation_value) noexcept {
     return update_annotation_with_origin(incident_id, annotation_value,
                                          ClassificationChangeOrigin::user);
 }
@@ -1824,30 +1835,30 @@ std::expected<void, StorageError> SqliteIncidentArchive::update_annotation_with_
             annotation_value.user_feedback > IncidentUserFeedback::did_not_notice_problem ||
             annotation_value.category > IncidentCategory::audio ||
             origin > ClassificationChangeOrigin::dataset_import) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "invalid incident annotation")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "invalid incident annotation")};
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) {
             return std::unexpected{begun.error()};
         }
-        auto previous = prepare(database,
-                                "SELECT category,user_feedback FROM incidents WHERE id=?",
+        auto previous = prepare(database, "SELECT category,user_feedback FROM incidents WHERE id=?",
                                 "prepare previous incident classification");
         if (!previous) return std::unexpected{previous.error()};
         sqlite3_bind_int64(previous->get(), 1, incident_id);
         const auto previous_result = sqlite3_step(previous->get());
         if (previous_result != SQLITE_ROW) {
-            return std::unexpected{previous_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load previous incident classification",
-                                 previous_result)};
+            return std::unexpected{
+                previous_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load previous incident classification",
+                                     previous_result)};
         }
         const auto previous_category = sqlite3_column_int(previous->get(), 0);
         const auto previous_feedback = sqlite3_column_int(previous->get(), 1);
@@ -1855,39 +1866,39 @@ std::expected<void, StorageError> SqliteIncidentArchive::update_annotation_with_
             previous_category != static_cast<int>(annotation_value.category) ||
             previous_feedback != static_cast<int>(annotation_value.user_feedback);
         auto statement = prepare(database,
-                                 "UPDATE incidents SET label=?,note=?,user_feedback=?,category=? WHERE id=?",
+                                 "UPDATE incidents SET "
+                                 "label=?,note=?,user_feedback=?,category=? WHERE id=?",
                                  "prepare incident annotation update");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_text(statement->get(), 1, annotation_value.label.c_str(),
                           static_cast<int>(annotation_value.label.size()), SQLITE_TRANSIENT);
         sqlite3_bind_text(statement->get(), 2, annotation_value.note.c_str(),
                           static_cast<int>(annotation_value.note.size()), SQLITE_TRANSIENT);
-        sqlite3_bind_int(statement->get(), 3,
-                         static_cast<int>(annotation_value.user_feedback));
-        sqlite3_bind_int(statement->get(), 4,
-                         static_cast<int>(annotation_value.category));
+        sqlite3_bind_int(statement->get(), 3, static_cast<int>(annotation_value.user_feedback));
+        sqlite3_bind_int(statement->get(), 4, static_cast<int>(annotation_value.category));
         sqlite3_bind_int64(statement->get(), 5, incident_id);
-        if (auto updated = expect_done(database, statement->get(),
-                                       "update incident annotation"); !updated) {
+        if (auto updated = expect_done(database, statement->get(), "update incident annotation");
+            !updated) {
             return std::unexpected{updated.error()};
         }
         if (sqlite3_changes(database) != 1) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "incident not found")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "incident not found")};
         }
         if (classification_changed) {
             auto history_insert = prepare(database, R"sql(
 INSERT INTO incident_classification_history(
  incident_id, changed_utc_ms, category, user_feedback, origin)
 VALUES(?,?,?,?,?)
-)sql", "prepare incident classification history insert");
+)sql",
+                                          "prepare incident classification history insert");
             if (!history_insert) return std::unexpected{history_insert.error()};
             const auto changed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count();
+                                     std::chrono::system_clock::now().time_since_epoch())
+                                     .count();
             sqlite3_bind_int64(history_insert->get(), 1, incident_id);
             sqlite3_bind_int64(history_insert->get(), 2, changed);
-            sqlite3_bind_int(history_insert->get(), 3,
-                             static_cast<int>(annotation_value.category));
+            sqlite3_bind_int(history_insert->get(), 3, static_cast<int>(annotation_value.category));
             sqlite3_bind_int(history_insert->get(), 4,
                              static_cast<int>(annotation_value.user_feedback));
             sqlite3_bind_int(history_insert->get(), 5, static_cast<int>(origin));
@@ -1902,25 +1913,25 @@ WHERE incident_id=? AND event_id NOT IN (
  SELECT event_id FROM incident_classification_history
  WHERE incident_id=? ORDER BY changed_utc_ms DESC,event_id DESC LIMIT ?
 )
-)sql", "prepare incident classification history prune");
+)sql",
+                                 "prepare incident classification history prune");
             if (!prune) return std::unexpected{prune.error()};
             sqlite3_bind_int64(prune->get(), 1, incident_id);
             sqlite3_bind_int64(prune->get(), 2, incident_id);
             sqlite3_bind_int64(prune->get(), 3,
-                               static_cast<sqlite3_int64>(
-                                   maximum_incident_classification_history));
-            if (auto pruned = expect_done(database, prune->get(),
-                                          "prune incident classification history"); !pruned) {
+                               static_cast<sqlite3_int64>(maximum_incident_classification_history));
+            if (auto pruned =
+                    expect_done(database, prune->get(), "prune incident classification history");
+                !pruned) {
                 return std::unexpected{pruned.error()};
             }
         }
         return transaction.commit();
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown annotation update failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown annotation update failure")};
     }
 }
 
@@ -1930,14 +1941,15 @@ SqliteIncidentArchive::classification_history(const std::int64_t incident_id) co
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto statement = prepare(database, R"sql(
 SELECT changed_utc_ms,category,user_feedback,origin
 FROM incident_classification_history WHERE incident_id=?
 ORDER BY changed_utc_ms,event_id
-)sql", "prepare incident classification history load");
+)sql",
+                                 "prepare incident classification history load");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_int64(statement->get(), 1, incident_id);
         std::vector<IncidentClassificationHistoryEntry> history;
@@ -1946,8 +1958,8 @@ ORDER BY changed_utc_ms,event_id
             const auto result = sqlite3_step(statement->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(database,
-                    "load incident classification history", result)};
+                return std::unexpected{
+                    database_error(database, "load incident classification history", result)};
             }
             const auto category = sqlite3_column_int(statement->get(), 1);
             const auto feedback = sqlite3_column_int(statement->get(), 2);
@@ -1957,53 +1969,49 @@ ORDER BY changed_utc_ms,event_id
                 feedback > static_cast<int>(IncidentUserFeedback::did_not_notice_problem) ||
                 origin < 0 ||
                 origin > static_cast<int>(ClassificationChangeOrigin::dataset_import)) {
-                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid classification history")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "invalid classification history")};
             }
             history.push_back(IncidentClassificationHistoryEntry{
-                sqlite3_column_int64(statement->get(), 0),
-                static_cast<IncidentCategory>(category),
+                sqlite3_column_int64(statement->get(), 0), static_cast<IncidentCategory>(category),
                 static_cast<IncidentUserFeedback>(feedback),
                 static_cast<ClassificationChangeOrigin>(origin)});
         }
         return history;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown classification history failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown classification history failure")};
     }
 }
 
 std::expected<FeedbackCalibrationContext, StorageError>
 SqliteIncidentArchive::feedback_calibration_context(
-    const std::int64_t incident_id,
-    const std::size_t maximum_observations) const noexcept {
+    const std::int64_t incident_id, const std::size_t maximum_observations) const noexcept {
     try {
         if (incident_id <= 0 || maximum_observations == 0U ||
             maximum_observations > maximum_feedback_calibration_observations) {
-            return std::unexpected{simple_error(
-                StorageErrorCode::invalid_data,
-                "invalid feedback calibration query")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "invalid feedback calibration query")};
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto current = prepare(database,
-                               "SELECT created_utc_ms FROM incidents WHERE id=?",
+        auto current = prepare(database, "SELECT created_utc_ms FROM incidents WHERE id=?",
                                "prepare feedback calibration incident load");
         if (!current) return std::unexpected{current.error()};
         sqlite3_bind_int64(current->get(), 1, incident_id);
         const auto current_result = sqlite3_step(current->get());
         if (current_result != SQLITE_ROW) {
-            return std::unexpected{current_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load feedback calibration incident",
-                                 current_result)};
+            return std::unexpected{
+                current_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load feedback calibration incident",
+                                     current_result)};
         }
         FeedbackCalibrationContext context{};
         context.incident_id = incident_id;
@@ -2012,23 +2020,22 @@ SqliteIncidentArchive::feedback_calibration_context(
         auto profile = prepare(database, R"sql(
 SELECT revision,reset_after_utc_ms,rollback_available
 FROM feedback_profile_state WHERE singleton=1
-)sql", "prepare feedback profile state load");
+)sql",
+                               "prepare feedback profile state load");
         if (!profile) return std::unexpected{profile.error()};
         const auto profile_result = sqlite3_step(profile->get());
         if (profile_result != SQLITE_ROW || sqlite3_column_int64(profile->get(), 0) < 0 ||
             sqlite3_column_int64(profile->get(), 1) < 0 ||
             (sqlite3_column_int(profile->get(), 2) != 0 &&
              sqlite3_column_int(profile->get(), 2) != 1)) {
-            return std::unexpected{profile_result == SQLITE_ROW
-                ? simple_error(StorageErrorCode::invalid_data,
-                               "invalid feedback profile state")
-                : database_error(database, "load feedback profile state",
-                                 profile_result)};
+            return std::unexpected{
+                profile_result == SQLITE_ROW
+                    ? simple_error(StorageErrorCode::invalid_data, "invalid feedback profile state")
+                    : database_error(database, "load feedback profile state", profile_result)};
         }
-        context.profile_revision = static_cast<std::uint64_t>(
-            sqlite3_column_int64(profile->get(), 0));
-        context.reset_after_utc_milliseconds =
-            sqlite3_column_int64(profile->get(), 1);
+        context.profile_revision =
+            static_cast<std::uint64_t>(sqlite3_column_int64(profile->get(), 0));
+        context.reset_after_utc_milliseconds = sqlite3_column_int64(profile->get(), 1);
         context.rollback_available = sqlite3_column_int(profile->get(), 2) != 0;
 
         auto history = prepare(database, R"sql(
@@ -2038,54 +2045,47 @@ WHERE automatic_trigger_count>0 AND user_feedback<>0
   AND created_utc_ms>?
   AND (created_utc_ms<? OR (created_utc_ms=? AND id<?))
 ORDER BY created_utc_ms DESC,id DESC LIMIT ?
-)sql", "prepare feedback calibration history load");
+)sql",
+                               "prepare feedback calibration history load");
         if (!history) return std::unexpected{history.error()};
-        sqlite3_bind_int64(history->get(), 1,
-                           context.reset_after_utc_milliseconds);
+        sqlite3_bind_int64(history->get(), 1, context.reset_after_utc_milliseconds);
         sqlite3_bind_int64(history->get(), 2, context.incident_utc_milliseconds);
         sqlite3_bind_int64(history->get(), 3, context.incident_utc_milliseconds);
         sqlite3_bind_int64(history->get(), 4, incident_id);
-        sqlite3_bind_int64(history->get(), 5,
-                           static_cast<sqlite3_int64>(maximum_observations));
+        sqlite3_bind_int64(history->get(), 5, static_cast<sqlite3_int64>(maximum_observations));
         context.history.reserve(maximum_observations);
         while (true) {
             const auto result = sqlite3_step(history->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(
-                    database, "load feedback calibration history", result)};
+                return std::unexpected{
+                    database_error(database, "load feedback calibration history", result)};
             }
             const auto resource = sqlite3_column_int(history->get(), 2);
             const auto signal = sqlite3_column_int(history->get(), 3);
             const auto feedback = sqlite3_column_int(history->get(), 4);
             if (resource < static_cast<int>(core::AutomaticIncidentResource::none) ||
                 resource > static_cast<int>(core::AutomaticIncidentResource::network) ||
-                signal < static_cast<int>(
-                    core::AutomaticIncidentSignal::throughput_or_utilization) ||
-                signal > static_cast<int>(
-                    core::AutomaticIncidentSignal::storage_io_retry) ||
+                signal <
+                    static_cast<int>(core::AutomaticIncidentSignal::throughput_or_utilization) ||
+                signal > static_cast<int>(core::AutomaticIncidentSignal::storage_io_retry) ||
                 feedback < static_cast<int>(IncidentUserFeedback::noticed_problem) ||
-                feedback > static_cast<int>(
-                    IncidentUserFeedback::did_not_notice_problem)) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "invalid feedback calibration history")};
+                feedback > static_cast<int>(IncidentUserFeedback::did_not_notice_problem)) {
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "invalid feedback calibration history")};
             }
             context.history.push_back(StoredFeedbackCalibrationObservation{
-                sqlite3_column_int64(history->get(), 0),
-                sqlite3_column_int64(history->get(), 1),
+                sqlite3_column_int64(history->get(), 0), sqlite3_column_int64(history->get(), 1),
                 static_cast<core::AutomaticIncidentResource>(resource),
                 static_cast<core::AutomaticIncidentSignal>(signal),
                 static_cast<IncidentUserFeedback>(feedback)});
         }
         return context;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::sql_error,
-            "unknown feedback calibration query failure")};
+        return std::unexpected{simple_error(StorageErrorCode::sql_error,
+                                            "unknown feedback calibration query failure")};
     }
 }
 
@@ -2095,11 +2095,12 @@ SqliteIncidentArchive::reset_feedback_profile() noexcept {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
         auto statement = prepare(database, R"sql(
 UPDATE feedback_profile_state
 SET revision=revision+1,
@@ -2107,36 +2108,34 @@ SET revision=revision+1,
     reset_after_utc_ms=?,rollback_available=1
 WHERE singleton=1 AND revision<9223372036854775807
 RETURNING revision,reset_after_utc_ms,rollback_available
-)sql", "prepare feedback profile reset");
+)sql",
+                                 "prepare feedback profile reset");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_int64(statement->get(), 1, now);
         const auto result = sqlite3_step(statement->get());
         if (result != SQLITE_ROW) {
-            return std::unexpected{result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data,
-                               "feedback profile cannot advance")
-                : database_error(database, "reset feedback profile", result)};
+            return std::unexpected{
+                result == SQLITE_DONE ? simple_error(StorageErrorCode::invalid_data,
+                                                     "feedback profile cannot advance")
+                                      : database_error(database, "reset feedback profile", result)};
         }
         const auto revision = sqlite3_column_int64(statement->get(), 0);
         const auto reset_after = sqlite3_column_int64(statement->get(), 1);
         const auto rollback = sqlite3_column_int(statement->get(), 2);
         if (revision < 0 || reset_after != now || rollback != 1) {
             return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "invalid feedback profile reset state")};
+                                                "invalid feedback profile reset state")};
         }
         const auto done = sqlite3_step(statement->get());
         if (done != SQLITE_DONE) {
-            return std::unexpected{database_error(
-                database, "finish feedback profile reset", done)};
+            return std::unexpected{database_error(database, "finish feedback profile reset", done)};
         }
-        return FeedbackProfileControlState{
-            static_cast<std::uint64_t>(revision), reset_after, true};
+        return FeedbackProfileControlState{static_cast<std::uint64_t>(revision), reset_after, true};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown feedback profile reset failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown feedback profile reset failure")};
     }
 }
 
@@ -2146,8 +2145,8 @@ SqliteIncidentArchive::rollback_feedback_profile_reset() noexcept {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto statement = prepare(database, R"sql(
 UPDATE feedback_profile_state
@@ -2155,83 +2154,79 @@ SET revision=revision+1,reset_after_utc_ms=previous_reset_after_utc_ms,
     rollback_available=0
 WHERE singleton=1 AND rollback_available=1 AND revision<9223372036854775807
 RETURNING revision,reset_after_utc_ms,rollback_available
-)sql", "prepare feedback profile reset rollback");
+)sql",
+                                 "prepare feedback profile reset rollback");
         if (!statement) return std::unexpected{statement.error()};
         const auto result = sqlite3_step(statement->get());
         if (result != SQLITE_ROW) {
-            return std::unexpected{result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data,
-                               "no feedback profile reset is available to roll back")
-                : database_error(database, "roll back feedback profile reset", result)};
+            return std::unexpected{
+                result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data,
+                                   "no feedback profile reset is available to roll back")
+                    : database_error(database, "roll back feedback profile reset", result)};
         }
         const auto revision = sqlite3_column_int64(statement->get(), 0);
         const auto reset_after = sqlite3_column_int64(statement->get(), 1);
         const auto rollback = sqlite3_column_int(statement->get(), 2);
         if (revision < 0 || reset_after < 0 || rollback != 0) {
             return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "invalid feedback profile rollback state")};
+                                                "invalid feedback profile rollback state")};
         }
         const auto done = sqlite3_step(statement->get());
         if (done != SQLITE_DONE) {
-            return std::unexpected{database_error(
-                database, "finish feedback profile reset rollback", done)};
+            return std::unexpected{
+                database_error(database, "finish feedback profile reset rollback", done)};
         }
-        return FeedbackProfileControlState{
-            static_cast<std::uint64_t>(revision), reset_after, false};
+        return FeedbackProfileControlState{static_cast<std::uint64_t>(revision), reset_after,
+                                           false};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::sql_error,
-            "unknown feedback profile reset rollback failure")};
+        return std::unexpected{simple_error(StorageErrorCode::sql_error,
+                                            "unknown feedback profile reset rollback failure")};
     }
 }
 
 std::expected<ContributorFeedbackContext, StorageError>
 SqliteIncidentArchive::contributor_feedback_context(
-    const std::int64_t incident_id,
-    const std::span<const std::string> executable_keys,
+    const std::int64_t incident_id, const std::span<const std::string> executable_keys,
     const std::size_t maximum_observations) const noexcept {
     try {
         if (incident_id <= 0 || maximum_observations == 0U ||
             maximum_observations > maximum_contributor_feedback_observations ||
             executable_keys.size() > maximum_process_profile_query_identities) {
-            return std::unexpected{simple_error(
-                StorageErrorCode::invalid_data,
-                "invalid contributor feedback query")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "invalid contributor feedback query")};
         }
         std::set<std::string, std::less<>> unique_keys;
         for (const auto& key : executable_keys) {
             if (key.empty() || key.size() > maximum_process_profile_key_bytes) {
-                return std::unexpected{simple_error(
-                    StorageErrorCode::invalid_data,
-                    "invalid contributor feedback executable key")};
+                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                    "invalid contributor feedback executable key")};
             }
             unique_keys.insert(key);
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto incident = prepare(database,
-                                "SELECT created_utc_ms FROM incidents WHERE id=?",
+        auto incident = prepare(database, "SELECT created_utc_ms FROM incidents WHERE id=?",
                                 "prepare contributor feedback incident lookup");
         if (!incident) return std::unexpected{incident.error()};
         sqlite3_bind_int64(incident->get(), 1, incident_id);
         const auto incident_result = sqlite3_step(incident->get());
         if (incident_result != SQLITE_ROW) {
-            return std::unexpected{incident_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load contributor feedback incident",
-                                 incident_result)};
+            return std::unexpected{
+                incident_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load contributor feedback incident",
+                                     incident_result)};
         }
         ContributorFeedbackContext context{};
         context.incident_id = incident_id;
-        context.incident_utc_milliseconds =
-            sqlite3_column_int64(incident->get(), 0);
+        context.incident_utc_milliseconds = sqlite3_column_int64(incident->get(), 0);
         if (unique_keys.empty()) return context;
 
         std::string placeholders;
@@ -2239,14 +2234,11 @@ SqliteIncidentArchive::contributor_feedback_context(
             if (index != 0U) placeholders += ',';
             placeholders += '?';
         }
-        const auto read_rows = [&](const std::string& sql,
-                                   const bool history)
-            -> std::expected<std::vector<StoredContributorFeedbackObservation>,
-                             StorageError> {
+        const auto read_rows = [&](const std::string& sql, const bool history)
+            -> std::expected<std::vector<StoredContributorFeedbackObservation>, StorageError> {
             auto statement = prepare(database, sql.c_str(),
-                                     history
-                                         ? "prepare contributor feedback history"
-                                         : "prepare current contributor feedback");
+                                     history ? "prepare contributor feedback history"
+                                             : "prepare current contributor feedback");
             if (!statement) return std::unexpected{statement.error()};
             int parameter = 1;
             if (!history) sqlite3_bind_int64(statement->get(), parameter++, incident_id);
@@ -2269,31 +2261,28 @@ SqliteIncidentArchive::contributor_feedback_context(
                 const auto result = sqlite3_step(statement->get());
                 if (result == SQLITE_DONE) break;
                 if (result != SQLITE_ROW) {
-                    return std::unexpected{database_error(
-                        database, history ? "load contributor feedback history"
-                                          : "load current contributor feedback",
-                        result)};
+                    return std::unexpected{database_error(database,
+                                                          history
+                                                              ? "load contributor feedback history"
+                                                              : "load current contributor feedback",
+                                                          result)};
                 }
                 const auto* key = sqlite3_column_text(statement->get(), 3);
                 const auto resource = sqlite3_column_int(statement->get(), 4);
                 const auto disposition = sqlite3_column_int(statement->get(), 5);
                 const auto relationship = sqlite3_column_int(statement->get(), 6);
-                if (key == nullptr || resource < 0 || resource > 3 ||
-                    disposition < 1 || disposition > 2 ||
-                    relationship < 0 || relationship > 2) {
-                    return std::unexpected{simple_error(
-                        StorageErrorCode::invalid_data,
-                        "invalid contributor feedback row")};
+                if (key == nullptr || resource < 0 || resource > 3 || disposition < 1 ||
+                    disposition > 2 || relationship < 0 || relationship > 2) {
+                    return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                        "invalid contributor feedback row")};
                 }
                 rows.push_back(StoredContributorFeedbackObservation{
                     sqlite3_column_int64(statement->get(), 0),
                     sqlite3_column_int64(statement->get(), 1),
-                    sqlite3_column_int64(statement->get(), 2),
-                    reinterpret_cast<const char*>(key),
+                    sqlite3_column_int64(statement->get(), 2), reinterpret_cast<const char*>(key),
                     static_cast<ContributorFeedbackResource>(resource),
                     static_cast<ContributorFeedbackDisposition>(disposition),
-                    static_cast<ContributorFeedbackTemporalRelationship>(
-                        relationship)});
+                    static_cast<ContributorFeedbackTemporalRelationship>(relationship)});
             }
             return rows;
         };
@@ -2302,52 +2291,47 @@ SqliteIncidentArchive::contributor_feedback_context(
             "f.executable_key,f.resource,f.disposition,f.temporal_relationship "
             "FROM incident_contributor_feedback f "
             "JOIN incidents i ON i.id=f.incident_id ";
-        auto current = read_rows(
-            columns + "WHERE f.incident_id=? AND f.executable_key IN (" +
-                placeholders + ") ORDER BY f.executable_key,f.resource LIMIT 256",
-            false);
+        auto current =
+            read_rows(columns + "WHERE f.incident_id=? AND f.executable_key IN (" + placeholders +
+                          ") ORDER BY f.executable_key,f.resource LIMIT 256",
+                      false);
         if (!current) return std::unexpected{current.error()};
-        auto history = read_rows(
-            columns + "WHERE f.executable_key IN (" + placeholders +
-                ") AND (i.created_utc_ms<? OR (i.created_utc_ms=? AND i.id<?)) "
-                "ORDER BY i.created_utc_ms DESC,i.id DESC,f.executable_key,f.resource "
-                "LIMIT ?",
-            true);
+        auto history =
+            read_rows(columns + "WHERE f.executable_key IN (" + placeholders +
+                          ") AND (i.created_utc_ms<? OR (i.created_utc_ms=? AND i.id<?)) "
+                          "ORDER BY i.created_utc_ms DESC,i.id "
+                          "DESC,f.executable_key,f.resource "
+                          "LIMIT ?",
+                      true);
         if (!history) return std::unexpected{history.error()};
         context.current = std::move(*current);
         context.history = std::move(*history);
         return context;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::sql_error,
-            "unknown contributor feedback load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown contributor feedback load failure")};
     }
 }
 
-std::expected<void, StorageError>
-SqliteIncidentArchive::update_contributor_feedback(
+std::expected<void, StorageError> SqliteIncidentArchive::update_contributor_feedback(
     const std::int64_t incident_id, std::string executable_key,
-    const ContributorFeedbackResource resource,
-    const ContributorFeedbackDisposition disposition,
+    const ContributorFeedbackResource resource, const ContributorFeedbackDisposition disposition,
     const ContributorFeedbackTemporalRelationship temporal_relationship) noexcept {
     try {
         if (incident_id <= 0 || executable_key.empty() ||
             executable_key.size() > maximum_process_profile_key_bytes ||
-            static_cast<unsigned>(resource) > 3U ||
-            static_cast<unsigned>(disposition) > 2U ||
+            static_cast<unsigned>(resource) > 3U || static_cast<unsigned>(disposition) > 2U ||
             static_cast<unsigned>(temporal_relationship) > 2U) {
-            return std::unexpected{simple_error(
-                StorageErrorCode::invalid_data,
-                "invalid contributor feedback update")};
+            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                "invalid contributor feedback update")};
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto incident = prepare(database, "SELECT 1 FROM incidents WHERE id=?",
                                 "prepare contributor feedback incident validation");
@@ -2355,23 +2339,22 @@ SqliteIncidentArchive::update_contributor_feedback(
         sqlite3_bind_int64(incident->get(), 1, incident_id);
         const auto found = sqlite3_step(incident->get());
         if (found != SQLITE_ROW) {
-            return std::unexpected{found == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "validate contributor feedback incident",
-                                 found)};
+            return std::unexpected{
+                found == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "validate contributor feedback incident", found)};
         }
         if (disposition == ContributorFeedbackDisposition::unsure) {
             auto statement = prepare(database,
-                "DELETE FROM incident_contributor_feedback "
-                "WHERE incident_id=? AND executable_key=? AND resource=?",
-                "prepare contributor feedback clear");
+                                     "DELETE FROM incident_contributor_feedback "
+                                     "WHERE incident_id=? AND executable_key=? AND resource=?",
+                                     "prepare contributor feedback clear");
             if (!statement) return std::unexpected{statement.error()};
             sqlite3_bind_int64(statement->get(), 1, incident_id);
             sqlite3_bind_text(statement->get(), 2, executable_key.c_str(),
                               static_cast<int>(executable_key.size()), SQLITE_TRANSIENT);
             sqlite3_bind_int(statement->get(), 3, static_cast<int>(resource));
-            return expect_done(database, statement->get(),
-                               "clear contributor feedback");
+            return expect_done(database, statement->get(), "clear contributor feedback");
         }
         auto statement = prepare(database, R"sql(
 INSERT INTO incident_contributor_feedback(
@@ -2381,27 +2364,25 @@ ON CONFLICT(incident_id,executable_key,resource) DO UPDATE SET
  disposition=excluded.disposition,
  temporal_relationship=excluded.temporal_relationship,
  updated_utc_ms=excluded.updated_utc_ms
-)sql", "prepare contributor feedback update");
+)sql",
+                                 "prepare contributor feedback update");
         if (!statement) return std::unexpected{statement.error()};
         const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+                             std::chrono::system_clock::now().time_since_epoch())
+                             .count();
         sqlite3_bind_int64(statement->get(), 1, incident_id);
         sqlite3_bind_text(statement->get(), 2, executable_key.c_str(),
                           static_cast<int>(executable_key.size()), SQLITE_TRANSIENT);
         sqlite3_bind_int(statement->get(), 3, static_cast<int>(resource));
         sqlite3_bind_int(statement->get(), 4, static_cast<int>(disposition));
-        sqlite3_bind_int(statement->get(), 5,
-                         static_cast<int>(temporal_relationship));
+        sqlite3_bind_int(statement->get(), 5, static_cast<int>(temporal_relationship));
         sqlite3_bind_int64(statement->get(), 6, now);
-        return expect_done(database, statement->get(),
-                           "update contributor feedback");
+        return expect_done(database, statement->get(), "update contributor feedback");
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(
-            StorageErrorCode::sql_error,
-            "unknown contributor feedback update failure")};
+        return std::unexpected{simple_error(StorageErrorCode::sql_error,
+                                            "unknown contributor feedback update failure")};
     }
 }
 
@@ -2411,70 +2392,67 @@ SqliteIncidentArchive::incident_id_for_export_key(const IncidentExportKey& key) 
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         auto statement = prepare(database, "SELECT id FROM incidents WHERE export_key=?",
                                  "prepare incident export key lookup");
         if (!statement) return std::unexpected{statement.error()};
-        sqlite3_bind_blob(statement->get(), 1, key.bytes.data(),
-                          static_cast<int>(key.bytes.size()), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement->get(), 1, key.bytes.data(), static_cast<int>(key.bytes.size()),
+                          SQLITE_TRANSIENT);
         const auto result = sqlite3_step(statement->get());
         if (result == SQLITE_DONE) return std::optional<std::int64_t>{};
         if (result != SQLITE_ROW) {
-            return std::unexpected{database_error(database,
-                                                  "lookup incident export key", result)};
+            return std::unexpected{database_error(database, "lookup incident export key", result)};
         }
         return std::optional<std::int64_t>{sqlite3_column_int64(statement->get(), 0)};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
         return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident export key lookup failure")};
+                                            "unknown incident export key lookup failure")};
     }
 }
 
-std::expected<ProcessProfileContext, StorageError>
-SqliteIncidentArchive::process_profile_context(
+std::expected<ProcessProfileContext, StorageError> SqliteIncidentArchive::process_profile_context(
     const std::int64_t incident_id,
     const std::span<const std::string> executable_keys) const noexcept {
     try {
         if (executable_keys.size() > maximum_process_profile_query_identities) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "too many process profile keys")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "too many process profile keys")};
         }
         for (const auto& key : executable_keys) {
             if (key.empty() || key.size() > maximum_process_profile_key_bytes) {
-                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid process profile key")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "invalid process profile key")};
             }
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto incident_time = prepare(database,
-                                     "SELECT created_utc_ms FROM incidents WHERE id=?",
+        auto incident_time = prepare(database, "SELECT created_utc_ms FROM incidents WHERE id=?",
                                      "prepare process profile incident time");
         if (!incident_time) return std::unexpected{incident_time.error()};
         sqlite3_bind_int64(incident_time->get(), 1, incident_id);
         const auto time_result = sqlite3_step(incident_time->get());
         if (time_result != SQLITE_ROW) {
-            return std::unexpected{time_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load process profile incident time", time_result)};
+            return std::unexpected{
+                time_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load process profile incident time", time_result)};
         }
         ProcessProfileContext context{};
         context.incident_id = incident_id;
         context.incident_utc_milliseconds = sqlite3_column_int64(incident_time->get(), 0);
         const auto age = process_profile_maximum_age.count();
-        const auto oldest = context.incident_utc_milliseconds <
-                                    std::numeric_limits<std::int64_t>::min() + age
-                                ? std::numeric_limits<std::int64_t>::min()
-                                : context.incident_utc_milliseconds - age;
+        const auto oldest =
+            context.incident_utc_milliseconds < std::numeric_limits<std::int64_t>::min() + age
+                ? std::numeric_limits<std::int64_t>::min()
+                : context.incident_utc_milliseconds - age;
         auto history = prepare(database, R"sql(
 SELECT o.executable_key,p.display_name,o.incident_id,o.observed_utc_ms,
        o.cpu_fraction,o.working_set_bytes,o.disk_read_bps,o.disk_write_bps
@@ -2485,7 +2463,8 @@ WHERE o.executable_key=?
       AND o.observed_utc_ms>=?
 ORDER BY o.observed_utc_ms DESC,o.incident_id DESC
 LIMIT 64
-)sql", "prepare process profile history load");
+)sql",
+                               "prepare process profile history load");
         if (!history) return std::unexpected{history.error()};
         std::set<std::string, std::less<>> unique_keys{executable_keys.begin(),
                                                        executable_keys.end()};
@@ -2497,8 +2476,8 @@ LIMIT 64
             return sqlite3_column_double(statement, column);
         };
         for (const auto& key : unique_keys) {
-            sqlite3_bind_text(history->get(), 1, key.c_str(),
-                              static_cast<int>(key.size()), SQLITE_TRANSIENT);
+            sqlite3_bind_text(history->get(), 1, key.c_str(), static_cast<int>(key.size()),
+                              SQLITE_TRANSIENT);
             sqlite3_bind_int64(history->get(), 2, context.incident_utc_milliseconds);
             sqlite3_bind_int64(history->get(), 3, context.incident_utc_milliseconds);
             sqlite3_bind_int64(history->get(), 4, incident_id);
@@ -2507,23 +2486,21 @@ LIMIT 64
                 const auto result = sqlite3_step(history->get());
                 if (result == SQLITE_DONE) break;
                 if (result != SQLITE_ROW) {
-                    return std::unexpected{database_error(
-                        database, "load process profile history", result)};
+                    return std::unexpected{
+                        database_error(database, "load process profile history", result)};
                 }
                 const auto* stored_key = sqlite3_column_text(history->get(), 0);
                 const auto* display_name = sqlite3_column_text(history->get(), 1);
                 if (stored_key == nullptr || display_name == nullptr) {
                     return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                         "invalid process profile text")};
+                                                        "invalid process profile text")};
                 }
                 context.history.push_back(StoredProcessProfileObservation{
                     reinterpret_cast<const char*>(stored_key),
                     reinterpret_cast<const char*>(display_name),
                     sqlite3_column_int64(history->get(), 2),
-                    sqlite3_column_int64(history->get(), 3),
-                    optional_double(history->get(), 4),
-                    optional_double(history->get(), 5),
-                    optional_double(history->get(), 6),
+                    sqlite3_column_int64(history->get(), 3), optional_double(history->get(), 4),
+                    optional_double(history->get(), 5), optional_double(history->get(), 6),
                     optional_double(history->get(), 7)});
             }
             sqlite3_reset(history->get());
@@ -2541,21 +2518,19 @@ LIMIT 64
                   });
         return context;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown process profile load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown process profile load failure")};
     }
 }
 
 std::expected<void, StorageError> SqliteIncidentArchive::store_process_profile_updates(
-    const std::int64_t incident_id,
-    const std::span<const ProcessProfileUpdate> updates) noexcept {
+    const std::int64_t incident_id, const std::span<const ProcessProfileUpdate> updates) noexcept {
     try {
         if (updates.size() > maximum_process_profile_query_identities) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "too many process profile updates")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "too many process profile updates")};
         }
         std::set<std::string, std::less<>> unique_keys;
         const auto valid_metric = [](const std::optional<double> value,
@@ -2574,30 +2549,31 @@ std::expected<void, StorageError> SqliteIncidentArchive::store_process_profile_u
                               std::numeric_limits<double>::max()) ||
                 !valid_metric(update.disk_write_bytes_per_second,
                               std::numeric_limits<double>::max())) {
-                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid process profile update")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "invalid process profile update")};
             }
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) return begun;
-        auto incident_time_statement = prepare(
-            database, "SELECT created_utc_ms FROM incidents WHERE id=?",
-            "prepare profile update incident time");
+        auto incident_time_statement =
+            prepare(database, "SELECT created_utc_ms FROM incidents WHERE id=?",
+                    "prepare profile update incident time");
         if (!incident_time_statement) {
             return std::unexpected{incident_time_statement.error()};
         }
         sqlite3_bind_int64(incident_time_statement->get(), 1, incident_id);
         const auto time_result = sqlite3_step(incident_time_statement->get());
         if (time_result != SQLITE_ROW) {
-            return std::unexpected{time_result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load profile update incident time", time_result)};
+            return std::unexpected{
+                time_result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load profile update incident time", time_result)};
         }
         const auto incident_time = sqlite3_column_int64(incident_time_statement->get(), 0);
         const auto age = process_profile_maximum_age.count();
@@ -2610,20 +2586,21 @@ std::expected<void, StorageError> SqliteIncidentArchive::store_process_profile_u
                                  "prepare old process profile pruning");
         if (!prune_old) return std::unexpected{prune_old.error()};
         sqlite3_bind_int64(prune_old->get(), 1, oldest);
-        if (auto pruned = expect_done(database, prune_old->get(),
-                                      "prune old process profile observations"); !pruned) {
+        if (auto pruned =
+                expect_done(database, prune_old->get(), "prune old process profile observations");
+            !pruned) {
             return pruned;
         }
         if (auto pruned = execute(database,
-                "DELETE FROM executable_profiles WHERE NOT EXISTS ("
-                "SELECT 1 FROM executable_profile_observations o "
-                "WHERE o.executable_key=executable_profiles.executable_key)",
-                "prune empty process profiles"); !pruned) {
+                                  "DELETE FROM executable_profiles WHERE NOT EXISTS ("
+                                  "SELECT 1 FROM executable_profile_observations o "
+                                  "WHERE o.executable_key=executable_profiles.executable_key)",
+                                  "prune empty process profiles");
+            !pruned) {
             return pruned;
         }
 
-        auto exists = prepare(database,
-                              "SELECT 1 FROM executable_profiles WHERE executable_key=?",
+        auto exists = prepare(database, "SELECT 1 FROM executable_profiles WHERE executable_key=?",
                               "prepare process profile existence check");
         auto upsert_profile = prepare(database, R"sql(
 INSERT INTO executable_profiles(executable_key,display_name,last_seen_utc_ms)
@@ -2631,20 +2608,23 @@ VALUES(?,?,?)
 ON CONFLICT(executable_key) DO UPDATE SET
  display_name=excluded.display_name,
  last_seen_utc_ms=MAX(executable_profiles.last_seen_utc_ms,excluded.last_seen_utc_ms)
-)sql", "prepare process profile upsert");
+)sql",
+                                      "prepare process profile upsert");
         auto insert_observation = prepare(database, R"sql(
 INSERT INTO executable_profile_observations(
  executable_key,incident_id,observed_utc_ms,cpu_fraction,working_set_bytes,
  disk_read_bps,disk_write_bps)
 VALUES(?,?,?,?,?,?,?) ON CONFLICT(executable_key,incident_id) DO NOTHING
-)sql", "prepare process profile observation insert");
+)sql",
+                                          "prepare process profile observation insert");
         auto trim_observations = prepare(database, R"sql(
 DELETE FROM executable_profile_observations
 WHERE executable_key=? AND incident_id NOT IN (
  SELECT incident_id FROM executable_profile_observations
  WHERE executable_key=?
  ORDER BY observed_utc_ms DESC,incident_id DESC LIMIT 64)
-)sql", "prepare process profile observation trim");
+)sql",
+                                         "prepare process profile observation trim");
         if (!exists) return std::unexpected{exists.error()};
         if (!upsert_profile) return std::unexpected{upsert_profile.error()};
         if (!insert_observation) return std::unexpected{insert_observation.error()};
@@ -2652,7 +2632,8 @@ WHERE executable_key=? AND incident_id NOT IN (
 
         std::vector<const ProcessProfileUpdate*> ordered;
         ordered.reserve(updates.size());
-        for (const auto& update : updates) ordered.push_back(&update);
+        for (const auto& update : updates)
+            ordered.push_back(&update);
         std::sort(ordered.begin(), ordered.end(), [](const auto* left, const auto* right) {
             return left->executable_key < right->executable_key;
         });
@@ -2666,24 +2647,24 @@ WHERE executable_key=? AND incident_id NOT IN (
                               static_cast<int>(update->executable_key.size()), SQLITE_TRANSIENT);
             const auto exists_result = sqlite3_step(exists->get());
             if (exists_result != SQLITE_ROW && exists_result != SQLITE_DONE) {
-                return std::unexpected{database_error(database,
-                    "check process profile existence", exists_result)};
+                return std::unexpected{
+                    database_error(database, "check process profile existence", exists_result)};
             }
             const auto new_identity = exists_result == SQLITE_DONE;
             sqlite3_reset(exists->get());
             sqlite3_clear_bindings(exists->get());
             if (new_identity) {
-                auto count = scalar_int64(database,
-                                          "SELECT COUNT(*) FROM executable_profiles",
+                auto count = scalar_int64(database, "SELECT COUNT(*) FROM executable_profiles",
                                           "count process profiles");
                 if (!count) return std::unexpected{count.error()};
-                if (static_cast<std::uint64_t>(*count) >=
-                    maximum_process_profile_identities) {
+                if (static_cast<std::uint64_t>(*count) >= maximum_process_profile_identities) {
                     if (auto evicted = execute(database,
-                            "DELETE FROM executable_profiles WHERE executable_key=("
-                            "SELECT executable_key FROM executable_profiles "
-                            "ORDER BY last_seen_utc_ms,executable_key LIMIT 1)",
-                            "evict oldest process profile"); !evicted) {
+                                               "DELETE FROM executable_profiles WHERE "
+                                               "executable_key=("
+                                               "SELECT executable_key FROM executable_profiles "
+                                               "ORDER BY last_seen_utc_ms,executable_key LIMIT 1)",
+                                               "evict oldest process profile");
+                        !evicted) {
                         return evicted;
                     }
                 }
@@ -2693,42 +2674,40 @@ WHERE executable_key=? AND incident_id NOT IN (
             sqlite3_bind_text(upsert_profile->get(), 2, update->display_name.c_str(),
                               static_cast<int>(update->display_name.size()), SQLITE_TRANSIENT);
             sqlite3_bind_int64(upsert_profile->get(), 3, incident_time);
-            if (auto stored = expect_done(database, upsert_profile->get(),
-                                          "upsert process profile"); !stored) return stored;
+            if (auto stored =
+                    expect_done(database, upsert_profile->get(), "upsert process profile");
+                !stored)
+                return stored;
 
-            sqlite3_bind_text(insert_observation->get(), 1,
-                              update->executable_key.c_str(),
+            sqlite3_bind_text(insert_observation->get(), 1, update->executable_key.c_str(),
                               static_cast<int>(update->executable_key.size()), SQLITE_TRANSIENT);
             sqlite3_bind_int64(insert_observation->get(), 2, incident_id);
             sqlite3_bind_int64(insert_observation->get(), 3, incident_time);
             bind_optional(insert_observation->get(), 4, update->cpu_fraction);
             bind_optional(insert_observation->get(), 5, update->working_set_bytes);
-            bind_optional(insert_observation->get(), 6,
-                          update->disk_read_bytes_per_second);
-            bind_optional(insert_observation->get(), 7,
-                          update->disk_write_bytes_per_second);
+            bind_optional(insert_observation->get(), 6, update->disk_read_bytes_per_second);
+            bind_optional(insert_observation->get(), 7, update->disk_write_bytes_per_second);
             if (auto stored = expect_done(database, insert_observation->get(),
-                                          "store process profile observation"); !stored) {
+                                          "store process profile observation");
+                !stored) {
                 return stored;
             }
-            sqlite3_bind_text(trim_observations->get(), 1,
-                              update->executable_key.c_str(),
+            sqlite3_bind_text(trim_observations->get(), 1, update->executable_key.c_str(),
                               static_cast<int>(update->executable_key.size()), SQLITE_TRANSIENT);
-            sqlite3_bind_text(trim_observations->get(), 2,
-                              update->executable_key.c_str(),
+            sqlite3_bind_text(trim_observations->get(), 2, update->executable_key.c_str(),
                               static_cast<int>(update->executable_key.size()), SQLITE_TRANSIENT);
             if (auto trimmed = expect_done(database, trim_observations->get(),
-                                           "trim process profile observations"); !trimmed) {
+                                           "trim process profile observations");
+                !trimmed) {
                 return trimmed;
             }
         }
         return transaction.commit();
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown process profile update failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown process profile update failure")};
     }
 }
 
@@ -2738,11 +2717,11 @@ SqliteIncidentArchive::recurring_incidents(const std::size_t maximum_results) co
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        const auto limit = std::clamp<std::size_t>(maximum_results, 1U,
-                                                   maximum_recurring_incidents);
+        const auto limit =
+            std::clamp<std::size_t>(maximum_results, 1U, maximum_recurring_incidents);
         auto statement = prepare(database, R"sql(
 SELECT recent.id,recent.created_utc_ms,recent.label,recent.recurring_group_override,
        recent.user_feedback,recent.category,
@@ -2754,7 +2733,8 @@ FROM (
 ) AS recent
 LEFT JOIN incident_feature_cache AS feature ON feature.incident_id=recent.id
 ORDER BY recent.created_utc_ms DESC,recent.id DESC,feature.feature_index
-)sql", "prepare recurring incident load");
+)sql",
+                                 "prepare recurring incident load");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_int64(statement->get(), 1, static_cast<sqlite3_int64>(limit));
 
@@ -2764,34 +2744,29 @@ ORDER BY recent.created_utc_ms DESC,recent.id DESC,feature.feature_index
             const auto result = sqlite3_step(statement->get());
             if (result == SQLITE_DONE) break;
             if (result != SQLITE_ROW) {
-                return std::unexpected{database_error(database,
-                    "load recurring incidents", result)};
+                return std::unexpected{
+                    database_error(database, "load recurring incidents", result)};
             }
             const auto incident_id = sqlite3_column_int64(statement->get(), 0);
             if (incidents.empty() || incidents.back().id != incident_id) {
                 StoredRecurringIncident incident{};
                 incident.id = incident_id;
-                incident.created_utc_milliseconds =
-                    sqlite3_column_int64(statement->get(), 1);
+                incident.created_utc_milliseconds = sqlite3_column_int64(statement->get(), 1);
                 const auto* label = sqlite3_column_text(statement->get(), 2);
                 const auto* override_group = sqlite3_column_text(statement->get(), 3);
-                incident.label = label == nullptr
-                    ? "" : reinterpret_cast<const char*>(label);
-                incident.override_group = override_group == nullptr
-                    ? "" : reinterpret_cast<const char*>(override_group);
+                incident.label = label == nullptr ? "" : reinterpret_cast<const char*>(label);
+                incident.override_group =
+                    override_group == nullptr ? "" : reinterpret_cast<const char*>(override_group);
                 const auto feedback = sqlite3_column_int(statement->get(), 4);
                 const auto category = sqlite3_column_int(statement->get(), 5);
                 if (feedback < 0 ||
-                    feedback > static_cast<int>(
-                        IncidentUserFeedback::did_not_notice_problem) ||
-                    category < 0 ||
-                    category > static_cast<int>(IncidentCategory::audio)) {
-                    return std::unexpected{simple_error(
-                        StorageErrorCode::invalid_data,
-                        "invalid recurring incident classification")};
+                    feedback > static_cast<int>(IncidentUserFeedback::did_not_notice_problem) ||
+                    category < 0 || category > static_cast<int>(IncidentCategory::audio)) {
+                    return std::unexpected{
+                        simple_error(StorageErrorCode::invalid_data,
+                                     "invalid recurring incident classification")};
                 }
-                incident.user_feedback =
-                    static_cast<IncidentUserFeedback>(feedback);
+                incident.user_feedback = static_cast<IncidentUserFeedback>(feedback);
                 incident.category = static_cast<IncidentCategory>(category);
                 incidents.push_back(std::move(incident));
             }
@@ -2801,64 +2776,61 @@ ORDER BY recent.created_utc_ms DESC,recent.id DESC,feature.feature_index
             if (version <= 0 || index < 0 ||
                 index >= static_cast<int>(maximum_incident_feature_dimensions)) {
                 return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid cached incident feature")};
+                                                    "invalid cached incident feature")};
             }
             auto& cached = incidents.back().cached_feature;
             if (!cached) cached = StoredIncidentFeatureCache{incident_id, version, {}, {}};
             if (cached->feature_version != version ||
                 static_cast<std::size_t>(index) != cached->values.size()) {
                 return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                    "inconsistent cached incident feature")};
+                                                    "inconsistent cached incident feature")};
             }
             const auto value = sqlite3_column_double(statement->get(), 8);
             const auto available = sqlite3_column_int(statement->get(), 9);
             if (!std::isfinite(value) || (available != 0 && available != 1)) {
-                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid incident feature value")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "invalid incident feature value")};
             }
             cached->values.push_back(value);
             cached->available.push_back(static_cast<std::uint8_t>(available));
         }
         return incidents;
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown recurring incident load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown recurring incident load failure")};
     }
 }
 
 std::expected<std::string, StorageError>
-SqliteIncidentArchive::recurring_group_override(
-    const std::int64_t incident_id) const noexcept {
+SqliteIncidentArchive::recurring_group_override(const std::int64_t incident_id) const noexcept {
     try {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto statement = prepare(database,
-            "SELECT recurring_group_override FROM incidents WHERE id=?",
-            "prepare recurring override load");
+        auto statement =
+            prepare(database, "SELECT recurring_group_override FROM incidents WHERE id=?",
+                    "prepare recurring override load");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_int64(statement->get(), 1, incident_id);
         const auto result = sqlite3_step(statement->get());
         if (result != SQLITE_ROW) {
-            return std::unexpected{result == SQLITE_DONE
-                ? simple_error(StorageErrorCode::invalid_data, "incident not found")
-                : database_error(database, "load recurring override", result)};
+            return std::unexpected{
+                result == SQLITE_DONE
+                    ? simple_error(StorageErrorCode::invalid_data, "incident not found")
+                    : database_error(database, "load recurring override", result)};
         }
         const auto* text = sqlite3_column_text(statement->get(), 0);
-        return text == nullptr ? std::string{} :
-                                 std::string{reinterpret_cast<const char*>(text)};
+        return text == nullptr ? std::string{} : std::string{reinterpret_cast<const char*>(text)};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown recurring override load failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown recurring override load failure")};
     }
 }
 
@@ -2866,8 +2838,8 @@ std::expected<void, StorageError> SqliteIncidentArchive::store_incident_features
     const std::span<const StoredIncidentFeatureCache> features) noexcept {
     try {
         if (features.size() > maximum_recurring_incidents) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "too many incident features")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "too many incident features")};
         }
         std::set<std::int64_t> identities;
         for (const auto& feature : features) {
@@ -2876,38 +2848,38 @@ std::expected<void, StorageError> SqliteIncidentArchive::store_incident_features
                 feature.values.size() > maximum_incident_feature_dimensions ||
                 feature.values.size() != feature.available.size() ||
                 !identities.insert(feature.incident_id).second) {
-                return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                     "invalid incident feature")};
+                return std::unexpected{
+                    simple_error(StorageErrorCode::invalid_data, "invalid incident feature")};
             }
             for (std::size_t index = 0U; index < feature.values.size(); ++index) {
                 if (!std::isfinite(feature.values[index]) || feature.available[index] > 1U) {
                     return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                         "invalid incident feature value")};
+                                                        "invalid incident feature value")};
                 }
             }
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         if (features.empty()) return {};
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) return begun;
-        auto remove = prepare(database,
-            "DELETE FROM incident_feature_cache WHERE incident_id=?",
-            "prepare incident feature replacement");
+        auto remove = prepare(database, "DELETE FROM incident_feature_cache WHERE incident_id=?",
+                              "prepare incident feature replacement");
         auto insert = prepare(database, R"sql(
 INSERT INTO incident_feature_cache(
  incident_id,feature_version,feature_index,value,available) VALUES(?,?,?,?,?)
-)sql", "prepare incident feature insert");
+)sql",
+                              "prepare incident feature insert");
         if (!remove) return std::unexpected{remove.error()};
         if (!insert) return std::unexpected{insert.error()};
         for (const auto& feature : features) {
             sqlite3_bind_int64(remove->get(), 1, feature.incident_id);
-            if (auto removed = expect_done(database, remove->get(),
-                                           "replace incident feature"); !removed) {
+            if (auto removed = expect_done(database, remove->get(), "replace incident feature");
+                !removed) {
                 return removed;
             }
             for (std::size_t index = 0U; index < feature.values.size(); ++index) {
@@ -2916,124 +2888,65 @@ INSERT INTO incident_feature_cache(
                 sqlite3_bind_int(insert->get(), 3, static_cast<int>(index));
                 sqlite3_bind_double(insert->get(), 4, feature.values[index]);
                 sqlite3_bind_int(insert->get(), 5, feature.available[index]);
-                if (auto stored = expect_done(database, insert->get(),
-                                              "store incident feature"); !stored) {
+                if (auto stored = expect_done(database, insert->get(), "store incident feature");
+                    !stored) {
                     return stored;
                 }
             }
         }
         if (auto pruned = execute(database,
-                "DELETE FROM incident_feature_cache WHERE incident_id NOT IN ("
-                "SELECT id FROM incidents ORDER BY created_utc_ms DESC,id DESC LIMIT 512)",
-                "prune incident feature cache"); !pruned) {
+                                  "DELETE FROM incident_feature_cache WHERE incident_id NOT IN ("
+                                  "SELECT id FROM incidents ORDER BY created_utc_ms DESC,id DESC "
+                                  "LIMIT 512)",
+                                  "prune incident feature cache");
+            !pruned) {
             return pruned;
         }
         return transaction.commit();
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown incident feature store failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown incident feature store failure")};
     }
 }
 
 std::expected<void, StorageError>
-SqliteIncidentArchive::update_recurring_group_override(
-    const std::int64_t incident_id, std::string override_group) noexcept {
+SqliteIncidentArchive::update_recurring_group_override(const std::int64_t incident_id,
+                                                       std::string override_group) noexcept {
     try {
-        if (incident_id <= 0 ||
-            override_group.size() > maximum_recurring_group_override_bytes) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "invalid recurring group override")};
+        if (incident_id <= 0 || override_group.size() > maximum_recurring_group_override_bytes) {
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "invalid recurring group override")};
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
-        auto statement = prepare(database,
-            "UPDATE incidents SET recurring_group_override=? WHERE id=?",
-            "prepare recurring override update");
+        auto statement =
+            prepare(database, "UPDATE incidents SET recurring_group_override=? WHERE id=?",
+                    "prepare recurring override update");
         if (!statement) return std::unexpected{statement.error()};
         sqlite3_bind_text(statement->get(), 1, override_group.c_str(),
                           static_cast<int>(override_group.size()), SQLITE_TRANSIENT);
         sqlite3_bind_int64(statement->get(), 2, incident_id);
-        if (auto updated = expect_done(database, statement->get(),
-                                       "update recurring override"); !updated) {
+        if (auto updated = expect_done(database, statement->get(), "update recurring override");
+            !updated) {
             return updated;
         }
         if (sqlite3_changes(database) == 0) {
-            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
-                                                 "incident not found")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data, "incident not found")};
         }
         return {};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown recurring override update failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown recurring override update failure")};
     }
-}
-
-std::expected<ProcessProfileStorageStatistics, StorageError>
-SqliteIncidentArchive::process_profile_storage_statistics() const noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    if (native_->database == nullptr) {
-        return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                             "incident archive is not open")};
-    }
-    auto identities = scalar_int64(native_->database,
-                                   "SELECT COUNT(*) FROM executable_profiles",
-                                   "count process profiles");
-    if (!identities) return std::unexpected{identities.error()};
-    auto observations = scalar_int64(
-        native_->database, "SELECT COUNT(*) FROM executable_profile_observations",
-        "count process profile observations");
-    if (!observations) return std::unexpected{observations.error()};
-    return ProcessProfileStorageStatistics{
-        static_cast<std::uint64_t>(*identities),
-        static_cast<std::uint64_t>(*observations)};
-}
-
-std::expected<std::uint64_t, StorageError> SqliteIncidentArchive::incident_count() const noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    if (native_->database == nullptr) {
-        return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                             "incident archive is not open")};
-    }
-    auto count = scalar_int64(native_->database, "SELECT COUNT(*) FROM incidents",
-                              "count incidents");
-    if (!count) return std::unexpected{count.error()};
-    return static_cast<std::uint64_t>(*count);
-}
-
-std::expected<std::int32_t, StorageError> SqliteIncidentArchive::schema_version() const noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    if (native_->database == nullptr) {
-        return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                             "incident archive is not open")};
-    }
-    auto version = scalar_int64(native_->database, "PRAGMA user_version",
-                                "read schema version");
-    if (!version) return std::unexpected{version.error()};
-    return static_cast<std::int32_t>(*version);
-}
-
-std::expected<std::uint64_t, StorageError>
-SqliteIncidentArchive::database_size_bytes() const noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    if (native_->database == nullptr) {
-        return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                             "incident archive is not open")};
-    }
-    auto pages = scalar_int64(native_->database, "PRAGMA page_count", "read page count");
-    auto size = scalar_int64(native_->database, "PRAGMA page_size", "read page size");
-    if (!pages) return std::unexpected{pages.error()};
-    if (!size) return std::unexpected{size.error()};
-    return static_cast<std::uint64_t>(*pages) * static_cast<std::uint64_t>(*size);
 }
 
 std::expected<ArchiveMaintenanceResult, StorageError>
@@ -3041,15 +2954,15 @@ SqliteIncidentArchive::apply_retention(const ArchiveRetentionPolicy& policy) noe
     try {
         if ((!policy.delete_before_utc_milliseconds && !policy.maximum_incidents) ||
             (policy.maximum_incidents && *policy.maximum_incidents == 0U)) {
-            return std::unexpected{simple_error(
-                StorageErrorCode::invalid_data,
-                "retention requires an age or a positive incident limit")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::invalid_data,
+                             "retention requires an age or a positive incident limit")};
         }
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         const auto before = scalar_int64(database, "SELECT COUNT(*) FROM incidents",
                                          "count incidents before retention");
@@ -3058,13 +2971,13 @@ SqliteIncidentArchive::apply_retention(const ArchiveRetentionPolicy& policy) noe
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) return std::unexpected{begun.error()};
         if (policy.delete_before_utc_milliseconds) {
-            auto statement = prepare(
-                database, "DELETE FROM incidents WHERE created_utc_ms < ?",
-                "prepare age-based incident retention");
+            auto statement = prepare(database, "DELETE FROM incidents WHERE created_utc_ms < ?",
+                                     "prepare age-based incident retention");
             if (!statement) return std::unexpected{statement.error()};
             sqlite3_bind_int64(statement->get(), 1, *policy.delete_before_utc_milliseconds);
-            if (auto deleted = expect_done(database, statement->get(),
-                                           "apply age-based incident retention"); !deleted) {
+            if (auto deleted =
+                    expect_done(database, statement->get(), "apply age-based incident retention");
+                !deleted) {
                 return std::unexpected{deleted.error()};
             }
         }
@@ -3073,20 +2986,23 @@ SqliteIncidentArchive::apply_retention(const ArchiveRetentionPolicy& policy) noe
 DELETE FROM incidents WHERE id NOT IN (
  SELECT id FROM incidents ORDER BY created_utc_ms DESC,id DESC LIMIT ?
 )
-)sql", "prepare count-based incident retention");
+)sql",
+                                     "prepare count-based incident retention");
             if (!statement) return std::unexpected{statement.error()};
             sqlite3_bind_int64(statement->get(), 1,
                                static_cast<sqlite3_int64>(*policy.maximum_incidents));
-            if (auto deleted = expect_done(database, statement->get(),
-                                           "apply count-based incident retention"); !deleted) {
+            if (auto deleted =
+                    expect_done(database, statement->get(), "apply count-based incident retention");
+                !deleted) {
                 return std::unexpected{deleted.error()};
             }
         }
-        if (auto cleaned = execute(
-                database,
-                "DELETE FROM executable_profiles WHERE executable_key NOT IN ("
-                "SELECT DISTINCT executable_key FROM executable_profile_observations)",
-                "remove orphaned process profiles"); !cleaned) {
+        if (auto cleaned = execute(database,
+                                   "DELETE FROM executable_profiles WHERE executable_key NOT IN ("
+                                   "SELECT DISTINCT executable_key FROM "
+                                   "executable_profile_observations)",
+                                   "remove orphaned process profiles");
+            !cleaned) {
             return std::unexpected{cleaned.error()};
         }
         if (auto committed = transaction.commit(); !committed) {
@@ -3096,7 +3012,8 @@ DELETE FROM incidents WHERE id NOT IN (
                                             "count incidents after retention");
         if (!remaining) return std::unexpected{remaining.error()};
         if (auto checkpoint = execute(database, "PRAGMA wal_checkpoint(TRUNCATE)",
-                                      "truncate archive WAL after retention"); !checkpoint) {
+                                      "truncate archive WAL after retention");
+            !checkpoint) {
             return std::unexpected{checkpoint.error()};
         }
         if (policy.compact_after_delete && *remaining < *before) {
@@ -3109,16 +3026,15 @@ DELETE FROM incidents WHERE id NOT IN (
         auto page_size = scalar_int64(database, "PRAGMA page_size", "read page size");
         if (!pages) return std::unexpected{pages.error()};
         if (!page_size) return std::unexpected{page_size.error()};
-        return ArchiveMaintenanceResult{
-            static_cast<std::uint64_t>(*before - *remaining),
-            static_cast<std::uint64_t>(*remaining),
-            static_cast<std::uint64_t>(*pages) * static_cast<std::uint64_t>(*page_size)};
+        return ArchiveMaintenanceResult{static_cast<std::uint64_t>(*before - *remaining),
+                                        static_cast<std::uint64_t>(*remaining),
+                                        static_cast<std::uint64_t>(*pages) *
+                                            static_cast<std::uint64_t>(*page_size)};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown archive retention failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown archive retention failure")};
     }
 }
 
@@ -3128,20 +3044,21 @@ SqliteIncidentArchive::purge_all_incidents() noexcept {
         const std::scoped_lock lock{native_->mutex};
         auto* database = native_->database;
         if (database == nullptr) {
-            return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                                 "incident archive is not open")};
+            return std::unexpected{
+                simple_error(StorageErrorCode::not_open, "incident archive is not open")};
         }
         const auto before = scalar_int64(database, "SELECT COUNT(*) FROM incidents",
                                          "count incidents before privacy purge");
         if (!before) return std::unexpected{before.error()};
         Transaction transaction{database};
         if (auto begun = transaction.begin(); !begun) return std::unexpected{begun.error()};
-        if (auto deleted = execute(database, "DELETE FROM incidents",
-                                   "purge all incidents"); !deleted) {
+        if (auto deleted = execute(database, "DELETE FROM incidents", "purge all incidents");
+            !deleted) {
             return std::unexpected{deleted.error()};
         }
-        if (auto profiles = execute(database, "DELETE FROM executable_profiles",
-                                    "purge process profiles"); !profiles) {
+        if (auto profiles =
+                execute(database, "DELETE FROM executable_profiles", "purge process profiles");
+            !profiles) {
             return std::unexpected{profiles.error()};
         }
         if (auto feedback = execute(database, R"sql(
@@ -3149,14 +3066,17 @@ UPDATE feedback_profile_state
 SET revision=0,reset_after_utc_ms=0,previous_reset_after_utc_ms=0,
     rollback_available=0
 WHERE singleton=1
-)sql", "purge feedback profile control state"); !feedback) {
+)sql",
+                                    "purge feedback profile control state");
+            !feedback) {
             return std::unexpected{feedback.error()};
         }
         if (auto committed = transaction.commit(); !committed) {
             return std::unexpected{committed.error()};
         }
         if (auto checkpoint = execute(database, "PRAGMA wal_checkpoint(TRUNCATE)",
-                                      "truncate archive WAL after privacy purge"); !checkpoint) {
+                                      "truncate archive WAL after privacy purge");
+            !checkpoint) {
             return std::unexpected{checkpoint.error()};
         }
         if (auto compacted = execute(database, "VACUUM", "compact purged incident archive");
@@ -3167,20 +3087,15 @@ WHERE singleton=1
         auto page_size = scalar_int64(database, "PRAGMA page_size", "read page size");
         if (!pages) return std::unexpected{pages.error()};
         if (!page_size) return std::unexpected{page_size.error()};
-        return ArchiveMaintenanceResult{
-            static_cast<std::uint64_t>(*before), 0U,
-            static_cast<std::uint64_t>(*pages) * static_cast<std::uint64_t>(*page_size)};
+        return ArchiveMaintenanceResult{static_cast<std::uint64_t>(*before), 0U,
+                                        static_cast<std::uint64_t>(*pages) *
+                                            static_cast<std::uint64_t>(*page_size)};
     } catch (const std::exception& exception) {
-        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0,
-                                             exception.what()}};
+        return std::unexpected{StorageError{StorageErrorCode::sql_error, 0, exception.what()}};
     } catch (...) {
-        return std::unexpected{simple_error(StorageErrorCode::sql_error,
-                                             "unknown archive privacy purge failure")};
+        return std::unexpected{
+            simple_error(StorageErrorCode::sql_error, "unknown archive privacy purge failure")};
     }
-}
-
-const ArchiveConfiguration& SqliteIncidentArchive::configuration() const noexcept {
-    return configuration_;
 }
 
 } // namespace blackbox::storage

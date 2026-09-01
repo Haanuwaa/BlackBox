@@ -102,6 +102,7 @@ add_library(blackbox_telemetry STATIC
     telemetry/gpu_aggregation.cpp
     telemetry/incident_snapshot_builder.cpp
     telemetry/linux/linux_proc_parser.cpp
+    telemetry/linux/linux_psi_parser.cpp
     telemetry/linux/linux_uevent_parser.cpp
     telemetry/mock/mock_telemetry_provider.cpp
     telemetry/normalizer.cpp
@@ -301,6 +302,7 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
         storage/incident_writer.cpp
         storage/sqlite_incident_archive.cpp
         storage/sqlite_incident_archive_maintenance.cpp
+        storage/sqlite_incident_archive_status.cpp
     )
     add_library(BlackBox::Storage ALIAS blackbox_storage)
     target_include_directories(blackbox_storage PUBLIC ${PROJECT_SOURCE_DIR}/src)
@@ -385,6 +387,7 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
 endif()
 
 add_library(blackbox_app_support STATIC
+    app/dashboard_projection.cpp
     app/product_settings.cpp
     app/recorder_settings.cpp
     app/support_bundle.cpp
@@ -399,6 +402,7 @@ blackbox_set_project_warnings(blackbox_app_support)
 if(BLACKBOX_BUILD_APP)
     add_library(blackbox_ui STATIC
         ui/dashboard.cpp
+        ui/dashboard_pressure.cpp
         ui/dashboard_settings.cpp
         ui/incident_viewer.cpp
         ui/product_ui_model.cpp
@@ -413,6 +417,7 @@ if(BLACKBOX_BUILD_APP)
         add_library(blackbox_incident_viewer_service STATIC
             app/archive_maintenance_service.cpp
             app/incident_viewer_service.cpp
+            app/incident_viewer_service_queue.cpp
         )
         add_library(BlackBox::IncidentViewerService ALIAS
             blackbox_incident_viewer_service)
@@ -437,6 +442,7 @@ if(BLACKBOX_BUILD_APP)
 
     add_executable(blackbox
         app/application.cpp
+        app/application_dashboard.cpp
         app/application_lifecycle.cpp
         app/main.cpp
     )

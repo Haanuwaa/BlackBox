@@ -21,6 +21,12 @@ require_source_revision("0123456789abcdef0123456789abcdef0123456g" FALSE)
 require_source_revision("0123456789ABCDEF0123456789ABCDEF01234567" FALSE)
 require_source_revision("" FALSE)
 
+file(READ "${SOURCE_ROOT}/CMakePresets.json" presets)
+if(NOT presets MATCHES "\"BLACKBOX_SOURCE_REVISION\"[ \t]*:[ \t]*\"auto\"")
+    message(FATAL_ERROR
+        "Configure presets must reset cached source identity to auto unless explicitly overridden")
+endif()
+
 blackbox_is_commit_revision(
     "0123456789abcdef0123456789abcdef01234567" valid_commit)
 if(NOT valid_commit)

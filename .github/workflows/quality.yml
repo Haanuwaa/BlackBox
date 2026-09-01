@@ -99,8 +99,16 @@ jobs:
       packages: read
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore CodeQL vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: codeql-vcpkg-windows-2022-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            codeql-vcpkg-windows-2022-
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -257,14 +265,48 @@ jobs:
       - name: Build and smoke the seed corpus
         shell: bash
         run: |
-          cmake --build out/build/linux-fuzz --target blackbox_settings_fuzzer --parallel
+          cmake --build out/build/linux-fuzz --target blackbox_settings_fuzzer blackbox_native_parser_fuzzer --parallel
           ctest --test-dir out/build/linux-fuzz --output-on-failure -L fuzz
       - name: Run bounded native fuzz campaign
         shell: bash
+        run: |
+          out/build/linux-fuzz/tests/blackbox_settings_fuzzer \
+            -max_total_time=30 -max_len=20000 -timeout=5 -rss_limit_mb=1024 \
+            out/build/linux-fuzz/tests/fuzz-corpus
+          out/build/linux-fuzz/tests/blackbox_native_parser_fuzzer \
+            -max_total_time=30 -max_len=65536 -timeout=5 -rss_limit_mb=1024 \
+            out/build/linux-fuzz/tests/fuzz-corpus
+
+  linux-thread-sanitizer:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bootstrap pinned vcpkg registry
+        shell: bash
+        run: |
+          git init "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
+          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+      - name: Configure ThreadSanitizer graph
+        shell: bash
         run: >-
-          out/build/linux-fuzz/tests/blackbox_settings_fuzzer
-          -max_total_time=60 -max_len=20000 -timeout=5 -rss_limit_mb=1024
-          out/build/linux-fuzz/tests/fuzz-corpus
+          CC=clang-18 CXX=clang++-18 cmake -S . -B out/build/linux-tsan -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DBLACKBOX_ENABLE_THREAD_SANITIZER=ON -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+      - name: Build instrumented concurrency graph
+        shell: bash
+        run: cmake --build out/build/linux-tsan --target blackbox_tests --parallel
+      - name: Exercise collector, writer, viewer, and cache concurrency
+        shell: bash
+        run: >-
+          ctest --test-dir out/build/linux-tsan --output-on-failure
+          -R "collector|writer|viewer|metadata cache"
 
   linux-coverage:
     runs-on: ubuntu-24.04
@@ -302,6 +344,11 @@ jobs:
             --xml-pretty --xml out/quality/coverage.xml --print-summary \
             --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
             --fail-under-line 60 --fail-under-branch 45
+          for component in core telemetry storage analysis; do
+            python3 -m gcovr --root . --filter "src/$component/" --print-summary \
+              --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+              --fail-under-line 45 --fail-under-branch 30
+          done
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -322,6 +369,7 @@ jobs:
       - windows-address-sanitizer
       - linux-undefined-sanitizer
       - linux-native-fuzz
+      - linux-thread-sanitizer
       - linux-coverage
     runs-on: ubuntu-24.04
     steps:

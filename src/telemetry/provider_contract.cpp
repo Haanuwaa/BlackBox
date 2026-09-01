@@ -1,7 +1,7 @@
 #include "telemetry/provider.hpp"
 
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 namespace blackbox::telemetry {
@@ -15,20 +15,18 @@ template <typename T>
 
 } // namespace
 
-ProviderContractViolation validate_provider_snapshot_contract(
-    const PlatformCapabilities& capabilities,
-    const SamplingRequest request,
-    const RawTelemetrySnapshot& snapshot) noexcept {
+ProviderContractViolation
+validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
+                                    const SamplingRequest request,
+                                    const RawTelemetrySnapshot& snapshot) noexcept {
     if (snapshot.sampled_tiers != request.tiers) {
         return ProviderContractViolation::sampled_tiers_mismatch;
     }
     if (!unsupported_when_absent(capabilities.cpu_usage, snapshot.system.cpu_time) ||
         !unsupported_when_absent(capabilities.memory_usage, snapshot.system.memory_total) ||
         !unsupported_when_absent(capabilities.memory_usage, snapshot.system.memory_available) ||
-        !unsupported_when_absent(capabilities.disk_throughput,
-                                 snapshot.system.disk_read_bytes) ||
-        !unsupported_when_absent(capabilities.disk_throughput,
-                                 snapshot.system.disk_write_bytes) ||
+        !unsupported_when_absent(capabilities.disk_throughput, snapshot.system.disk_read_bytes) ||
+        !unsupported_when_absent(capabilities.disk_throughput, snapshot.system.disk_write_bytes) ||
         !unsupported_when_absent(capabilities.disk_latency,
                                  snapshot.system.disk_quality.read_latency) ||
         !unsupported_when_absent(capabilities.disk_latency,
@@ -37,8 +35,7 @@ ProviderContractViolation validate_provider_snapshot_contract(
                                  snapshot.system.disk_quality.service_time) ||
         !unsupported_when_absent(capabilities.disk_queue_depth,
                                  snapshot.system.disk_quality.queue_depth) ||
-        !unsupported_when_absent(capabilities.disk_latency ||
-                                     capabilities.disk_service_time ||
+        !unsupported_when_absent(capabilities.disk_latency || capabilities.disk_service_time ||
                                      capabilities.disk_queue_depth,
                                  snapshot.system.disk_quality.worst_device_id) ||
         !unsupported_when_absent(capabilities.network_usage,
@@ -62,10 +59,8 @@ ProviderContractViolation validate_provider_snapshot_contract(
         return ProviderContractViolation::capability_status_mismatch;
     }
     if (!unsupported_when_absent(capabilities.gpu_usage, snapshot.system.gpu_usage) ||
-        !unsupported_when_absent(capabilities.gpu_memory,
-                                 snapshot.system.gpu_dedicated_memory) ||
-        !unsupported_when_absent(capabilities.gpu_memory,
-                                 snapshot.system.gpu_shared_memory) ||
+        !unsupported_when_absent(capabilities.gpu_memory, snapshot.system.gpu_dedicated_memory) ||
+        !unsupported_when_absent(capabilities.gpu_memory, snapshot.system.gpu_shared_memory) ||
         !unsupported_when_absent(capabilities.foreground_application,
                                  snapshot.system.foreground_process) ||
         !unsupported_when_absent(capabilities.foreground_gpu_usage,
@@ -73,28 +68,33 @@ ProviderContractViolation validate_provider_snapshot_contract(
         !unsupported_when_absent(capabilities.dpc_isr, snapshot.system.dpc_usage) ||
         !unsupported_when_absent(capabilities.dpc_isr, snapshot.system.interrupt_usage) ||
         !unsupported_when_absent(capabilities.dpc_isr, snapshot.system.dpc_rate) ||
-        !unsupported_when_absent(capabilities.cpu_frequency,
-                                 snapshot.system.cpu_current_mhz) ||
-        !unsupported_when_absent(capabilities.cpu_frequency,
-                                 snapshot.system.cpu_max_mhz) ||
+        !unsupported_when_absent(capabilities.cpu_frequency, snapshot.system.cpu_current_mhz) ||
+        !unsupported_when_absent(capabilities.cpu_frequency, snapshot.system.cpu_max_mhz) ||
         !unsupported_when_absent(capabilities.cpu_thermal_limit,
                                  snapshot.system.cpu_thermal_limit_mhz) ||
         !unsupported_when_absent(capabilities.cpu_thermal_limit,
                                  snapshot.system.cpu_thermal_limit_fraction) ||
-        !unsupported_when_absent(capabilities.power_status,
-                                 snapshot.system.power_source) ||
-        !unsupported_when_absent(capabilities.power_status,
-                                 snapshot.system.battery_fraction) ||
-        !unsupported_when_absent(capabilities.power_status,
-                                 snapshot.system.battery_saver) ||
-        !unsupported_when_absent(capabilities.system_uptime,
-                                 snapshot.system.system_uptime)) {
+        !unsupported_when_absent(capabilities.power_status, snapshot.system.power_source) ||
+        !unsupported_when_absent(capabilities.power_status, snapshot.system.battery_fraction) ||
+        !unsupported_when_absent(capabilities.power_status, snapshot.system.battery_saver) ||
+        !unsupported_when_absent(capabilities.system_uptime, snapshot.system.system_uptime) ||
+        !unsupported_when_absent(capabilities.cpu_some_pressure,
+                                 snapshot.system.pressure.cpu_some_microseconds) ||
+        !unsupported_when_absent(capabilities.memory_some_pressure,
+                                 snapshot.system.pressure.memory_some_microseconds) ||
+        !unsupported_when_absent(capabilities.memory_full_pressure,
+                                 snapshot.system.pressure.memory_full_microseconds) ||
+        !unsupported_when_absent(capabilities.io_some_pressure,
+                                 snapshot.system.pressure.io_some_microseconds) ||
+        !unsupported_when_absent(capabilities.io_full_pressure,
+                                 snapshot.system.pressure.io_full_microseconds) ||
+        !unsupported_when_absent(capabilities.thermal_pressure_state,
+                                 snapshot.system.thermal_pressure_state)) {
         return ProviderContractViolation::capability_status_mismatch;
     }
     if (snapshot.system.cpu_time.has_value() &&
         (snapshot.system.cpu_time.value.total_ticks == 0U ||
-         snapshot.system.cpu_time.value.busy_ticks >
-             snapshot.system.cpu_time.value.total_ticks)) {
+         snapshot.system.cpu_time.value.busy_ticks > snapshot.system.cpu_time.value.total_ticks)) {
         return ProviderContractViolation::invalid_cpu_counters;
     }
     if (snapshot.system.memory_total.has_value() &&
@@ -105,8 +105,7 @@ ProviderContractViolation validate_provider_snapshot_contract(
         return ProviderContractViolation::invalid_memory_counters;
     }
     const auto valid_nonnegative = [](const auto& value) {
-        return !value.has_value() ||
-               (std::isfinite(value.value.value) && value.value.value >= 0.0);
+        return !value.has_value() || (std::isfinite(value.value.value) && value.value.value >= 0.0);
     };
     if (!valid_nonnegative(snapshot.system.disk_quality.read_latency) ||
         !valid_nonnegative(snapshot.system.disk_quality.write_latency) ||
@@ -117,29 +116,24 @@ ProviderContractViolation validate_provider_snapshot_contract(
         return ProviderContractViolation::invalid_disk_quality;
     }
     if (snapshot.system.network_quality.connectivity.has_value() &&
-        snapshot.system.network_quality.connectivity.value >
-            NetworkConnectivityLevel::unknown) {
+        snapshot.system.network_quality.connectivity.value > NetworkConnectivityLevel::unknown) {
         return ProviderContractViolation::invalid_network_quality;
     }
     const auto valid_ratio = [](const MetricValue<Ratio>& value) {
-        return !value.has_value() ||
-               (std::isfinite(value.value.value) && value.value.value >= 0.0 &&
-                value.value.value <= 1.0);
+        return !value.has_value() || (std::isfinite(value.value.value) &&
+                                      value.value.value >= 0.0 && value.value.value <= 1.0);
     };
     if (!valid_ratio(snapshot.system.gpu_usage) ||
         !valid_ratio(snapshot.system.foreground_gpu_usage)) {
         return ProviderContractViolation::invalid_gpu_evidence;
     }
-    if (!valid_ratio(snapshot.system.dpc_usage) ||
-        !valid_ratio(snapshot.system.interrupt_usage) ||
-        (snapshot.system.dpc_rate.has_value() &&
-         (!std::isfinite(snapshot.system.dpc_rate.value) ||
-          snapshot.system.dpc_rate.value < 0.0))) {
+    if (!valid_ratio(snapshot.system.dpc_usage) || !valid_ratio(snapshot.system.interrupt_usage) ||
+        (snapshot.system.dpc_rate.has_value() && (!std::isfinite(snapshot.system.dpc_rate.value) ||
+                                                  snapshot.system.dpc_rate.value < 0.0))) {
         return ProviderContractViolation::invalid_responsiveness_evidence;
     }
     const auto valid_positive = [](const MetricValue<double>& value) {
-        return !value.has_value() ||
-               (std::isfinite(value.value) && value.value > 0.0);
+        return !value.has_value() || (std::isfinite(value.value) && value.value > 0.0);
     };
     if (!valid_positive(snapshot.system.cpu_current_mhz) ||
         !valid_positive(snapshot.system.cpu_max_mhz) ||
@@ -153,6 +147,10 @@ ProviderContractViolation validate_provider_snapshot_contract(
           snapshot.system.system_uptime.value.value < 0.0))) {
         return ProviderContractViolation::invalid_power_evidence;
     }
+    if (snapshot.system.thermal_pressure_state.has_value() &&
+        snapshot.system.thermal_pressure_state.value > ThermalPressureState::unknown) {
+        return ProviderContractViolation::invalid_pressure_evidence;
+    }
     if (snapshot.system.foreground_process.has_value() &&
         (snapshot.system.foreground_process.value.pid.value == 0U ||
          snapshot.system.foreground_process.value.creation_token == 0U)) {
@@ -165,10 +163,8 @@ ProviderContractViolation validate_provider_snapshot_contract(
         }
         if (!unsupported_when_absent(capabilities.process_cpu, process.cpu_time) ||
             !unsupported_when_absent(capabilities.process_memory, process.working_set) ||
-            !unsupported_when_absent(capabilities.process_disk_io,
-                                     process.disk_read_bytes) ||
-            !unsupported_when_absent(capabilities.process_disk_io,
-                                     process.disk_write_bytes)) {
+            !unsupported_when_absent(capabilities.process_disk_io, process.disk_read_bytes) ||
+            !unsupported_when_absent(capabilities.process_disk_io, process.disk_write_bytes)) {
             return ProviderContractViolation::capability_status_mismatch;
         }
         for (std::size_t previous = 0U; previous < index; ++previous) {
@@ -180,19 +176,15 @@ ProviderContractViolation validate_provider_snapshot_contract(
     return ProviderContractViolation::none;
 }
 
-ProviderContractViolation validate_gpu_inventory_contract(
-    const PlatformCapabilities& capabilities,
-    const GpuInventoryEvidence& inventory) noexcept {
+ProviderContractViolation
+validate_gpu_inventory_contract(const PlatformCapabilities& capabilities,
+                                const GpuInventoryEvidence& inventory) noexcept {
     if (!capabilities.gpu_inventory) {
         return inventory.device_count.status == MetricStatus::unsupported &&
-                       inventory.integrated_device_count.status ==
-                           MetricStatus::unsupported &&
-                       inventory.discrete_device_count.status ==
-                           MetricStatus::unsupported &&
-                       inventory.unknown_device_count.status ==
-                           MetricStatus::unsupported &&
-                       inventory.render_device_available.status ==
-                           MetricStatus::unsupported
+                       inventory.integrated_device_count.status == MetricStatus::unsupported &&
+                       inventory.discrete_device_count.status == MetricStatus::unsupported &&
+                       inventory.unknown_device_count.status == MetricStatus::unsupported &&
+                       inventory.render_device_available.status == MetricStatus::unsupported
                    ? ProviderContractViolation::none
                    : ProviderContractViolation::capability_status_mismatch;
     }
@@ -206,8 +198,7 @@ ProviderContractViolation validate_gpu_inventory_contract(
         const auto discrete = inventory.discrete_device_count.value;
         const auto unknown = inventory.unknown_device_count.value;
         if (integrated > (std::numeric_limits<std::uint32_t>::max)() - discrete ||
-            integrated + discrete >
-                (std::numeric_limits<std::uint32_t>::max)() - unknown ||
+            integrated + discrete > (std::numeric_limits<std::uint32_t>::max)() - unknown ||
             integrated + discrete + unknown != inventory.device_count.value) {
             return ProviderContractViolation::invalid_gpu_inventory;
         }

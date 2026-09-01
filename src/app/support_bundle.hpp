@@ -26,7 +26,7 @@ struct SupportDiagnostics {
     bool process_lifecycle_enabled{};
     bool power_and_device_events_enabled{};
     bool audio_device_events_enabled{};
-    bool windows_event_evidence_enabled{};
+    bool system_event_evidence_enabled{};
     std::uint64_t collections{};
     std::uint64_t partial_samples{};
     std::uint64_t failed_samples{};
@@ -87,8 +87,7 @@ enum class SupportBundleErrorCode : std::uint8_t {
 struct SupportBundleError {
     SupportBundleErrorCode code{SupportBundleErrorCode::invalid_request};
     std::string message{};
-    friend bool operator==(const SupportBundleError&,
-                           const SupportBundleError&) = default;
+    friend bool operator==(const SupportBundleError&, const SupportBundleError&) = default;
 };
 
 [[nodiscard]] std::expected<SupportBundleResult, SupportBundleError>

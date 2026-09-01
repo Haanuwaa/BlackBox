@@ -19,7 +19,8 @@ qualified.
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | Foreground-application evidence | Native, capability-gated | Privacy-bounded X11 EWMH PID correlated to process creation identity; Wayland explicitly unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
 | GPU and responsiveness evidence | Native counters plus non-software DXGI inventory with adapter type explicitly unknown | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity; inventory type explicitly unknown | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
-| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal open | Native power/battery/uptime and Low Power Mode; CPU frequency/thermal open |
+| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal unavailable | Native power/battery/uptime, Low Power Mode, and public coarse thermal-pressure state; CPU frequency unavailable |
+| Resource-pressure evidence | Windows responsiveness evidence stays separate; cumulative-stall channels unsupported | Exact per-interval CPU/memory/I/O PSI `some`/`full` fractions from cumulative totals | Exact cumulative-stall channels unsupported; coarse thermal state stays separate |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free device/audio/storage/display/network uevents, logind power, systemd job result class, and coredump crash marker | Identifier-free application lifecycle, audio/default, storage, display, network, and power context; general service events unsupported |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX plus coalesced XDG Background portal status; exact XDG autostart remains authoritative | Native SDL/POSIX |
@@ -30,7 +31,7 @@ qualified.
 | DPI and display membership | Per-monitor SDL/PerMonitorV2 | SDL Wayland display-scale/pixel-size/membership events; canonical font/style rebuild | SDL native high-density display-scale/pixel-size/membership events |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
-| Hosted native compiler/provider/package checks | V0.20 Windows matrix passed on `ff31a4f` | V0.20 Ubuntu, Debian, Fedora, package lifecycle, and Weston/Mutter/KWin/Sway matrix passed on `ff31a4f` | V0.20 Apple Silicon and Intel package matrix passed on `ff31a4f` |
+| Hosted native compiler/provider/package checks | V0.20 Windows matrix passed on `ff31a4f`; V0.22 pending | V0.20 Ubuntu, Debian, Fedora, package lifecycle, and Weston/Mutter/KWin/Sway matrix passed on `ff31a4f`; V0.22 PSI build pending | V0.20 Apple Silicon and Intel package matrix passed on `ff31a4f`; V0.22 thermal build pending |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
@@ -49,9 +50,10 @@ qualified.
 4. Physically validate Linux GPU coverage on AMD, NVIDIA, Intel, hybrid, permission-restricted, and
    hotplug-capable hosts. AMD and NVIDIA provide whole-system device gauges; DRM `fdinfo` supplies
    only readable foreground-client activity and is never relabeled as complete host utilization.
-   Keep macOS passive whole-system GPU utilization unsupported. Implement Linux PSI only against
-   `PRESSURE_CONTRACT.md`; macOS remains unsupported until a public cumulative-stall source with the
-   same semantics is identified. PSI is not Windows DPC/ISR activity.
+   Keep macOS passive whole-system GPU utilization unsupported. Linux PSI is now implemented against
+   `PRESSURE_CONTRACT.md`; physically validate its reset, permission, suspend/resume, and overhead
+   behavior. macOS cumulative-stall pressure remains unsupported; its coarse thermal state is not a
+   PSI substitute. PSI is not Windows DPC/ISR activity.
 5. Retain and physically qualify portal permission/denial/restart behavior, the implemented
    Linux/macOS telemetry, accessibility, crash, background, notification, autostart, package,
    sleep/resume, and shortcut boundaries. Hosted compositor smoke cannot exercise a real user's

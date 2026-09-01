@@ -14,9 +14,7 @@ inline constexpr std::size_t dashboard_history_capacity = 300U;
 inline constexpr std::size_t dashboard_process_capacity = 50U;
 inline constexpr std::size_t product_path_capacity = 1'024U;
 
-enum class ProductPage : std::uint8_t {
-    live, incidents, detail, patterns, settings, diagnostics
-};
+enum class ProductPage : std::uint8_t { live, incidents, detail, patterns, settings, diagnostics };
 
 struct ProductUiState {
     ProductPage page{ProductPage::live};
@@ -26,7 +24,7 @@ struct ProductUiState {
     bool hotkey_control{true};
     bool hotkey_shift{true};
     bool hotkey_alt{};
-    bool hotkey_windows{};
+    bool hotkey_system_modifier{};
     bool automatic_detection{true};
     int detector_sensitivity{1};
     bool detect_cpu{true};
@@ -113,8 +111,7 @@ struct DashboardCommand {
     IncidentFeedback incident_feedback{IncidentFeedback::unanswered};
     IncidentCategory incident_category{IncidentCategory::unknown};
     std::string contributor_executable_key{};
-    IncidentContributorRow::Resource contributor_resource{
-        IncidentContributorRow::Resource::cpu};
+    IncidentContributorRow::Resource contributor_resource{IncidentContributorRow::Resource::cpu};
     IncidentContributorRow::Attribution contributor_attribution{
         IncidentContributorRow::Attribution::unsure};
     IncidentContributorRow::TemporalRelationship contributor_temporal_relationship{
@@ -126,7 +123,7 @@ struct DashboardCommand {
     bool hotkey_control{true};
     bool hotkey_shift{true};
     bool hotkey_alt{};
-    bool hotkey_windows{};
+    bool hotkey_system_modifier{};
     bool automatic_detection{true};
     int detector_sensitivity{1};
     bool detect_cpu{true};
@@ -176,15 +173,18 @@ struct DashboardState {
     std::string provider_name{"Not configured"};
     std::string provider_status{"Starting"};
     std::string renderer_backend{"Unavailable"};
+    std::string system_modifier_label{"System"};
+    std::string gpu_usage_support{"GPU capability is not yet known"};
+    std::string foreground_identity_support{"Foreground identity capability is not yet known"};
+    bool foreground_identity_supported{};
     std::string hotkey_status{"Not configured"};
     std::string background_status{"Unavailable"};
     std::string incident_capture_status{"Stopped"};
     std::string storage_status{"Disabled"};
     std::string recorder_settings_status{"Conservative defaults"};
     std::string automatic_event_capture_status{
-        "Unavailable until Windows event capabilities are known"};
-    std::string automatic_frame_capture_status{
-        "Unsupported: no bounded OS-wide frame-time source"};
+        "Unavailable until system-event capabilities are known"};
+    std::string automatic_frame_capture_status{"Unsupported: no bounded OS-wide frame-time source"};
     std::string automatic_audio_capture_status{
         "Unsupported: endpoint transitions do not prove an audio glitch"};
     bool incident_capture_enabled{};
@@ -220,6 +220,12 @@ struct DashboardState {
     std::uint64_t storage_write_successes{};
     std::uint64_t storage_write_failures{};
     std::uint64_t storage_write_cancellations{};
+    std::size_t viewer_read_queue_depth{};
+    std::size_t viewer_mutation_queue_depth{};
+    std::uint64_t viewer_reads_coalesced{};
+    std::uint64_t viewer_reads_cancelled{};
+    std::uint64_t viewer_mutations_rejected{};
+    std::uint64_t viewer_mutations_completed{};
     std::uint64_t stored_incident_count{};
     double storage_write_average_microseconds{};
     double storage_write_p95_microseconds{};
@@ -243,6 +249,12 @@ struct DashboardState {
     MetricDisplayStatus cpu_frequency_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus cpu_thermal_limit_status{MetricDisplayStatus::warming_up};
     MetricDisplayStatus power_status{MetricDisplayStatus::warming_up};
+    MetricDisplayStatus cpu_some_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus memory_some_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus memory_full_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus io_some_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus io_full_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus thermal_pressure_status{MetricDisplayStatus::unsupported};
     double cpu_usage{};
     std::uint64_t memory_used_bytes{};
     std::uint64_t memory_total_bytes{};
@@ -283,6 +295,12 @@ struct DashboardState {
     std::uint8_t power_source{3U};
     double battery_fraction{};
     bool battery_saver{};
+    double cpu_some_pressure{};
+    double memory_some_pressure{};
+    double memory_full_pressure{};
+    double io_some_pressure{};
+    double io_full_pressure{};
+    std::uint8_t thermal_pressure_state{4U};
     bool event_collector_running{};
     std::uint64_t system_events_recorded{};
     std::uint64_t system_events_dropped{};
@@ -373,16 +391,16 @@ struct DashboardState {
     std::string support_bundle_status{"Support bundle service is stopped"};
 };
 
-// Stores one finite marker-relative cursor shared by every incident-detail plot.
-// Invalid ranges/values are rejected without changing the existing cursor.
-[[nodiscard]] bool set_timeline_cursor(ProductUiState& product,
-                                       double seconds_from_event,
+// Stores one finite marker-relative cursor shared by every incident-detail
+// plot. Invalid ranges/values are rejected without changing the existing
+// cursor.
+[[nodiscard]] bool set_timeline_cursor(ProductUiState& product, double seconds_from_event,
                                        double incident_start_seconds,
                                        double incident_end_seconds) noexcept;
 void clear_timeline_cursor(ProductUiState& product) noexcept;
 
 [[nodiscard]] DashboardCommand render_dashboard(const DashboardState& state,
-                                                 IncidentViewerState& incident_viewer,
-                                                 ProductUiState& product);
+                                                IncidentViewerState& incident_viewer,
+                                                ProductUiState& product);
 
 } // namespace blackbox::ui

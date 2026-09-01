@@ -460,8 +460,8 @@ $eventCount = (Read-UInt $report 'power_events_recorded') +
               (Read-UInt $report 'device_events_recorded') +
               (Read-UInt $report 'audio_events_recorded') +
               (Read-UInt $report 'service_events_recorded') +
-              (Read-UInt $report 'defender_events_recorded') +
-              (Read-UInt $report 'windows_update_events_recorded') +
+              (Read-UInt $report 'security_events_recorded') +
+              (Read-UInt $report 'update_events_recorded') +
               (Read-UInt $report 'application_events_recorded') +
               (Read-UInt $report 'network_events_recorded') +
               (Read-UInt $report 'graphics_events_recorded') +

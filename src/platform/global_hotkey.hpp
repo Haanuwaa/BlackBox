@@ -25,9 +25,8 @@ struct HotkeyCombination {
     bool control{true};
     bool shift{true};
     bool alt{};
-    bool windows{};
-    friend constexpr bool operator==(const HotkeyCombination&,
-                                     const HotkeyCombination&) = default;
+    bool system_modifier{};
+    friend constexpr bool operator==(const HotkeyCombination&, const HotkeyCombination&) = default;
 };
 
 inline constexpr HotkeyCombination default_incident_hotkey{};
@@ -46,9 +45,8 @@ class IGlobalHotkeyManager {
 public:
     virtual ~IGlobalHotkeyManager() = default;
 
-    [[nodiscard]] virtual HotkeyRegistrationResult register_hotkey(
-        HotkeyCombination combination,
-        HotkeyCallback callback) = 0;
+    [[nodiscard]] virtual HotkeyRegistrationResult register_hotkey(HotkeyCombination combination,
+                                                                   HotkeyCallback callback) = 0;
     virtual void unregister_hotkey() noexcept = 0;
     [[nodiscard]] virtual bool registered() const noexcept = 0;
 };

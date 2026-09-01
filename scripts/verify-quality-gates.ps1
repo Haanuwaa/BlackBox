@@ -34,6 +34,7 @@ $codeqlWorkflow = $workflow.Substring($codeqlStart, $codeqlEnd - $codeqlStart)
 foreach ($option in @(
     'BLACKBOX_ENABLE_ADDRESS_SANITIZER',
     'BLACKBOX_ENABLE_UNDEFINED_SANITIZER',
+    'BLACKBOX_ENABLE_THREAD_SANITIZER',
     'BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS',
     'BLACKBOX_ENABLE_COVERAGE',
     'BLACKBOX_BUILD_FUZZERS')) {
@@ -43,6 +44,7 @@ Require-Text $cmake 'Coverage must run in its own build graph' 'incompatible-mod
 Require-Text $cmake 'clang_rt\.asan_dynamic-x86_64\.dll' 'MSVC ASan runtime discovery'
 Require-Text $cmake 'blackbox_copy_address_sanitizer_runtime' 'MSVC ASan runtime staging helper'
 Require-Text $tests 'settings_native_fuzz_smoke' 'native fuzz smoke registration'
+Require-Text $tests 'native_parser_fuzz_smoke' 'native parser fuzz smoke registration'
 Require-Text $tests 'strict_v1_input_property_tests\.cpp' 'strict-v1 mutation property test'
 Require-Text $tests 'corrupt_archive_property_tests\.cpp' 'corrupt archive property test'
 
@@ -53,18 +55,41 @@ foreach ($job in @(
     'msvc-static-analysis',
     'windows-address-sanitizer',
     'linux-undefined-sanitizer',
+    'linux-thread-sanitizer',
     'linux-native-fuzz',
     'linux-coverage')) {
     Require-Text $workflow ("(?m)^  " + [regex]::Escape($job) + ':$') "workflow job $job"
 }
 Require-Text $workflow 'BLACKBOX_ENABLE_ADDRESS_SANITIZER=ON' 'AddressSanitizer activation'
 Require-Text $workflow 'BLACKBOX_ENABLE_UNDEFINED_SANITIZER=ON' 'UndefinedBehaviorSanitizer activation'
+Require-Text $workflow 'BLACKBOX_ENABLE_THREAD_SANITIZER=ON' 'ThreadSanitizer activation'
 Require-Text $workflow 'BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS=ON' 'MSVC analysis activation'
 Require-Text $workflow 'BLACKBOX_BUILD_FUZZERS=ON' 'libFuzzer activation'
 Require-Text $workflow 'BLACKBOX_ENABLE_COVERAGE=ON' 'coverage activation'
-Require-Text $workflow '-max_total_time=60' 'bounded 60-second native fuzz campaign'
+if (([regex]::Matches($workflow, '-max_total_time=30')).Count -ne 2) {
+    throw 'Quality gate contract failed: native fuzz campaign must be split into two bounded 30-second targets'
+}
+$fuzzJobStart = $workflow.IndexOf("`n  linux-native-fuzz:", [System.StringComparison]::Ordinal)
+$threadSanitizerJobStart = $workflow.IndexOf("`n  linux-thread-sanitizer:", [System.StringComparison]::Ordinal)
+$coverageJobStart = $workflow.IndexOf("`n  linux-coverage:", [System.StringComparison]::Ordinal)
+if ($fuzzJobStart -lt 0 -or $threadSanitizerJobStart -le $fuzzJobStart -or
+    $coverageJobStart -le $threadSanitizerJobStart) {
+    throw 'Quality gate contract failed: sanitizer and fuzz job boundaries are malformed'
+}
+$fuzzJob = $workflow.Substring($fuzzJobStart, $threadSanitizerJobStart - $fuzzJobStart)
+$threadSanitizerJob = $workflow.Substring(
+    $threadSanitizerJobStart, $coverageJobStart - $threadSanitizerJobStart)
+Require-Text $fuzzJob 'blackbox_settings_fuzzer[\s\S]+-max_total_time=30' 'settings fuzz campaign placement'
+Require-Text $fuzzJob 'blackbox_native_parser_fuzzer[\s\S]+-max_total_time=30' 'parser fuzz campaign placement'
+if (([regex]::Matches($fuzzJob, '-max_total_time=30')).Count -ne 2 -or
+    $threadSanitizerJob.Contains('out/build/linux-fuzz', [System.StringComparison]::Ordinal)) {
+    throw 'Quality gate contract failed: both bounded fuzz campaigns must run only in linux-native-fuzz'
+}
 Require-Text $workflow '--fail-under-line 60' 'line coverage floor'
 Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
+Require-Text $workflow '--fail-under-line 45' 'component line coverage floor'
+Require-Text $workflow '--fail-under-branch 30' 'component branch coverage floor'
+Require-Text $codeqlWorkflow 'actions/cache@[0-9a-f]{40}' 'immutable CodeQL dependency cache action'
 Require-Text $workflow 'queries: security-extended' 'extended CodeQL security query suite'
 Reject-Text $workflow 'queries:\s*[^\r\n]*security-and-quality' `
     'broad CodeQL quality suite in security alert output'
@@ -108,8 +133,11 @@ Require-Text $asanTriplet 'VCPKG_CXX_FLAGS "\/fsanitize=address \/Zi"' 'ASan dep
 
 foreach ($path in @(
     'tests/fuzz/settings_fuzzer.cpp',
+    'tests/fuzz/native_parser_fuzzer.cpp',
     'tests/fuzz/corpus/product-settings.ini',
     'tests/fuzz/corpus/recorder-settings.ini',
+    'tests/fuzz/corpus/linux-proc-stat.txt',
+    'tests/fuzz/corpus/linux-psi.txt',
     'scripts/verify-dependency-policy.ps1',
     'scripts/generate-sbom.ps1')) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $path) -PathType Leaf)) {
@@ -117,4 +145,4 @@ foreach ($path in @(
     }
 }
 
-Write-Output 'Quality gate contract verified: asan=1 ubsan=1 msvc_analysis=1 fuzz=1 property=2 dependency_review=1 codeql_production_targets=6 codeql_dependency_prime=1 codeql_concurrency=1 sbom=1 coverage=60/45'
+Write-Output 'Quality gate contract verified: asan=1 ubsan=1 tsan=1 msvc_analysis=1 fuzz_targets=2 property=2 dependency_review=1 codeql_production_targets=6 codeql_dependency_prime=1 codeql_cache=1 codeql_concurrency=1 sbom=1 coverage=60/45 components=45/30'

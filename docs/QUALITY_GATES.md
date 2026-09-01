@@ -27,8 +27,12 @@ not introduce migrations, compatibility adapters, or legacy fixtures.
 - MSVC native `/analyze` with warnings treated as errors across product and test translation units;
 - Windows AddressSanitizer across the app and test graph;
 - Linux UndefinedBehaviorSanitizer for the portable headless graph;
-- a Clang libFuzzer seed smoke plus a bounded 60-second native campaign; and
-- Linux line/branch coverage with 60%/45% minimums and retained HTML/XML reports.
+- a narrowly scoped Linux ThreadSanitizer graph for collector, writer, viewer, and metadata-cache
+  concurrency;
+- Clang libFuzzer seed smoke plus a bounded 60-second campaign split between direct-V1 settings and
+  native `/proc`/sysfs/power/PSI parsers; and
+- Linux line/branch coverage with 60%/45% aggregate minimums, 45%/30% component minimums for core,
+  telemetry, storage, and analysis, and retained HTML/XML reports.
 
 Every GitHub Action reference is an immutable 40-character commit. Dependabot checks those action
 pins weekly. The vcpkg registry baseline is an immutable commit, the direct dependency and ImGui
@@ -82,7 +86,7 @@ unhandled-exception probe is excluded from ASan because its required access viol
 input; it remains required in every ordinary Debug/Release graph.
 
 Instrumentation modes are isolated: MSVC analysis and coverage cannot be combined with sanitizer or
-fuzzer modes, and coverage cannot be combined with ASan, UBSan, or fuzzing. CMake rejects invalid
+fuzzer modes, and ASan, UBSan, and TSan cannot be combined with each other. CMake rejects invalid
 combinations rather than silently producing ambiguous evidence.
 
 ## Direct-v1 pre-release contract
@@ -153,17 +157,21 @@ inputs. Every accepted mutation must still pass the direct-v1 validator. It also
 bounded deterministic random non-database files to the archive and proves rejection does not modify
 their bytes.
 
-The native fuzzer calls the same in-memory strict-v1 settings parsers with a 20 KiB input ceiling.
-Its checked-in product and recorder seeds are copied into a build-local corpus. CI first runs 2,000
-deterministic iterations, then a 60-second ASan-backed campaign with explicit timeout, input, and
+One native fuzzer calls the same in-memory strict-v1 settings parsers with a 20 KiB input ceiling.
+A second independently bounded entry point exercises Linux `/proc`, sysfs frequency/profile, power,
+and PSI parsers with a 64 KiB ceiling and caller-owned fixed interface storage. Checked-in product and
+recorder seeds are copied into a build-local corpus. CI first runs deterministic smoke iterations,
+then splits a 60-second ASan-backed campaign across both targets with explicit timeout, input, and
 memory limits. A short bounded campaign is a regression gate, not a claim of exhaustive fuzzing.
 
 ## Coverage meaning
 
 Coverage measures the portable `src/` graph on Linux and excludes Windows-only platform and
-telemetry sources that are not compiled there. The initial 60% line and 45% branch floors prevent
-silent regression; they are minimum gates, not a statement that the unmeasured Windows paths are
-covered. Windows behavior is covered by its ordinary, integration, static-analysis, and ASan jobs.
+telemetry sources that are not compiled there. The 60% line and 45% branch aggregate floors prevent
+global regression, while conservative 45%/30% floors independently prevent core, telemetry, storage,
+or analysis from disappearing behind another well-covered component. They are minimum gates, not a
+statement that the unmeasured Windows or interactive UI paths are covered. Windows behavior is
+covered by its ordinary, integration, static-analysis, and ASan jobs.
 
 ## Failure policy
 

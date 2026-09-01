@@ -1018,9 +1018,12 @@ work owned by an application. Windows DXGI inventory counts only non-software ad
 public descriptor does not provide a trustworthy integrated/discrete classification, those devices
 cross the portable inventory boundary as `unknown_device_count`. Linux PSI reports CPU, memory, and
 I/O stall pressure, which is useful but not semantically equivalent to Windows DPC/ISR usage or rate.
-`docs/PRESSURE_CONTRACT.md` now fixes the future cumulative-stall dimensions, interval normalization,
-availability, reset, privacy, and implementation gates. Runtime capabilities and direct schema-V1
-fields remain absent until a reviewed provider implementation satisfies that contract. GPU time-series evidence
+`docs/PRESSURE_CONTRACT.md` fixes the cumulative-stall dimensions, interval normalization,
+availability, reset, and privacy rules. The Linux provider exposes only strict bounded cumulative
+microseconds; the portable normalizer owns interval fractions, warm-up, and reset behavior. macOS
+exposes its public coarse thermal state as a separate gauge rather than a PSI substitute. These values
+enter the one direct schema-V1 incident table without a migration, compatibility reader, or dual
+writer. GPU time-series evidence
 reuses existing direct-v1 fields and adds no migration or compatibility path; inventory and live
 renderer health are non-identifying session evidence and are not persisted as incident causality.
 
@@ -1130,3 +1133,23 @@ Foreground identity on Wayland remains explicitly unsupported. The public XDG De
 still has no standardized permission-bounded active-window/PID interface; screen-cast and private
 compositor protocols are not substitutes. No compatibility reader, migration path, alternate schema,
 native identifier, or direct-schema change is introduced by this slice.
+
+## V0.21/V0.22 durability and pressure implementation note
+
+The incident viewer keeps coalescible reads and durable user mutations in separate fixed-capacity
+queues. Newer reads may replace obsolete reads; an accepted annotation, contributor decision,
+recurrence override, reset, or rollback is never evicted by refresh traffic. Shutdown rejects new
+work, cancels stale reads, and drains accepted mutations before joining the application-owned worker.
+Queue depth, coalescing, cancellation, rejection, and completion cross into the UI only as primitive
+diagnostics. No storage operation or viewer worker is reachable from the collector.
+
+Portable source and shortcut enums now describe service, security, update, and system-modifier
+semantics. Windows, Linux, and macOS adapters retain native terminology privately and the composition
+root supplies Win/Command/Super presentation text. Because the product is unreleased, settings,
+event export, and direct schema V1 were changed once with no legacy aliases or compatibility path.
+
+Dashboard projection remains application-owned. It refreshes operational diagnostics at the visible
+cadence but copies history/process frames only when the collector sequence advances, uses bounded
+top-K selection, indexes process metadata once by stable identity, and refreshes inventory on a slow
+generation cadence. The extracted projection, dashboard refresh, and viewer queue translation units
+do not add a dependency edge; UI still receives only bounded primitive state.

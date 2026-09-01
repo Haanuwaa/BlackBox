@@ -34,8 +34,7 @@ using namespace std::chrono_literals;
 namespace {
 
 template <typename Predicate>
-[[nodiscard]] bool wait_until(Predicate predicate,
-                              const std::chrono::milliseconds timeout = 3s) {
+[[nodiscard]] bool wait_until(Predicate predicate, const std::chrono::milliseconds timeout = 3s) {
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
         if (predicate()) return true;
@@ -49,12 +48,12 @@ class ViewerRepository final : public storage::IIncidentRepository,
                                public storage::IFeedbackCalibrationRepository,
                                public storage::IRecurringIncidentRepository {
 public:
-    std::expected<std::int64_t, storage::StorageError> store(
-        const core::IncidentSnapshot&) noexcept override {
+    std::expected<std::int64_t, storage::StorageError>
+    store(const core::IncidentSnapshot&) noexcept override {
         return 1;
     }
-    std::expected<storage::StoredIncidentPage, storage::StorageError> list_page(
-        const storage::IncidentListQuery& query) const noexcept override {
+    std::expected<storage::StoredIncidentPage, storage::StorageError>
+    list_page(const storage::IncidentListQuery& query) const noexcept override {
         record_call();
         if (delay.count() != 0) std::this_thread::sleep_for(delay);
         storage::StoredIncidentSummary summary{};
@@ -73,28 +72,35 @@ public:
         record_call();
         return incident_value;
     }
-    std::expected<storage::IncidentAnnotation, storage::StorageError> annotation(
-        const std::int64_t) const noexcept override {
+    std::expected<storage::IncidentAnnotation, storage::StorageError>
+    annotation(const std::int64_t) const noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
         return annotation_value;
     }
-    std::expected<void, storage::StorageError> update_annotation(
-        const std::int64_t, const storage::IncidentAnnotation& value) noexcept override {
+    std::expected<void, storage::StorageError>
+    update_annotation(const std::int64_t,
+                      const storage::IncidentAnnotation& value) noexcept override {
         record_call();
+        annotation_entered.store(true, std::memory_order_release);
+        const auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (block_annotation.load(std::memory_order_acquire) &&
+               !release_annotation.load(std::memory_order_acquire) &&
+               std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(1ms);
+        }
         const std::scoped_lock lock{mutex};
         annotation_value = value;
+        ++annotation_stores;
         return {};
     }
     std::expected<storage::ProcessProfileContext, storage::StorageError>
-    process_profile_context(
-        const std::int64_t incident_id,
-        const std::span<const std::string>) const noexcept override {
+    process_profile_context(const std::int64_t incident_id,
+                            const std::span<const std::string>) const noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
         ++profile_loads;
-        return storage::ProcessProfileContext{
-            incident_id, 1'800'000'000'000LL, profile_history};
+        return storage::ProcessProfileContext{incident_id, 1'800'000'000'000LL, profile_history};
     }
     std::expected<void, storage::StorageError> store_process_profile_updates(
         const std::int64_t,
@@ -106,9 +112,8 @@ public:
         return {};
     }
     std::expected<storage::FeedbackCalibrationContext, storage::StorageError>
-    feedback_calibration_context(
-        const std::int64_t incident_id,
-        const std::size_t maximum_observations) const noexcept override {
+    feedback_calibration_context(const std::int64_t incident_id,
+                                 const std::size_t maximum_observations) const noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
         ++feedback_loads;
@@ -120,9 +125,8 @@ public:
             history.resize(maximum_observations);
         }
         return storage::FeedbackCalibrationContext{
-            incident_id, 1'800'000'000'000LL, feedback_revision,
-            feedback_reset_after, feedback_rollback_available,
-            std::move(history)};
+            incident_id,          1'800'000'000'000LL,         feedback_revision,
+            feedback_reset_after, feedback_rollback_available, std::move(history)};
     }
     std::expected<storage::FeedbackProfileControlState, storage::StorageError>
     reset_feedback_profile() noexcept override {
@@ -131,28 +135,24 @@ public:
         feedback_reset_after = 1'800'000'000'001LL;
         feedback_rollback_available = true;
         ++feedback_revision;
-        return storage::FeedbackProfileControlState{
-            feedback_revision, feedback_reset_after, true};
+        return storage::FeedbackProfileControlState{feedback_revision, feedback_reset_after, true};
     }
     std::expected<storage::FeedbackProfileControlState, storage::StorageError>
     rollback_feedback_profile_reset() noexcept override {
         const std::scoped_lock lock{mutex};
         if (!feedback_rollback_available) {
-            return std::unexpected{storage::StorageError{
-                storage::StorageErrorCode::invalid_data, 0,
-                "no feedback reset available"}};
+            return std::unexpected{storage::StorageError{storage::StorageErrorCode::invalid_data, 0,
+                                                         "no feedback reset available"}};
         }
         feedback_reset_after = feedback_previous_reset_after;
         feedback_rollback_available = false;
         ++feedback_revision;
-        return storage::FeedbackProfileControlState{
-            feedback_revision, feedback_reset_after, false};
+        return storage::FeedbackProfileControlState{feedback_revision, feedback_reset_after, false};
     }
     std::expected<storage::ContributorFeedbackContext, storage::StorageError>
-    contributor_feedback_context(
-        const std::int64_t incident_id,
-        const std::span<const std::string> executable_keys,
-        const std::size_t maximum_observations) const noexcept override {
+    contributor_feedback_context(const std::int64_t incident_id,
+                                 const std::span<const std::string> executable_keys,
+                                 const std::size_t maximum_observations) const noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
         const auto accepts = [&](const auto& observation) {
@@ -162,35 +162,30 @@ public:
         storage::ContributorFeedbackContext result{};
         result.incident_id = incident_id;
         result.incident_utc_milliseconds = 1'800'000'000'000LL;
-        std::copy_if(contributor_feedback_current.begin(),
-                     contributor_feedback_current.end(),
+        std::copy_if(contributor_feedback_current.begin(), contributor_feedback_current.end(),
                      std::back_inserter(result.current), accepts);
-        std::copy_if(contributor_feedback_history.begin(),
-                     contributor_feedback_history.end(),
+        std::copy_if(contributor_feedback_history.begin(), contributor_feedback_history.end(),
                      std::back_inserter(result.history), accepts);
         if (result.history.size() > maximum_observations)
             result.history.resize(maximum_observations);
         return result;
     }
-    std::expected<void, storage::StorageError> update_contributor_feedback(
-        const std::int64_t incident_id, std::string executable_key,
-        const storage::ContributorFeedbackResource resource,
-        const storage::ContributorFeedbackDisposition disposition,
-        const storage::ContributorFeedbackTemporalRelationship
-            temporal_relationship) noexcept override {
+    std::expected<void, storage::StorageError>
+    update_contributor_feedback(const std::int64_t incident_id, std::string executable_key,
+                                const storage::ContributorFeedbackResource resource,
+                                const storage::ContributorFeedbackDisposition disposition,
+                                const storage::ContributorFeedbackTemporalRelationship
+                                    temporal_relationship) noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
         std::erase_if(contributor_feedback_current, [&](const auto& observation) {
             return observation.incident_id == incident_id &&
-                   observation.executable_key == executable_key &&
-                   observation.resource == resource;
+                   observation.executable_key == executable_key && observation.resource == resource;
         });
         if (disposition != storage::ContributorFeedbackDisposition::unsure) {
-            contributor_feedback_current.push_back(
-                storage::StoredContributorFeedbackObservation{
-                    incident_id, 1'800'000'000'000LL,
-                    1'800'000'000'001LL, std::move(executable_key), resource,
-                    disposition, temporal_relationship});
+            contributor_feedback_current.push_back(storage::StoredContributorFeedbackObservation{
+                incident_id, 1'800'000'000'000LL, 1'800'000'000'001LL, std::move(executable_key),
+                resource, disposition, temporal_relationship});
         }
         ++contributor_feedback_stores;
         return {};
@@ -203,14 +198,13 @@ public:
         if (result.size() > maximum_results) result.resize(maximum_results);
         return result;
     }
-    std::expected<std::string, storage::StorageError> recurring_group_override(
-        const std::int64_t incident_id) const noexcept override {
+    std::expected<std::string, storage::StorageError>
+    recurring_group_override(const std::int64_t incident_id) const noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
-        const auto found = std::find_if(recurring_records.begin(), recurring_records.end(),
-                                        [incident_id](const auto& record) {
-            return record.id == incident_id;
-        });
+        const auto found =
+            std::find_if(recurring_records.begin(), recurring_records.end(),
+                         [incident_id](const auto& record) { return record.id == incident_id; });
         return found == recurring_records.end() ? std::string{} : found->override_group;
     }
     std::expected<void, storage::StorageError> store_incident_features(
@@ -219,24 +213,22 @@ public:
         const std::scoped_lock lock{mutex};
         ++feature_stores;
         for (const auto& feature : features) {
-            const auto found = std::find_if(recurring_records.begin(), recurring_records.end(),
-                                            [&](const auto& record) {
-                return record.id == feature.incident_id;
-            });
+            const auto found =
+                std::find_if(recurring_records.begin(), recurring_records.end(),
+                             [&](const auto& record) { return record.id == feature.incident_id; });
             if (found != recurring_records.end()) found->cached_feature = feature;
         }
         return {};
     }
-    std::expected<void, storage::StorageError> update_recurring_group_override(
-        const std::int64_t incident_id, std::string override_group) noexcept override {
+    std::expected<void, storage::StorageError>
+    update_recurring_group_override(const std::int64_t incident_id,
+                                    std::string override_group) noexcept override {
         record_call();
         const std::scoped_lock lock{mutex};
-        const auto found = std::find_if(recurring_records.begin(), recurring_records.end(),
-                                        [incident_id](const auto& record) {
-            return record.id == incident_id;
-        });
-        if (found != recurring_records.end())
-            found->override_group = std::move(override_group);
+        const auto found =
+            std::find_if(recurring_records.begin(), recurring_records.end(),
+                         [incident_id](const auto& record) { return record.id == incident_id; });
+        if (found != recurring_records.end()) found->override_group = std::move(override_group);
         ++override_stores;
         return {};
     }
@@ -261,24 +253,27 @@ public:
     std::vector<storage::StoredFeedbackCalibrationObservation> feedback_history{};
     mutable std::vector<storage::StoredContributorFeedbackObservation>
         contributor_feedback_current{};
-    std::vector<storage::StoredContributorFeedbackObservation>
-        contributor_feedback_history{};
+    std::vector<storage::StoredContributorFeedbackObservation> contributor_feedback_history{};
     std::uint64_t contributor_feedback_stores{};
     std::vector<storage::ProcessProfileUpdate> stored_profile_updates{};
     mutable std::vector<storage::StoredRecurringIncident> recurring_records{};
     std::uint64_t feature_stores{};
     std::uint64_t override_stores{};
+    std::uint64_t annotation_stores{};
     storage::IncidentAnnotation annotation_value{};
     std::shared_ptr<const core::IncidentSnapshot> incident_value{
         storage::test::representative_incident()};
     std::chrono::milliseconds delay{};
+    std::atomic<bool> block_annotation{};
+    std::atomic<bool> annotation_entered{};
+    std::atomic<bool> release_annotation{};
 };
 
 #if BLACKBOX_ANALYSIS_ENABLED
 class RecordingAnalyzer final : public analysis::IIncidentAnalyzer {
 public:
-    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError> analyze(
-        const core::IncidentSnapshot& incident) const noexcept override {
+    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError>
+    analyze(const core::IncidentSnapshot& incident) const noexcept override {
         {
             const std::scoped_lock lock{mutex};
             analysis_thread = std::this_thread::get_id();
@@ -295,8 +290,8 @@ public:
 
 class PausedStatisticalAnalyzer final : public analysis::IIncidentAnalyzer {
 public:
-    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError> analyze(
-        const core::IncidentSnapshot& incident) const noexcept override {
+    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError>
+    analyze(const core::IncidentSnapshot& incident) const noexcept override {
         entered.store(true, std::memory_order_release);
         const auto deadline = std::chrono::steady_clock::now() + 5s;
         while (!may_continue.load(std::memory_order_acquire) &&
@@ -306,9 +301,7 @@ public:
         return implementation.analyze(incident);
     }
 
-    void resume() noexcept {
-        may_continue.store(true, std::memory_order_release);
-    }
+    void resume() noexcept { may_continue.store(true, std::memory_order_release); }
 
     analysis::StatisticalIncidentAnalyzer implementation{};
     mutable std::atomic<bool> entered{};
@@ -317,8 +310,8 @@ public:
 
 class ContributorAnalyzer final : public analysis::IIncidentAnalyzer {
 public:
-    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError> analyze(
-        const core::IncidentSnapshot& incident) const noexcept override {
+    std::expected<analysis::IncidentAnalysis, analysis::AnalysisError>
+    analyze(const core::IncidentSnapshot& incident) const noexcept override {
         analysis::IncidentAnalysis result{};
         result.baseline_start = incident.header().actual_start;
         result.baseline_end = incident.header().window.event_time - 30s;
@@ -328,8 +321,8 @@ public:
         candidate.identity = {77U, 88U};
         candidate.name = "preceding.exe";
         if (!incident.process_metadata().empty()) {
-            if (const auto executable = analysis::normalize_executable_identity(
-                    incident.process_metadata().front())) {
+            if (const auto executable =
+                    analysis::normalize_executable_identity(incident.process_metadata().front())) {
                 candidate.executable_key = executable->key;
             }
         }
@@ -388,7 +381,8 @@ public:
 
 } // namespace
 
-TEST_CASE("viewer performs repository work off the caller thread and publishes bounded views",
+TEST_CASE("viewer performs repository work off the caller thread and publishes "
+          "bounded views",
           "[app][viewer][threading]") {
     ViewerRepository repository;
     app::IncidentViewerService viewer{repository};
@@ -407,29 +401,73 @@ TEST_CASE("viewer performs repository work off the caller thread and publishes b
         const auto state = viewer.snapshot();
         return state->generation >= 2U && state->detail.has_value();
     }));
-    CHECK(viewer.snapshot()->detail->analysis.state ==
-          ui::IncidentAnalysisViewState::disabled);
+    CHECK(viewer.snapshot()->detail->analysis.state == ui::IncidentAnalysisViewState::disabled);
     const auto identity = viewer.snapshot()->detail->processes.front().identity;
     viewer.request_process(1, identity);
     REQUIRE(wait_until([&] {
         const auto state = viewer.snapshot();
         return state->generation >= 3U && state->detail->selected_process.has_value();
     }));
-    viewer.update_annotation(1, "Game", "stutter",
-                             storage::IncidentUserFeedback::noticed_problem,
+    viewer.update_annotation(1, "Game", "stutter", storage::IncidentUserFeedback::noticed_problem,
                              storage::IncidentCategory::game_stutter);
     REQUIRE(wait_until([&] {
         const auto state = viewer.snapshot();
         return state->generation >= 4U && state->detail->label == "Game";
     }));
     viewer.stop();
-    CHECK(viewer.snapshot()->detail->user_feedback ==
-          ui::IncidentFeedback::noticed_problem);
+    CHECK(viewer.snapshot()->detail->user_feedback == ui::IncidentFeedback::noticed_problem);
     CHECK(viewer.snapshot()->detail->category == ui::IncidentCategory::game_stutter);
-    const storage::IncidentAnnotation expected{
-        "Game", "stutter", storage::IncidentUserFeedback::noticed_problem,
-        storage::IncidentCategory::game_stutter};
+    const storage::IncidentAnnotation expected{"Game", "stutter",
+                                               storage::IncidentUserFeedback::noticed_problem,
+                                               storage::IncidentCategory::game_stutter};
     CHECK(repository.annotation_value == expected);
+}
+
+TEST_CASE("viewer drains accepted mutations and never evicts them for read work",
+          "[app][viewer][threading][queue]") {
+    ViewerRepository repository;
+    repository.block_annotation.store(true, std::memory_order_release);
+    app::IncidentViewerService viewer{repository};
+    viewer.start();
+
+    REQUIRE(viewer.update_annotation(1, "accepted-first", {},
+                                     storage::IncidentUserFeedback::unanswered,
+                                     storage::IncidentCategory::unknown));
+    REQUIRE(
+        wait_until([&] { return repository.annotation_entered.load(std::memory_order_acquire); }));
+
+    for (std::size_t index = 0; index < 64U; ++index) {
+        REQUIRE(viewer.update_annotation(1, "accepted-" + std::to_string(index), {},
+                                         storage::IncidentUserFeedback::unanswered,
+                                         storage::IncidentCategory::unknown));
+    }
+    for (std::size_t index = 0; index < 32U; ++index) {
+        viewer.request_page(index, "refresh-" + std::to_string(index),
+                            ui::IncidentListOrder::newest_first);
+    }
+    CHECK_FALSE(viewer.update_annotation(1, "rejected", {},
+                                         storage::IncidentUserFeedback::unanswered,
+                                         storage::IncidentCategory::unknown));
+
+    const auto saturated = viewer.queue_diagnostics();
+    CHECK(saturated.queued_mutations == 64U);
+    CHECK(saturated.rejected_mutations == 1U);
+    CHECK(saturated.coalesced_reads >= 31U);
+
+    repository.release_annotation.store(true, std::memory_order_release);
+    viewer.stop();
+    CHECK_FALSE(viewer.update_annotation(1, "after-stop", {},
+                                         storage::IncidentUserFeedback::unanswered,
+                                         storage::IncidentCategory::unknown));
+
+    const auto drained = viewer.queue_diagnostics();
+    CHECK(drained.queued_mutations == 0U);
+    CHECK(drained.queued_reads == 0U);
+    CHECK(drained.completed_mutations == 65U);
+    CHECK(drained.rejected_mutations == 2U);
+    CHECK(drained.cancelled_reads >= 1U);
+    CHECK(repository.annotation_stores == 65U);
+    CHECK(repository.annotation_value.label == "accepted-63");
 }
 
 #if BLACKBOX_ANALYSIS_ENABLED
@@ -439,14 +477,12 @@ TEST_CASE("viewer caches bounded recurring features and publishes inspectable gr
     repository.recurring_records = {
         storage::StoredRecurringIncident{1, 1'000, "first", {}, std::nullopt},
         storage::StoredRecurringIncident{2, 2'000, "second", {}, std::nullopt}};
-    app::IncidentViewerService viewer{
-        repository, nullptr, nullptr, nullptr, &repository};
+    app::IncidentViewerService viewer{repository, nullptr, nullptr, nullptr, &repository};
     const auto caller_thread = std::this_thread::get_id();
     viewer.start();
     viewer.request_recurring_incidents();
     REQUIRE(wait_until([&] {
-        return viewer.snapshot()->recurring.state ==
-               ui::RecurringIncidentViewState::ready;
+        return viewer.snapshot()->recurring.state == ui::RecurringIncidentViewState::ready;
     }));
     auto recurring = viewer.snapshot()->recurring;
     CHECK(recurring.incidents_considered == 2U);
@@ -460,8 +496,7 @@ TEST_CASE("viewer caches bounded recurring features and publishes inspectable gr
     viewer.request_recurring_incidents();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->generation > first_generation &&
-               snapshot->recurring.cached_features == 2U;
+        return snapshot->generation > first_generation && snapshot->recurring.cached_features == 2U;
     }));
     CHECK(viewer.snapshot()->recurring.recomputed_features == 0U);
     {
@@ -498,20 +533,17 @@ TEST_CASE("viewer caches bounded recurring features and publishes inspectable gr
 TEST_CASE("viewer refreshes a versioned diagnosis with recurring evidence",
           "[app][viewer][analysis][pipeline][recurring]") {
     ViewerRepository repository;
-    repository.incident_value = diagnosis_fixture::incident(
-        analysis::ResourceKind::cpu);
+    repository.incident_value = diagnosis_fixture::incident(analysis::ResourceKind::cpu);
     repository.recurring_records = {
         storage::StoredRecurringIncident{1, 1'000, "first", {}, std::nullopt},
         storage::StoredRecurringIncident{2, 2'000, "second", {}, std::nullopt}};
     analysis::IntelligentIncidentAnalyzer analyzer;
-    app::IncidentViewerService viewer{
-        repository, &analyzer, &repository, &repository, &repository};
+    app::IncidentViewerService viewer{repository, &analyzer, &repository, &repository, &repository};
     viewer.start();
     viewer.request_detail(1);
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.diagnosis.available;
+        return snapshot->detail && snapshot->detail->analysis.diagnosis.available;
     }));
     CHECK(viewer.snapshot()->detail->analysis.diagnosis.pipeline_version ==
           analysis::intelligent_pipeline_version);
@@ -522,10 +554,8 @@ TEST_CASE("viewer refreshes a versioned diagnosis with recurring evidence",
         if (!snapshot->detail || snapshot->recurring.groups.empty()) return false;
         return std::any_of(
             snapshot->detail->analysis.diagnosis.evidence.begin(),
-            snapshot->detail->analysis.diagnosis.evidence.end(),
-            [](const auto& evidence) {
-                return evidence.find("Automatic recurring pattern") !=
-                       std::string::npos;
+            snapshot->detail->analysis.diagnosis.evidence.end(), [](const auto& evidence) {
+                return evidence.find("Automatic recurring pattern") != std::string::npos;
             });
     }));
     viewer.stop();
@@ -539,52 +569,41 @@ TEST_CASE("viewer refreshes a versioned diagnosis with recurring evidence",
 TEST_CASE("viewer reuses confirmed automatic recurrence as resettable context only",
           "[app][viewer][analysis][similar-incidents][feedback]") {
     ViewerRepository repository;
-    repository.incident_value = diagnosis_fixture::incident(
-        analysis::ResourceKind::cpu);
+    repository.incident_value = diagnosis_fixture::incident(analysis::ResourceKind::cpu);
     constexpr auto current = 1'800'000'000'000LL;
-    storage::StoredRecurringIncident first{
-        1, current - 2'000, "first", {}, std::nullopt};
+    storage::StoredRecurringIncident first{1, current - 2'000, "first", {}, std::nullopt};
     first.user_feedback = storage::IncidentUserFeedback::noticed_problem;
     first.category = storage::IncidentCategory::game_stutter;
-    storage::StoredRecurringIncident second{
-        2, current - 1'000, "second", {}, std::nullopt};
+    storage::StoredRecurringIncident second{2, current - 1'000, "second", {}, std::nullopt};
     second.user_feedback = storage::IncidentUserFeedback::noticed_problem;
     second.category = storage::IncidentCategory::game_stutter;
-    storage::StoredRecurringIncident present{
-        3, current, "present", {}, std::nullopt};
+    storage::StoredRecurringIncident present{3, current, "present", {}, std::nullopt};
     repository.recurring_records = {first, second, present};
 
     analysis::IntelligentIncidentAnalyzer analyzer;
-    app::IncidentViewerService viewer{
-        repository, &analyzer, &repository, &repository, &repository};
+    app::IncidentViewerService viewer{repository, &analyzer, &repository, &repository, &repository};
     viewer.start();
     viewer.request_detail(3);
-    REQUIRE(wait_until([&] {
-        return viewer.snapshot()->detail.has_value();
-    }));
+    REQUIRE(wait_until([&] { return viewer.snapshot()->detail.has_value(); }));
     viewer.request_recurring_incidents();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.similar_incidents.ready;
+        return snapshot->detail && snapshot->detail->analysis.similar_incidents.ready;
     }));
     auto analysis_view = viewer.snapshot()->detail->analysis;
     CHECK(analysis_view.similar_incidents.symptom == "Game stutter");
     CHECK(analysis_view.similar_incidents.matching_confirmations == 2U);
-    const auto confidence_with_context =
-        analysis_view.diagnosis.calibrated_confidence;
-    const auto contributor_with_context =
-        analysis_view.diagnosis.primary_contributor;
+    const auto confidence_with_context = analysis_view.diagnosis.calibrated_confidence;
+    const auto contributor_with_context = analysis_view.diagnosis.primary_contributor;
 
     viewer.reset_feedback_profile();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               !snapshot->detail->analysis.similar_incidents.ready &&
+        return snapshot->detail && !snapshot->detail->analysis.similar_incidents.ready &&
                snapshot->detail->analysis.feedback.rollback_available;
     }));
-    CHECK(viewer.snapshot()->detail->analysis.similar_incidents.status.find(
-              "cold") != std::string::npos);
+    CHECK(viewer.snapshot()->detail->analysis.similar_incidents.status.find("cold") !=
+          std::string::npos);
     CHECK(viewer.snapshot()->detail->analysis.diagnosis.calibrated_confidence ==
           confidence_with_context);
     CHECK(viewer.snapshot()->detail->analysis.diagnosis.primary_contributor ==
@@ -593,8 +612,7 @@ TEST_CASE("viewer reuses confirmed automatic recurrence as resettable context on
     viewer.rollback_feedback_profile_reset();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.similar_incidents.ready &&
+        return snapshot->detail && snapshot->detail->analysis.similar_incidents.ready &&
                !snapshot->detail->analysis.feedback.rollback_available;
     }));
     viewer.stop();
@@ -603,27 +621,23 @@ TEST_CASE("viewer reuses confirmed automatic recurrence as resettable context on
 TEST_CASE("viewer applies bounded prior feedback without touching current evidence",
           "[app][viewer][analysis][feedback]") {
     ViewerRepository repository;
-    repository.incident_value = diagnosis_fixture::incident(
-        analysis::ResourceKind::cpu, std::nullopt, true);
+    repository.incident_value =
+        diagnosis_fixture::incident(analysis::ResourceKind::cpu, std::nullopt, true);
     for (std::int64_t id = 2; id <= 5; ++id) {
-        repository.feedback_history.push_back(
-            storage::StoredFeedbackCalibrationObservation{
-                id, 1'799'999'000'000LL + id,
-                core::AutomaticIncidentResource::cpu,
-                core::AutomaticIncidentSignal::throughput_or_utilization,
-                storage::IncidentUserFeedback::did_not_notice_problem});
+        repository.feedback_history.push_back(storage::StoredFeedbackCalibrationObservation{
+            id, 1'799'999'000'000LL + id, core::AutomaticIncidentResource::cpu,
+            core::AutomaticIncidentSignal::throughput_or_utilization,
+            storage::IncidentUserFeedback::did_not_notice_problem});
     }
     auto configuration = analysis::IntelligentAnalysisConfiguration{};
     configuration.minimum_feedback_adjusted_assertion_confidence = 0.99;
     analysis::IntelligentIncidentAnalyzer analyzer{configuration};
-    app::IncidentViewerService viewer{
-        repository, &analyzer, &repository, &repository, nullptr};
+    app::IncidentViewerService viewer{repository, &analyzer, &repository, &repository, nullptr};
     viewer.start();
     viewer.request_detail(1);
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.diagnosis.pipeline_version != 0U;
+        return snapshot->detail && snapshot->detail->analysis.diagnosis.pipeline_version != 0U;
     }));
     viewer.stop();
     const auto& analysis_view = viewer.snapshot()->detail->analysis;
@@ -647,8 +661,7 @@ TEST_CASE("viewer applies bounded prior feedback without touching current eviden
     viewer.reset_feedback_profile();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.feedback.profile_revision == 1U;
+        return snapshot->detail && snapshot->detail->analysis.feedback.profile_revision == 1U;
     }));
     const auto after_reset = viewer.snapshot()->detail->analysis;
     CHECK_FALSE(after_reset.feedback.suppressing);
@@ -659,8 +672,7 @@ TEST_CASE("viewer applies bounded prior feedback without touching current eviden
     viewer.rollback_feedback_profile_reset();
     REQUIRE(wait_until([&] {
         const auto snapshot = viewer.snapshot();
-        return snapshot->detail &&
-               snapshot->detail->analysis.feedback.profile_revision == 2U;
+        return snapshot->detail && snapshot->detail->analysis.feedback.profile_revision == 2U;
     }));
     viewer.stop();
     const auto after_rollback = viewer.snapshot()->detail->analysis;
@@ -670,11 +682,11 @@ TEST_CASE("viewer applies bounded prior feedback without touching current eviden
     CHECK(after_rollback.pressure.available);
 }
 
-TEST_CASE("viewer separates observed pressure from an unavailable symptom explanation",
+TEST_CASE("viewer separates observed pressure from an unavailable symptom "
+          "explanation",
           "[app][viewer][analysis][pressure-separation]") {
     ViewerRepository repository;
-    repository.incident_value = diagnosis_fixture::incident(
-        analysis::ResourceKind::network);
+    repository.incident_value = diagnosis_fixture::incident(analysis::ResourceKind::network);
     analysis::IntelligentIncidentAnalyzer analyzer;
     app::IncidentViewerService viewer{repository, &analyzer};
     viewer.start();
@@ -693,7 +705,8 @@ TEST_CASE("viewer separates observed pressure from an unavailable symptom explan
     CHECK(analysis_view.diagnosis.basis == "No aligned symptom evidence");
 }
 
-TEST_CASE("viewer analyzes loaded incidents on its worker and exposes cold-start evidence",
+TEST_CASE("viewer analyzes loaded incidents on its worker and exposes "
+          "cold-start evidence",
           "[app][viewer][analysis][threading]") {
     ViewerRepository repository;
     RecordingAnalyzer analyzer;
@@ -704,16 +717,14 @@ TEST_CASE("viewer analyzes loaded incidents on its worker and exposes cold-start
     REQUIRE(wait_until([&] {
         const auto state = viewer.snapshot();
         return state->detail.has_value() &&
-               state->detail->analysis.state ==
-                   ui::IncidentAnalysisViewState::cold_start;
+               state->detail->analysis.state == ui::IncidentAnalysisViewState::cold_start;
     }));
     viewer.stop();
 
     const std::scoped_lock lock{analyzer.mutex};
     CHECK(analyzer.calls == 1U);
     CHECK(analyzer.analysis_thread != caller_thread);
-    CHECK(viewer.snapshot()->detail->analysis.status.find("Cold start") !=
-          std::string::npos);
+    CHECK(viewer.snapshot()->detail->analysis.status.find("Cold start") != std::string::npos);
 }
 
 TEST_CASE("viewer exposes calibrated contributor wording and inspectable factors",
@@ -734,37 +745,29 @@ TEST_CASE("viewer exposes calibrated contributor wording and inspectable factors
     const auto& contributor = contributors.front();
     CHECK(contributor.assessment == "Likely contributor (correlation only)");
     CHECK(contributor.timing.find("before the marker") != std::string::npos);
-    CHECK(contributor.timing.find("recorded process start -5.0 s") !=
-          std::string::npos);
-    CHECK(contributor.timing.find("recorded process exit +3.0 s") !=
-          std::string::npos);
+    CHECK(contributor.timing.find("recorded process start -5.0 s") != std::string::npos);
+    CHECK(contributor.timing.find("recorded process exit +3.0 s") != std::string::npos);
     CHECK(contributor.evidence.find("resource match") != std::string::npos);
     CHECK(contributor.evidence.find("missing metric") != std::string::npos);
     CHECK(contributor.assessment.find("proven") == std::string::npos);
     CHECK(contributors[1].assessment == "Ambiguous correlate across marker");
-    CHECK(contributors[1].timing.find("most anomalous samples followed") !=
-          std::string::npos);
+    CHECK(contributors[1].timing.find("most anomalous samples followed") != std::string::npos);
     CHECK(contributors[1].temporal_relationship ==
-          ui::IncidentContributorRow::TemporalRelationship::
-              marker_spanning_ambiguous);
-    CHECK(contributors[2].assessment ==
-          "Possible victim/reaction (not a causal rank)");
-    CHECK(contributors[2].timing.find("Possible victim/reaction") !=
-          std::string::npos);
+          ui::IncidentContributorRow::TemporalRelationship::marker_spanning_ambiguous);
+    CHECK(contributors[2].assessment == "Possible victim/reaction (not a causal rank)");
+    CHECK(contributors[2].timing.find("Possible victim/reaction") != std::string::npos);
 }
 
 TEST_CASE("viewer persists explicit contributor attribution on its worker",
           "[app][viewer][analysis][contributor-feedback]") {
     ViewerRepository repository;
     ContributorAnalyzer analyzer;
-    app::IncidentViewerService viewer{
-        repository, &analyzer, nullptr, &repository};
+    app::IncidentViewerService viewer{repository, &analyzer, nullptr, &repository};
     viewer.start();
     viewer.request_detail(1);
     REQUIRE(wait_until([&] {
         const auto content = viewer.snapshot();
-        return content->detail &&
-               !content->detail->analysis.contributors.empty();
+        return content->detail && !content->detail->analysis.contributors.empty();
     }));
     const auto initial = viewer.snapshot();
     const auto key = initial->detail->analysis.contributors.front().executable_key;
@@ -779,8 +782,7 @@ TEST_CASE("viewer persists explicit contributor attribution on its worker",
         return content->generation > generation && content->detail &&
                !content->detail->analysis.contributors.empty() &&
                content->detail->analysis.contributors.front().attribution ==
-                   ui::IncidentContributorRow::Attribution::
-                       confirmed_contributor;
+                   ui::IncidentContributorRow::Attribution::confirmed_contributor;
     }));
     viewer.stop();
     const std::scoped_lock lock{repository.mutex};
@@ -807,13 +809,12 @@ TEST_CASE("collector continues while a large incident is statistically analyzed"
     REQUIRE(wait_until([&] { return collector.diagnostics().collection_count >= 5U; }));
     const auto before = collector.diagnostics().collection_count;
     viewer.request_detail(1);
-    const auto entered = wait_until(
-        [&] { return analyzer.entered.load(std::memory_order_acquire); });
+    const auto entered =
+        wait_until([&] { return analyzer.entered.load(std::memory_order_acquire); });
     if (!entered) analyzer.resume();
     REQUIRE(entered);
-    const auto progressed = wait_until([&] {
-        return collector.diagnostics().collection_count >= before + 10U;
-    });
+    const auto progressed =
+        wait_until([&] { return collector.diagnostics().collection_count >= before + 10U; });
     const auto during = collector.diagnostics().collection_count;
     analyzer.resume();
     REQUIRE(progressed);

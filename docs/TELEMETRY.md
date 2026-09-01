@@ -1,6 +1,8 @@
 # Telemetry specification
 
-This matrix separates portable domain readiness from real collection. Windows sources marked **candidate** must be validated for accuracy, cost, supported versions, counter semantics, and behavior without administrator privileges. V0.0.2 defines normalized and mock data; it does not implement a Windows API source.
+This matrix separates portable semantics from native source availability. Implemented sources still
+require capability, accuracy, overhead, privilege, reset, and lifecycle evidence on each platform;
+an adjacent native counter is never relabelled to fill a portable gap.
 
 ## Portable contract
 
@@ -8,7 +10,7 @@ This matrix separates portable domain readiness from real collection. Windows so
 - `Ratio` is a dimensionless fraction; UI code multiplies by 100 only for display.
 - `ByteCount` is bytes. `BytesPerSecond` is a double-precision rate calculated from the measured monotonic interval.
 - Raw CPU contains cumulative busy and total ticks in the same provider-defined unit. Normalized CPU is `busy_delta / total_delta`, representing total machine-capacity utilization in `[0,1]`.
-- Future process CPU uses the same total-machine convention: `1.0` means all logical machine capacity, not one fully occupied logical processor.
+- Process CPU uses the same total-machine convention: `1.0` means all logical machine capacity, not one fully occupied logical processor.
 - `ProcessIdentity` is `(PID, creation_token)`. A PID alone is not a durable identity.
 - Providers receive a tier set and caller-owned destination. Snapshot vector capacity is retained for reuse; tier selection does not prescribe scheduling frequency.
 - `ProviderSampleResult` describes overall collection, while each metric preserves its own availability state.
@@ -38,8 +40,9 @@ This matrix separates portable domain readiness from real collection. Windows so
 | GPU engine/memory | `MetricValue<Ratio>` plus two `MetricValue<ByteCount>` gauges | fraction `[0,1]`, bytes | Normal / 1 Hz | Persistent PDH `GPU Engine(*)` and `GPU Adapter Memory(*)` queries | None observed | Busiest physical device/engine; dedicated bytes checked-summed; unsupported siblings remain explicit | Bounded native arrays and optional dynamic vendor API | AMD `gpu_busy_percent`/VRAM sysfs; runtime-loaded NVIDIA NVML | Passive whole-system gauge unavailable | Windows and capability-driven Linux implemented; macOS explicitly unsupported |
 | Foreground application/GPU correlation | `MetricValue<ProcessIdentity>` plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Normal / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | Current `(PID, creation token)` plus maximum matching engine usage; correlation only | Optional; no title, name, bus address, or content retained | X11 identity plus readable DRM `fdinfo` cumulative engine deltas | Workspace identity; GPU value unavailable | Windows and capability-driven Linux DRM implemented; privacy gated |
 | DPC/ISR responsiveness | two `MetricValue<Ratio>` plus `MetricValue<double>` | fractions `[0,1]`, DPC/s | Fast / 1 Hz | Persistent PDH `Processor Information(_Total)` DPC/interrupt counters | None observed | Percentages divided by 100 and clamped; nonnegative rate gauge | Optional bounded PDH query | `/proc/interrupts`/trace candidates | Instruments candidate | Windows implemented V0.14; context only |
-| CPU frequency/thermal limit | four `MetricValue<double/Ratio>` gauges | MHz, fraction `[0,1]` | Normal / 1 Hz | `CallNtPowerInformation(ProcessorInformation)` | None observed | Mean current/max/limit MHz across active processors; limit/max ratio | Low bounded array | sysfs candidates | `sysctl`/IOKit candidates | Windows implemented V0.14; context only |
-| Power/battery/uptime | typed source, battery/saver, uptime gauges | enum, fraction, boolean, seconds | Normal / 1 Hz | `GetSystemPowerStatus`, `GetTickCount64` | None | Direct gauges; unsupported fields remain explicit | Very low | `/sys/class/power_supply`, `/proc/uptime` | IOKit power sources, continuous clock | Windows/Linux/macOS implemented; Linux/macOS battery saver unsupported |
+| CPU frequency/thermal limit | four `MetricValue<double/Ratio>` gauges | MHz, fraction `[0,1]` | Normal / 1 Hz | `CallNtPowerInformation(ProcessorInformation)` | None observed | Mean current/max/limit MHz across active processors; limit/max ratio | Low bounded array | weighted CPUFreq policies | unavailable | Windows/Linux frequency implemented; Windows thermal-limit fraction implemented |
+| Pressure / thermal state | five independent `MetricValue<Ratio>` interval gauges plus a coarse thermal enum | fraction `[0,1]`, enum | Fast PSI / Normal thermal | cumulative-stall semantics unavailable; existing DPC/ISR stays separate | Source dependent | exact cumulative stalled-time delta / measured elapsed time; thermal is a separate state | Bounded reads | `/proc/pressure/{cpu,memory,io}` totals | public `NSProcessInfo.thermalState` | Linux PSI and macOS coarse thermal state implemented; no fabricated equivalence |
+| Power/battery/uptime | typed source, battery/saver, uptime gauges | enum, fraction, boolean, seconds | Normal / 1 Hz | `GetSystemPowerStatus`, `GetTickCount64` | None | Direct gauges; unsupported fields remain explicit | Very low | `/sys/class/power_supply`, `/proc/uptime`, optional platform profile | IOKit power sources, continuous clock, Low Power Mode | Windows/Linux/macOS implemented; optional saver state remains capability-gated |
 | Per-process network | optional rate | bytes/s | Unspecified | No low-cost stable choice selected | Varies | Identity-aware flow accounting | Unknown/high | eBPF/netlink candidates | Network Extension candidates | Unsupported / research |
 
 ## Counter rules
@@ -72,6 +75,9 @@ It reads bounded kernel pseudo-files without administrator privileges:
 | Network I/O | non-loopback rows in `/proc/net/dev` | Fast | cumulative receive/transmit bytes |
 | Network state and TCP quality | `getifaddrs` plus `/proc/net/snmp` | Fast | local link level, interface transitions, cumulative TCP counters |
 | Power and uptime | `/sys/class/power_supply/*/uevent` plus `/proc/uptime` | Normal | typed source, optional battery fraction, seconds |
+| CPU/memory/I/O pressure | `/proc/pressure/{cpu,memory,io}` cumulative totals | Fast | independent exact interval stall fractions with warm-up/reset state |
+| CPU frequency/profile | CPUFreq policy sysfs plus optional ACPI platform profile | Normal | membership-weighted requested frequency and conservative saver state |
+| GPU | AMD sysfs, optional runtime-loaded NVIDIA NVML, readable DRM `fdinfo` | Normal | capability-driven whole-device gauges plus separately scoped foreground activity |
 | Process identity and CPU | `/proc/<pid>/stat` | Normal | PID plus kernel start-time token and cumulative CPU ticks |
 | Process memory | `VmRSS` in `/proc/<pid>/status` | Normal | working-set bytes |
 | Process I/O | `/proc/<pid>/io` | Normal | cumulative read/write bytes |
@@ -97,14 +103,23 @@ cumulative counters for the shared normalizer.
 `/proc/uptime` is parsed as a strict finite nonnegative seconds gauge. Power-supply uevents are
 bounded and classify online mains/USB sources, UPS, battery-only operation, or unknown state.
 Battery fraction is the arithmetic mean of valid present-battery capacities; hosts without a battery
-retain an explicit unsupported fraction. Linux has no selected native battery-saver contract, so
-that field remains unsupported.
+retain an explicit unsupported fraction. When the optional generic ACPI platform-profile interface
+is present, only its exact `low-power` value maps to the saver state; absent or unknown values remain
+unsupported or temporarily unavailable rather than guessed.
 
 The process walk accepts only numeric `/proc` entries, caps each observation at 8,192 identities,
 uses PID plus kernel start time to prevent reuse collisions, and treats exit/access races as explicit
 diagnostics or per-metric unavailability. CPU ticks are converted to cumulative nanoseconds using
 `_SC_CLK_TCK`; the shared normalizer derives rates using the measured interval. Executable paths are
-resolved only when the slow tier is requested. GPU telemetry remains `unsupported`.
+resolved only when the slow tier is requested. GPU evidence is capability-driven: AMD sysfs and
+runtime-loaded NVIDIA NVML provide whole-device gauges, while readable DRM `fdinfo` activity is
+explicitly foreground-client scope rather than complete host utilization.
+
+Linux PSI reads are bounded to 4 KiB per file. The strict parser accepts the documented `some` and
+optional `full` records, validates every average and cumulative total, and rejects duplicates,
+unknown fields, overflow, malformed input, and missing `some`. The provider exports only cumulative
+microseconds; the shared normalizer derives exact interval fractions independently per dimension and
+warms up after first sight, reset, invalid elapsed time, source recovery, or suspend/resume.
 
 Linux disk quality uses the kernel's cumulative block accounting without relabeling adjacent fields.
 Read and write latency are their respective completion-time deltas divided by completed-operation
@@ -153,8 +168,10 @@ outgoing original segments, retransmissions,
 and connection/drop failures. Apple exposes no exact equivalent of the shared established-reset
 field, which therefore remains explicitly unsupported. Sleep-inclusive monotonic uptime comes from
 the native continuous clock. The normal tier reads IOKit's current power-source snapshot and exposes
-battery fraction when the host reports a valid capacity. `NSProcessInfo` supplies Low Power Mode on
-macOS 12 and later; older or unavailable sources remain explicit.
+battery fraction when the host reports a valid capacity. `NSProcessInfo` supplies Low Power Mode and
+the separate coarse nominal/fair/serious/critical thermal-pressure state. Thermal state is not
+converted into CPU frequency, utilization, or Linux PSI semantics; older or unavailable sources
+remain explicit.
 The independent macOS event provider consumes IOKit `IOMedia` first-match and termination
 notifications. It drains the initial inventory without emitting events and publishes only broad
 storage-media added/removed context; BSD names, registry paths, UUIDs, serials, properties, and
@@ -168,9 +185,10 @@ resolution limited to slow-tier requests. Access races and protected identities 
 gaps instead of failing the provider. When foreground collection is opted in,
 `NSWorkspace.frontmostApplication` contributes only a PID, which must match a process identity from
 the same bounded sample before the PID-plus-creation-token identity crosses the portable boundary.
-Names, titles, bundle identifiers, and native application objects do not cross. GPU, Windows-style
-DPC/ISR responsiveness, CPU frequency/thermal, and other unimplemented telemetry metrics are
-explicitly unsupported.
+Names, titles, bundle identifiers, and native application objects do not cross. Public Metal device
+inventory and BlackBox renderer health remain distinct from passive whole-system utilization. GPU
+utilization, Windows-style DPC/ISR responsiveness, CPU frequency, and exact cumulative-stall pressure
+are explicitly unsupported; coarse thermal state is available under its own semantic.
 
 `blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry,
 libproc, and IOKit. Hosted Apple Silicon and Intel jobs build/test the complete desktop

@@ -52,39 +52,47 @@ parse_export_key(const std::string_view text) {
 
 [[nodiscard]] constexpr std::string_view category_name(const IncidentCategory value) {
     switch (value) {
-    case IncidentCategory::unknown: return "unknown";
-    case IncidentCategory::system_freeze: return "system_freeze";
-    case IncidentCategory::game_stutter: return "game_stutter";
+    case IncidentCategory::unknown:
+        return "unknown";
+    case IncidentCategory::system_freeze:
+        return "system_freeze";
+    case IncidentCategory::game_stutter:
+        return "game_stutter";
     case IncidentCategory::application_slowdown_or_hang:
         return "application_slowdown_or_hang";
-    case IncidentCategory::network: return "network";
-    case IncidentCategory::audio: return "audio";
+    case IncidentCategory::network:
+        return "network";
+    case IncidentCategory::audio:
+        return "audio";
     }
     return "unknown";
 }
 
-[[nodiscard]] constexpr std::string_view feedback_name(
-    const IncidentUserFeedback value) {
+[[nodiscard]] constexpr std::string_view feedback_name(const IncidentUserFeedback value) {
     switch (value) {
-    case IncidentUserFeedback::unanswered: return "unanswered";
-    case IncidentUserFeedback::noticed_problem: return "noticed_problem";
-    case IncidentUserFeedback::did_not_notice_problem: return "did_not_notice_problem";
+    case IncidentUserFeedback::unanswered:
+        return "unanswered";
+    case IncidentUserFeedback::noticed_problem:
+        return "noticed_problem";
+    case IncidentUserFeedback::did_not_notice_problem:
+        return "did_not_notice_problem";
     }
     return "unanswered";
 }
 
-[[nodiscard]] constexpr std::string_view origin_name(
-    const ClassificationChangeOrigin value) {
+[[nodiscard]] constexpr std::string_view origin_name(const ClassificationChangeOrigin value) {
     switch (value) {
-    case ClassificationChangeOrigin::capture: return "capture";
-    case ClassificationChangeOrigin::user: return "user";
-    case ClassificationChangeOrigin::dataset_import: return "dataset_import";
+    case ClassificationChangeOrigin::capture:
+        return "capture";
+    case ClassificationChangeOrigin::user:
+        return "user";
+    case ClassificationChangeOrigin::dataset_import:
+        return "dataset_import";
     }
     return "user";
 }
 
-[[nodiscard]] std::optional<IncidentCategory> parse_category(
-    const std::string_view value) {
+[[nodiscard]] std::optional<IncidentCategory> parse_category(const std::string_view value) {
     for (auto raw = 0; raw <= static_cast<int>(IncidentCategory::audio); ++raw) {
         const auto category = static_cast<IncidentCategory>(raw);
         if (value == category_name(category)) return category;
@@ -92,10 +100,9 @@ parse_export_key(const std::string_view text) {
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<IncidentUserFeedback> parse_feedback(
-    const std::string_view value) {
-    for (auto raw = 0;
-         raw <= static_cast<int>(IncidentUserFeedback::did_not_notice_problem); ++raw) {
+[[nodiscard]] std::optional<IncidentUserFeedback> parse_feedback(const std::string_view value) {
+    for (auto raw = 0; raw <= static_cast<int>(IncidentUserFeedback::did_not_notice_problem);
+         ++raw) {
         const auto feedback = static_cast<IncidentUserFeedback>(raw);
         if (value == feedback_name(feedback)) return feedback;
     }
@@ -108,8 +115,7 @@ void write_recorded(std::ostream& output, const core::RecordedValue<Value>& valu
     if (value.status == core::RecordedValueStatus::available) output << value.value;
 }
 
-void write_recorded_byte(std::ostream& output,
-                         const core::RecordedValue<std::uint8_t>& value) {
+void write_recorded_byte(std::ostream& output, const core::RecordedValue<std::uint8_t>& value) {
     output << static_cast<int>(value.status) << '\t';
     if (value.status == core::RecordedValueStatus::available) {
         output << static_cast<unsigned int>(value.value);
@@ -129,15 +135,16 @@ void write_recorded_byte(std::ostream& output,
     return fields;
 }
 
-[[nodiscard]] std::int64_t relative_nanoseconds(
-    const core::MonotonicTimePoint value, const core::MonotonicTimePoint event) {
+[[nodiscard]] std::int64_t relative_nanoseconds(const core::MonotonicTimePoint value,
+                                                const core::MonotonicTimePoint event) {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(value - event).count();
 }
 
 } // namespace
 
-std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
-    SqliteIncidentArchive& archive, const std::filesystem::path& destination) noexcept {
+std::expected<IncidentDatasetStatistics, StorageError>
+export_incident_dataset(SqliteIncidentArchive& archive,
+                        const std::filesystem::path& destination) noexcept {
     struct IncompleteDatasetCleanup {
         const std::filesystem::path& path;
         bool active{};
@@ -150,8 +157,7 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
     try {
         std::error_code error;
         if (std::filesystem::exists(destination, error) || error) {
-            return std::unexpected{dataset_error(
-                "dataset destination must not already exist")};
+            return std::unexpected{dataset_error("dataset destination must not already exist")};
         }
         if (!std::filesystem::create_directories(destination, error) || error) {
             return std::unexpected{dataset_error("cannot create dataset destination")};
@@ -175,7 +181,8 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
         manifest << R"json({
   "format":"blackbox-offline-dataset",
   "version":1,
-  "application_version":")json" << BLACKBOX_VERSION << R"json(",
+  "application_version":")json"
+                 << BLACKBOX_VERSION << R"json(",
   "time":{"created_utc_ms":"milliseconds since Unix epoch","offset_ns":"nanoseconds relative to incident event"},
   "recorded_value_status":{"0":"available","1":"warming_up","2":"unsupported","3":"temporarily_unavailable"},
   "units":{"cpu_fraction":"ratio 0..1","gpu_fraction":"ratio 0..1","memory_bytes":"bytes","memory_fraction":"ratio 0..1","io_rate":"bytes/second","disk_latency":"seconds","disk_queue_depth":"requests","frequency":"MHz","battery_fraction":"ratio 0..1","uptime":"seconds","tcp_retransmit_fraction":"ratio 0..1","event_count":"count per sample interval"},
@@ -183,39 +190,65 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
 }
 )json";
         incidents << "incident_key\tcreated_utc_ms\tcategory\tuser_feedback\t"
-                     "manual_trigger_count\tautomatic_trigger_count\tautomatic_resource\t"
-                     "automatic_signal\tautomatic_score\tsystem_sample_count\tprocess_sample_count\t"
+                     "manual_trigger_count\tautomatic_trigger_count\tautomatic_"
+                     "resource\t"
+                     "automatic_signal\tautomatic_score\tsystem_sample_"
+                     "count\tprocess_"
+                     "sample_count\t"
                      "system_event_count\n";
-        systems << "incident_key\tsample_index\toffset_ns\tcpu_status\tcpu_fraction\t"
+        systems << "incident_key\tsample_index\toffset_ns\tcpu_status\tcpu_"
+                   "fraction\t"
                    "memory_used_status\tmemory_used_bytes\tmemory_total_status\t"
                    "memory_total_bytes\tmemory_fraction_status\tmemory_fraction\t"
-                   "disk_read_status\tdisk_read_bps\tdisk_write_status\tdisk_write_bps\t"
-                   "network_receive_status\tnetwork_receive_bps\tnetwork_transmit_status\t"
-                   "network_transmit_bps\tdisk_read_latency_status\tdisk_read_latency_seconds\t"
+                   "disk_read_status\tdisk_read_bps\tdisk_write_status\tdisk_write_"
+                   "bps\t"
+                   "network_receive_status\tnetwork_receive_bps\tnetwork_transmit_"
+                   "status\t"
+                   "network_transmit_bps\tdisk_read_latency_status\tdisk_read_"
+                   "latency_"
+                   "seconds\t"
                    "disk_write_latency_status\tdisk_write_latency_seconds\t"
                    "disk_service_time_status\tdisk_service_time_seconds\t"
-                   "disk_queue_depth_status\tdisk_queue_depth\tdisk_device_status\tdisk_device_id\t"
+                   "disk_queue_depth_status\tdisk_queue_depth\tdisk_device_"
+                   "status\tdisk_device_id\t"
                    "network_connectivity_status\tnetwork_connectivity_level\t"
                    "network_interfaces_status\tnetwork_active_interfaces\t"
                    "network_changes_status\tnetwork_interface_changes\t"
                    "tcp_retransmit_status\ttcp_retransmit_fraction\t"
                    "tcp_failures_status\ttcp_failed_connections\t"
                    "tcp_resets_status\ttcp_resets\t"
-                   "gpu_status\tgpu_fraction\tgpu_dedicated_status\tgpu_dedicated_bytes\t"
-                   "gpu_shared_status\tgpu_shared_bytes\tforeground_gpu_status\tforeground_gpu_fraction\t"
-                   "dpc_status\tdpc_fraction\tinterrupt_status\tinterrupt_fraction\t"
-                   "dpc_rate_status\tdpc_rate\tcpu_current_status\tcpu_current_mhz\t"
-                   "cpu_max_status\tcpu_max_mhz\tcpu_thermal_limit_status\tcpu_thermal_limit_mhz\t"
+                   "gpu_status\tgpu_fraction\tgpu_dedicated_status\tgpu_dedicated_"
+                   "bytes\t"
+                   "gpu_shared_status\tgpu_shared_bytes\tforeground_gpu_"
+                   "status\tforeground_gpu_fraction\t"
+                   "dpc_status\tdpc_fraction\tinterrupt_status\tinterrupt_"
+                   "fraction\t"
+                   "dpc_rate_status\tdpc_rate\tcpu_current_status\tcpu_current_"
+                   "mhz\t"
+                   "cpu_max_status\tcpu_max_mhz\tcpu_thermal_limit_status\tcpu_"
+                   "thermal_"
+                   "limit_mhz\t"
                    "cpu_thermal_fraction_status\tcpu_thermal_limit_fraction\t"
-                   "power_source_status\tpower_source\tbattery_status\tbattery_fraction\t"
-                   "battery_saver_status\tbattery_saver\tuptime_status\tuptime_seconds\n";
+                   "power_source_status\tpower_source\tbattery_status\tbattery_"
+                   "fraction\t"
+                   "battery_saver_status\tbattery_saver\tuptime_status\tuptime_"
+                   "seconds\t"
+                   "cpu_some_pressure_status\tcpu_some_pressure_fraction\t"
+                   "memory_some_pressure_status\tmemory_some_pressure_fraction\t"
+                   "memory_full_pressure_status\tmemory_full_pressure_fraction\t"
+                   "io_some_pressure_status\tio_some_pressure_fraction\t"
+                   "io_full_pressure_status\tio_full_pressure_fraction\t"
+                   "thermal_pressure_status\tthermal_pressure_state\n";
         processes << "incident_key\tsample_index\toffset_ns\tprocess_ordinal\t"
-                     "cpu_status\tcpu_fraction\tworking_set_status\tworking_set_bytes\t"
-                     "disk_read_status\tdisk_read_bps\tdisk_write_status\tdisk_write_bps\n";
+                     "cpu_status\tcpu_fraction\tworking_set_status\tworking_set_"
+                     "bytes\t"
+                     "disk_read_status\tdisk_read_bps\tdisk_write_status\tdisk_write_"
+                     "bps\n";
         system_events << "incident_key\tevent_index\toffset_ns\thas_source_utc_time\t"
                          "source_utc_ms\tsource\tkind\tlevel\tnative_event_id\tdetail\t"
                          "process_ordinal\n";
-        history << "incident_key\tchanged_utc_ms\tcategory\tuser_feedback\torigin\n";
+        history << "incident_key\tchanged_utc_ms\tcategory\tuser_"
+                   "feedback\torigin\n";
         incidents << std::setprecision(17);
         systems << std::setprecision(17);
         processes << std::setprecision(17);
@@ -224,9 +257,10 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
         IncidentDatasetStatistics statistics{};
         std::size_t offset = 0U;
         while (true) {
-            auto page = archive.list_page(IncidentListQuery{
-                .offset = offset, .limit = maximum_incident_page_size,
-                .sort = IncidentListSort::oldest_first});
+            auto page =
+                archive.list_page(IncidentListQuery{.offset = offset,
+                                                    .limit = maximum_incident_page_size,
+                                                    .sort = IncidentListSort::oldest_first});
             if (!page) return std::unexpected{page.error()};
             for (const auto& summary : page->incidents) {
                 auto snapshot = archive.load(summary.id);
@@ -251,60 +285,99 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
                 std::size_t index = 0U;
                 for (const auto& sample : (*snapshot)->system_samples()) {
                     systems << key << '\t' << index++ << '\t'
-                            << relative_nanoseconds(sample.observed_at,
-                                                    header.window.event_time) << '\t';
-                    write_recorded(systems, sample.cpu_fraction); systems << '\t';
-                    write_recorded(systems, sample.memory_used_bytes); systems << '\t';
-                    write_recorded(systems, sample.memory_total_bytes); systems << '\t';
-                    write_recorded(systems, sample.memory_fraction); systems << '\t';
-                    write_recorded(systems, sample.disk_read_bytes_per_second); systems << '\t';
-                    write_recorded(systems, sample.disk_write_bytes_per_second); systems << '\t';
-                    write_recorded(systems, sample.network_receive_bytes_per_second); systems << '\t';
+                            << relative_nanoseconds(sample.observed_at, header.window.event_time)
+                            << '\t';
+                    write_recorded(systems, sample.cpu_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_used_bytes);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_total_bytes);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_read_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_write_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_receive_bytes_per_second);
+                    systems << '\t';
                     write_recorded(systems, sample.network_transmit_bytes_per_second);
-                    systems << '\t'; write_recorded(systems, sample.disk_read_latency_seconds);
-                    systems << '\t'; write_recorded(systems, sample.disk_write_latency_seconds);
-                    systems << '\t'; write_recorded(systems, sample.disk_service_time_seconds);
-                    systems << '\t'; write_recorded(systems, sample.disk_queue_depth);
-                    systems << '\t'; write_recorded(systems, sample.disk_worst_device_id);
-                    systems << '\t'; write_recorded_byte(
-                        systems, sample.network_connectivity_level);
-                    systems << '\t'; write_recorded(
-                        systems, sample.network_active_interfaces);
-                    systems << '\t'; write_recorded(
-                        systems, sample.network_interface_changes);
-                    systems << '\t'; write_recorded(
-                        systems, sample.network_tcp_retransmit_fraction);
-                    systems << '\t'; write_recorded(
-                        systems, sample.network_tcp_failed_connections);
-                    systems << '\t'; write_recorded(systems, sample.network_tcp_resets);
-                    systems << '\t'; write_recorded(systems, sample.gpu_fraction);
-                    systems << '\t'; write_recorded(systems, sample.gpu_dedicated_memory_bytes);
-                    systems << '\t'; write_recorded(systems, sample.gpu_shared_memory_bytes);
-                    systems << '\t'; write_recorded(systems, sample.foreground_gpu_fraction);
-                    systems << '\t'; write_recorded(systems, sample.dpc_fraction);
-                    systems << '\t'; write_recorded(systems, sample.interrupt_fraction);
-                    systems << '\t'; write_recorded(systems, sample.dpc_rate);
-                    systems << '\t'; write_recorded(systems, sample.cpu_current_mhz);
-                    systems << '\t'; write_recorded(systems, sample.cpu_max_mhz);
-                    systems << '\t'; write_recorded(systems, sample.cpu_thermal_limit_mhz);
-                    systems << '\t'; write_recorded(systems, sample.cpu_thermal_limit_fraction);
-                    systems << '\t'; write_recorded_byte(systems, sample.power_source);
-                    systems << '\t'; write_recorded(systems, sample.battery_fraction);
-                    systems << '\t'; write_recorded(systems, sample.battery_saver);
-                    systems << '\t'; write_recorded(systems, sample.system_uptime_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_read_latency_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_write_latency_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_service_time_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_queue_depth);
+                    systems << '\t';
+                    write_recorded(systems, sample.disk_worst_device_id);
+                    systems << '\t';
+                    write_recorded_byte(systems, sample.network_connectivity_level);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_active_interfaces);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_interface_changes);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_tcp_retransmit_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_tcp_failed_connections);
+                    systems << '\t';
+                    write_recorded(systems, sample.network_tcp_resets);
+                    systems << '\t';
+                    write_recorded(systems, sample.gpu_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.gpu_dedicated_memory_bytes);
+                    systems << '\t';
+                    write_recorded(systems, sample.gpu_shared_memory_bytes);
+                    systems << '\t';
+                    write_recorded(systems, sample.foreground_gpu_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.dpc_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.interrupt_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.dpc_rate);
+                    systems << '\t';
+                    write_recorded(systems, sample.cpu_current_mhz);
+                    systems << '\t';
+                    write_recorded(systems, sample.cpu_max_mhz);
+                    systems << '\t';
+                    write_recorded(systems, sample.cpu_thermal_limit_mhz);
+                    systems << '\t';
+                    write_recorded(systems, sample.cpu_thermal_limit_fraction);
+                    systems << '\t';
+                    write_recorded_byte(systems, sample.power_source);
+                    systems << '\t';
+                    write_recorded(systems, sample.battery_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.battery_saver);
+                    systems << '\t';
+                    write_recorded(systems, sample.system_uptime_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.cpu_some_pressure_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_some_pressure_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_full_pressure_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.io_some_pressure_fraction);
+                    systems << '\t';
+                    write_recorded(systems, sample.io_full_pressure_fraction);
+                    systems << '\t';
+                    write_recorded_byte(systems, sample.thermal_pressure_state);
                     systems << '\n';
                     ++statistics.system_samples;
                 }
                 std::map<core::IncidentProcessIdentity, std::size_t> ordinal_by_identity;
                 for (const auto& sample : (*snapshot)->process_samples()) {
-                    ordinal_by_identity.emplace(sample.identity,
-                                                ordinal_by_identity.size());
+                    ordinal_by_identity.emplace(sample.identity, ordinal_by_identity.size());
                 }
                 for (const auto& event : (*snapshot)->system_events()) {
                     if (event.has_process_identity) {
                         ordinal_by_identity.emplace(
-                            core::IncidentProcessIdentity{
-                                event.process_pid, event.process_creation_token},
+                            core::IncidentProcessIdentity{event.process_pid,
+                                                          event.process_creation_token},
                             ordinal_by_identity.size());
                     }
                 }
@@ -312,13 +385,13 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
                 for (const auto& event : (*snapshot)->system_events()) {
                     system_events << key << '\t' << index++ << '\t'
                                   << relative_nanoseconds(event.observed_at,
-                                                          header.window.event_time) << '\t'
-                                  << static_cast<int>(event.has_source_utc_time) << '\t'
+                                                          header.window.event_time)
+                                  << '\t' << static_cast<int>(event.has_source_utc_time) << '\t'
                                   << event.source_utc_milliseconds << '\t'
                                   << static_cast<int>(event.source) << '\t'
                                   << static_cast<int>(event.kind) << '\t'
-                                  << static_cast<int>(event.level) << '\t'
-                                  << event.native_event_id << '\t' << event.detail << '\t';
+                                  << static_cast<int>(event.level) << '\t' << event.native_event_id
+                                  << '\t' << event.detail << '\t';
                     if (event.has_process_identity) {
                         const auto found = ordinal_by_identity.find(
                             {event.process_pid, event.process_creation_token});
@@ -331,15 +404,16 @@ std::expected<IncidentDatasetStatistics, StorageError> export_incident_dataset(
                 }
                 index = 0U;
                 for (const auto& sample : (*snapshot)->process_samples()) {
-                    const auto [found, inserted] = ordinal_by_identity.emplace(
-                        sample.identity, ordinal_by_identity.size());
+                    const auto [found, inserted] =
+                        ordinal_by_identity.emplace(sample.identity, ordinal_by_identity.size());
                     static_cast<void>(inserted);
                     processes << key << '\t' << index++ << '\t'
-                              << relative_nanoseconds(sample.observed_at,
-                                                      header.window.event_time) << '\t'
-                              << found->second << '\t';
-                    write_recorded(processes, sample.cpu_fraction); processes << '\t';
-                    write_recorded(processes, sample.working_set_bytes); processes << '\t';
+                              << relative_nanoseconds(sample.observed_at, header.window.event_time)
+                              << '\t' << found->second << '\t';
+                    write_recorded(processes, sample.cpu_fraction);
+                    processes << '\t';
+                    write_recorded(processes, sample.working_set_bytes);
+                    processes << '\t';
                     write_recorded(processes, sample.disk_read_bytes_per_second);
                     processes << '\t';
                     write_recorded(processes, sample.disk_write_bytes_per_second);
@@ -380,8 +454,7 @@ import_incident_dataset_classifications(SqliteIncidentArchive& archive,
             return std::unexpected{dataset_error("dataset manifest or incidents file missing")};
         }
         const std::string manifest_text{std::istreambuf_iterator<char>{manifest}, {}};
-        if (manifest_text.find("\"format\":\"blackbox-offline-dataset\"") ==
-                std::string::npos ||
+        if (manifest_text.find("\"format\":\"blackbox-offline-dataset\"") == std::string::npos ||
             manifest_text.find("\"version\":1") == std::string::npos) {
             return std::unexpected{dataset_error("unsupported incident dataset version")};
         }
@@ -392,9 +465,11 @@ import_incident_dataset_classifications(SqliteIncidentArchive& archive,
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const auto version_one_header =
             "incident_key\tcreated_utc_ms\tcategory\tuser_feedback\t"
-                    "manual_trigger_count\tautomatic_trigger_count\tautomatic_resource\t"
-                    "automatic_signal\tautomatic_score\tsystem_sample_count\tprocess_sample_count\t"
-                    "system_event_count";
+            "manual_trigger_count\tautomatic_trigger_count\tautomatic_"
+            "resource\t"
+            "automatic_signal\tautomatic_score\tsystem_sample_count\tprocess_"
+            "sample_count\t"
+            "system_event_count";
         if (line != version_one_header) {
             return std::unexpected{dataset_error("invalid incident dataset header")};
         }
@@ -418,8 +493,8 @@ import_incident_dataset_classifications(SqliteIncidentArchive& archive,
             auto annotation = archive.annotation(**incident_id);
             if (!annotation) return std::unexpected{annotation.error()};
             ++statistics.incidents;
-            if (annotation->category == *category &&
-                annotation->user_feedback == *feedback) continue;
+            if (annotation->category == *category && annotation->user_feedback == *feedback)
+                continue;
             annotation->category = *category;
             annotation->user_feedback = *feedback;
             auto updated = archive.update_annotation_with_origin(

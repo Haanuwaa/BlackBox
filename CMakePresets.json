@@ -15,7 +15,8 @@
       "cacheVariables": {
         "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "BLACKBOX_BUILD_TESTS": "ON"
+        "BLACKBOX_BUILD_TESTS": "ON",
+        "BLACKBOX_SOURCE_REVISION": "auto"
       }
     },
     {

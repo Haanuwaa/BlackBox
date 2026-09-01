@@ -1,18 +1,19 @@
 #include "telemetry/normalizer.hpp"
 
+#include <algorithm>
+
 namespace blackbox::telemetry {
 namespace {
 
 template <typename T>
-[[nodiscard]] constexpr MetricValue<T> propagated_unavailable(
-    const MetricStatus status) noexcept {
+[[nodiscard]] constexpr MetricValue<T> propagated_unavailable(const MetricStatus status) noexcept {
     return MetricValue<T>::unavailable(status);
 }
 
 template <typename Current, typename Output>
-[[nodiscard]] constexpr MetricValue<Output> current_status_or_temporary(
-    const MetricValue<Current>& previous,
-    const MetricValue<Current>& current) noexcept {
+[[nodiscard]] constexpr MetricValue<Output>
+current_status_or_temporary(const MetricValue<Current>& previous,
+                            const MetricValue<Current>& current) noexcept {
     if (!current.has_value()) {
         return propagated_unavailable<Output>(current.status);
     }
@@ -23,39 +24,36 @@ template <typename Current, typename Output>
 }
 
 template <typename Current, typename Output>
-[[nodiscard]] constexpr MetricValue<Output> initial_cumulative_status(
-    const MetricValue<Current>& current) noexcept {
+[[nodiscard]] constexpr MetricValue<Output>
+initial_cumulative_status(const MetricValue<Current>& current) noexcept {
     if (!current.has_value()) {
         return propagated_unavailable<Output>(current.status);
     }
     return propagated_unavailable<Output>(MetricStatus::temporarily_unavailable);
 }
 
-[[nodiscard]] constexpr MetricStatus combined_current_status(
-    const MetricStatus first,
-    const MetricStatus second) noexcept {
+[[nodiscard]] constexpr MetricStatus combined_current_status(const MetricStatus first,
+                                                             const MetricStatus second) noexcept {
     if (first != MetricStatus::available) {
         return first;
     }
     return second;
 }
 
-[[nodiscard]] constexpr bool valid_elapsed(
-    const std::chrono::steady_clock::duration elapsed) noexcept {
+[[nodiscard]] constexpr bool
+valid_elapsed(const std::chrono::steady_clock::duration elapsed) noexcept {
     return elapsed > std::chrono::steady_clock::duration::zero();
 }
 
 } // namespace
 
-MetricValue<Ratio> normalize_cpu_usage(
-    const MetricValue<CpuTimeCounters>& previous,
-    const MetricValue<CpuTimeCounters>& current,
-    const std::chrono::steady_clock::duration elapsed) noexcept {
+MetricValue<Ratio> normalize_cpu_usage(const MetricValue<CpuTimeCounters>& previous,
+                                       const MetricValue<CpuTimeCounters>& current,
+                                       const std::chrono::steady_clock::duration elapsed) noexcept {
     if (!current.has_value() || !previous.has_value()) {
         return current_status_or_temporary<CpuTimeCounters, Ratio>(previous, current);
     }
-    if (!valid_elapsed(elapsed) ||
-        current.value.busy_ticks < previous.value.busy_ticks ||
+    if (!valid_elapsed(elapsed) || current.value.busy_ticks < previous.value.busy_ticks ||
         current.value.total_ticks < previous.value.total_ticks) {
         return MetricValue<Ratio>::unavailable(MetricStatus::temporarily_unavailable);
     }
@@ -70,10 +68,9 @@ MetricValue<Ratio> normalize_cpu_usage(
         Ratio{static_cast<double>(busy_delta) / static_cast<double>(total_delta)});
 }
 
-MetricValue<BytesPerSecond> normalize_byte_rate(
-    const MetricValue<ByteCount>& previous,
-    const MetricValue<ByteCount>& current,
-    const std::chrono::steady_clock::duration elapsed) noexcept {
+MetricValue<BytesPerSecond>
+normalize_byte_rate(const MetricValue<ByteCount>& previous, const MetricValue<ByteCount>& current,
+                    const std::chrono::steady_clock::duration elapsed) noexcept {
     if (!current.has_value() || !previous.has_value()) {
         return current_status_or_temporary<ByteCount, BytesPerSecond>(previous, current);
     }
@@ -87,30 +84,28 @@ MetricValue<BytesPerSecond> normalize_byte_rate(
         BytesPerSecond{static_cast<double>(delta) / seconds.count()});
 }
 
-MetricValue<std::uint64_t> normalize_counter_delta(
-    const MetricValue<std::uint64_t>& previous,
-    const MetricValue<std::uint64_t>& current) noexcept {
+MetricValue<std::uint64_t>
+normalize_counter_delta(const MetricValue<std::uint64_t>& previous,
+                        const MetricValue<std::uint64_t>& current) noexcept {
     if (!current.has_value() || !previous.has_value()) {
         return current_status_or_temporary<std::uint64_t, std::uint64_t>(previous, current);
     }
     if (current.value < previous.value) {
-        return MetricValue<std::uint64_t>::unavailable(
-            MetricStatus::temporarily_unavailable);
+        return MetricValue<std::uint64_t>::unavailable(MetricStatus::temporarily_unavailable);
     }
     return MetricValue<std::uint64_t>::available(current.value - previous.value);
 }
 
 MetricValue<Ratio> normalize_tcp_retransmit_fraction(
-    const MetricValue<std::uint64_t>& previous_out,
-    const MetricValue<std::uint64_t>& current_out,
+    const MetricValue<std::uint64_t>& previous_out, const MetricValue<std::uint64_t>& current_out,
     const MetricValue<std::uint64_t>& previous_retransmitted,
     const MetricValue<std::uint64_t>& current_retransmitted) noexcept {
     const auto out = normalize_counter_delta(previous_out, current_out);
     if (!out.has_value()) {
         return MetricValue<Ratio>::unavailable(out.status);
     }
-    const auto retransmitted = normalize_counter_delta(
-        previous_retransmitted, current_retransmitted);
+    const auto retransmitted =
+        normalize_counter_delta(previous_retransmitted, current_retransmitted);
     if (!retransmitted.has_value()) {
         return MetricValue<Ratio>::unavailable(retransmitted.status);
     }
@@ -119,16 +114,35 @@ MetricValue<Ratio> normalize_tcp_retransmit_fraction(
         return MetricValue<Ratio>::available(Ratio{});
     }
     if (total < minimum_tcp_segments_for_retransmit_fraction) {
-        return MetricValue<Ratio>::unavailable(
-            MetricStatus::temporarily_unavailable);
+        return MetricValue<Ratio>::unavailable(MetricStatus::temporarily_unavailable);
     }
-    return MetricValue<Ratio>::available(Ratio{
-        static_cast<double>(retransmitted.value) / static_cast<double>(total)});
+    return MetricValue<Ratio>::available(
+        Ratio{static_cast<double>(retransmitted.value) / static_cast<double>(total)});
 }
 
-MetricValue<ByteCount> normalize_memory_used(
-    const MetricValue<ByteCount>& total,
-    const MetricValue<ByteCount>& available) noexcept {
+MetricValue<Ratio>
+normalize_stall_fraction(const MetricValue<std::uint64_t>& previous_microseconds,
+                         const MetricValue<std::uint64_t>& current_microseconds,
+                         const std::chrono::steady_clock::duration elapsed) noexcept {
+    if (!current_microseconds.has_value() || !previous_microseconds.has_value()) {
+        return current_status_or_temporary<std::uint64_t, Ratio>(previous_microseconds,
+                                                                 current_microseconds);
+    }
+    if (!valid_elapsed(elapsed) || current_microseconds.value < previous_microseconds.value) {
+        return MetricValue<Ratio>::unavailable(MetricStatus::temporarily_unavailable);
+    }
+    const std::chrono::duration<double, std::micro> elapsed_microseconds{elapsed};
+    const auto delta = current_microseconds.value - previous_microseconds.value;
+    const auto fraction = static_cast<double>(delta) / elapsed_microseconds.count();
+    constexpr double tolerance = 1.0e-6;
+    if (fraction < 0.0 || fraction > 1.0 + tolerance) {
+        return MetricValue<Ratio>::unavailable(MetricStatus::temporarily_unavailable);
+    }
+    return MetricValue<Ratio>::available(Ratio{std::min(fraction, 1.0)});
+}
+
+MetricValue<ByteCount> normalize_memory_used(const MetricValue<ByteCount>& total,
+                                             const MetricValue<ByteCount>& available) noexcept {
     const auto status = combined_current_status(total.status, available.status);
     if (status != MetricStatus::available) {
         return MetricValue<ByteCount>::unavailable(status);
@@ -139,9 +153,8 @@ MetricValue<ByteCount> normalize_memory_used(
     return MetricValue<ByteCount>::available(ByteCount{total.value.value - available.value.value});
 }
 
-MetricValue<Ratio> normalize_memory_usage(
-    const MetricValue<ByteCount>& total,
-    const MetricValue<ByteCount>& available) noexcept {
+MetricValue<Ratio> normalize_memory_usage(const MetricValue<ByteCount>& total,
+                                          const MetricValue<ByteCount>& available) noexcept {
     const auto used = normalize_memory_used(total, available);
     if (!used.has_value()) {
         return MetricValue<Ratio>::unavailable(used.status);
@@ -157,10 +170,10 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     SystemSample result{};
     result.observed_at = raw.observed_at;
     result.memory_total = raw.system.memory_total;
-    result.memory_used = normalize_memory_used(raw.system.memory_total,
-                                               raw.system.memory_available);
-    result.memory_usage = normalize_memory_usage(raw.system.memory_total,
-                                                 raw.system.memory_available);
+    result.memory_used =
+        normalize_memory_used(raw.system.memory_total, raw.system.memory_available);
+    result.memory_usage =
+        normalize_memory_usage(raw.system.memory_total, raw.system.memory_available);
     result.disk_read_latency = raw.system.disk_quality.read_latency;
     result.disk_write_latency = raw.system.disk_quality.write_latency;
     result.disk_service_time = raw.system.disk_quality.service_time;
@@ -184,71 +197,95 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.battery_fraction = raw.system.battery_fraction;
     result.battery_saver = raw.system.battery_saver;
     result.system_uptime = raw.system.system_uptime;
+    result.thermal_pressure_state = raw.system.thermal_pressure_state;
 
     if (!previous_) {
         result.cpu_usage = initial_cumulative_status<CpuTimeCounters, Ratio>(raw.system.cpu_time);
-        result.disk_read_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
-            raw.system.disk_read_bytes);
-        result.disk_write_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
-            raw.system.disk_write_bytes);
-        result.network_receive_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
-            raw.system.network_receive_bytes);
-        result.network_transmit_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
-            raw.system.network_transmit_bytes);
-        result.network_interface_changes =
-            initial_cumulative_status<std::uint64_t, std::uint64_t>(
-                raw.system.network_quality.interface_change_counter);
+        result.disk_read_rate =
+            initial_cumulative_status<ByteCount, BytesPerSecond>(raw.system.disk_read_bytes);
+        result.disk_write_rate =
+            initial_cumulative_status<ByteCount, BytesPerSecond>(raw.system.disk_write_bytes);
+        result.network_receive_rate =
+            initial_cumulative_status<ByteCount, BytesPerSecond>(raw.system.network_receive_bytes);
+        result.network_transmit_rate =
+            initial_cumulative_status<ByteCount, BytesPerSecond>(raw.system.network_transmit_bytes);
+        result.network_interface_changes = initial_cumulative_status<std::uint64_t, std::uint64_t>(
+            raw.system.network_quality.interface_change_counter);
         result.network_tcp_retransmit_fraction = MetricValue<Ratio>::unavailable(
             raw.system.network_quality.tcp_out_segments.has_value() &&
                     raw.system.network_quality.tcp_retransmitted_segments.has_value()
                 ? MetricStatus::temporarily_unavailable
-                : !raw.system.network_quality.tcp_out_segments.has_value()
-                      ? raw.system.network_quality.tcp_out_segments.status
-                      : raw.system.network_quality.tcp_retransmitted_segments.status);
+            : !raw.system.network_quality.tcp_out_segments.has_value()
+                ? raw.system.network_quality.tcp_out_segments.status
+                : raw.system.network_quality.tcp_retransmitted_segments.status);
         result.network_tcp_failed_connections =
             initial_cumulative_status<std::uint64_t, std::uint64_t>(
                 raw.system.network_quality.tcp_failed_connections);
-        result.network_tcp_resets =
-            initial_cumulative_status<std::uint64_t, std::uint64_t>(
-                raw.system.network_quality.tcp_established_resets);
+        result.network_tcp_resets = initial_cumulative_status<std::uint64_t, std::uint64_t>(
+            raw.system.network_quality.tcp_established_resets);
+        result.cpu_some_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
+            raw.system.pressure.cpu_some_microseconds);
+        result.memory_some_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
+            raw.system.pressure.memory_some_microseconds);
+        result.memory_full_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
+            raw.system.pressure.memory_full_microseconds);
+        result.io_some_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
+            raw.system.pressure.io_some_microseconds);
+        result.io_full_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
+            raw.system.pressure.io_full_microseconds);
         previous_ = PreviousObservation{raw.observed_at, raw.system};
         return result;
     }
 
     const auto elapsed = raw.observed_at - previous_->observed_at;
-    result.cpu_usage = normalize_cpu_usage(previous_->system.cpu_time, raw.system.cpu_time, elapsed);
-    result.disk_read_rate = normalize_byte_rate(previous_->system.disk_read_bytes,
-                                                raw.system.disk_read_bytes, elapsed);
+    result.cpu_usage =
+        normalize_cpu_usage(previous_->system.cpu_time, raw.system.cpu_time, elapsed);
+    result.disk_read_rate =
+        normalize_byte_rate(previous_->system.disk_read_bytes, raw.system.disk_read_bytes, elapsed);
     result.disk_write_rate = normalize_byte_rate(previous_->system.disk_write_bytes,
                                                  raw.system.disk_write_bytes, elapsed);
     result.network_receive_rate = normalize_byte_rate(previous_->system.network_receive_bytes,
                                                       raw.system.network_receive_bytes, elapsed);
     result.network_transmit_rate = normalize_byte_rate(previous_->system.network_transmit_bytes,
                                                        raw.system.network_transmit_bytes, elapsed);
-    result.network_interface_changes = normalize_counter_delta(
-        previous_->system.network_quality.interface_change_counter,
-        raw.system.network_quality.interface_change_counter);
+    result.network_interface_changes =
+        normalize_counter_delta(previous_->system.network_quality.interface_change_counter,
+                                raw.system.network_quality.interface_change_counter);
     result.network_tcp_retransmit_fraction = normalize_tcp_retransmit_fraction(
         previous_->system.network_quality.tcp_out_segments,
         raw.system.network_quality.tcp_out_segments,
         previous_->system.network_quality.tcp_retransmitted_segments,
         raw.system.network_quality.tcp_retransmitted_segments);
-    result.network_tcp_failed_connections = normalize_counter_delta(
-        previous_->system.network_quality.tcp_failed_connections,
-        raw.system.network_quality.tcp_failed_connections);
-    result.network_tcp_resets = normalize_counter_delta(
-        previous_->system.network_quality.tcp_established_resets,
-        raw.system.network_quality.tcp_established_resets);
+    result.network_tcp_failed_connections =
+        normalize_counter_delta(previous_->system.network_quality.tcp_failed_connections,
+                                raw.system.network_quality.tcp_failed_connections);
+    result.network_tcp_resets =
+        normalize_counter_delta(previous_->system.network_quality.tcp_established_resets,
+                                raw.system.network_quality.tcp_established_resets);
+    result.cpu_some_pressure =
+        normalize_stall_fraction(previous_->system.pressure.cpu_some_microseconds,
+                                 raw.system.pressure.cpu_some_microseconds, elapsed);
+    result.memory_some_pressure =
+        normalize_stall_fraction(previous_->system.pressure.memory_some_microseconds,
+                                 raw.system.pressure.memory_some_microseconds, elapsed);
+    result.memory_full_pressure =
+        normalize_stall_fraction(previous_->system.pressure.memory_full_microseconds,
+                                 raw.system.pressure.memory_full_microseconds, elapsed);
+    result.io_some_pressure =
+        normalize_stall_fraction(previous_->system.pressure.io_some_microseconds,
+                                 raw.system.pressure.io_some_microseconds, elapsed);
+    result.io_full_pressure =
+        normalize_stall_fraction(previous_->system.pressure.io_full_microseconds,
+                                 raw.system.pressure.io_full_microseconds, elapsed);
 
-    // A non-monotonic sample is observable but cannot become the next delta baseline.
+    // A non-monotonic sample is observable but cannot become the next delta
+    // baseline.
     if (valid_elapsed(elapsed)) {
         previous_ = PreviousObservation{raw.observed_at, raw.system};
     }
     return result;
 }
 
-void SystemTelemetryNormalizer::reset() noexcept {
-    previous_.reset();
-}
+void SystemTelemetryNormalizer::reset() noexcept { previous_.reset(); }
 
 } // namespace blackbox::telemetry

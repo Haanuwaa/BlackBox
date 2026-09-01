@@ -1,8 +1,8 @@
 #include "ui/incident_viewer.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -83,8 +83,8 @@ void downsample(IncidentPlotSeries& series, const std::size_t maximum_points) {
 
 template <typename Sample, typename Value, typename Convert>
 void append_metric(IncidentPlotSeries& series, const Sample& sample,
-                   const core::RecordedValue<Value>& value,
-                   const core::MonotonicTimePoint event, Convert convert) {
+                   const core::RecordedValue<Value>& value, const core::MonotonicTimePoint event,
+                   Convert convert) {
     count_status(series.availability, value.status);
     if (value.status == core::RecordedValueStatus::available) {
         series.seconds_from_event.push_back(seconds_from(sample.observed_at, event));
@@ -93,63 +93,97 @@ void append_metric(IncidentPlotSeries& series, const Sample& sample,
 }
 
 [[nodiscard]] std::string lower(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](const unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](const unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     return value;
 }
 
 struct IdentityHash {
-    [[nodiscard]] std::size_t operator()(
-        const core::IncidentProcessIdentity identity) const noexcept {
-        return std::hash<std::uint64_t>{}(
-            (static_cast<std::uint64_t>(identity.pid) << 32U) ^ identity.creation_token);
+    [[nodiscard]] std::size_t
+    operator()(const core::IncidentProcessIdentity identity) const noexcept {
+        return std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(identity.pid) << 32U) ^
+                                          identity.creation_token);
     }
 };
 
 [[nodiscard]] const char* event_source_text(const core::SystemEventSource source) noexcept {
     switch (source) {
-    case core::SystemEventSource::power: return "Power";
-    case core::SystemEventSource::device: return "Device";
-    case core::SystemEventSource::audio: return "Audio";
-    case core::SystemEventSource::service_control_manager: return "Service Control Manager";
-    case core::SystemEventSource::defender: return "Microsoft Defender";
-    case core::SystemEventSource::windows_update: return "Windows Update";
-    case core::SystemEventSource::application: return "Application";
-    case core::SystemEventSource::network: return "Network";
-    case core::SystemEventSource::graphics: return "Graphics";
-    case core::SystemEventSource::storage: return "Storage";
-    case core::SystemEventSource::process: return "Process";
+    case core::SystemEventSource::power:
+        return "Power";
+    case core::SystemEventSource::device:
+        return "Device";
+    case core::SystemEventSource::audio:
+        return "Audio";
+    case core::SystemEventSource::service_manager:
+        return "Service manager";
+    case core::SystemEventSource::security:
+        return "Security provider";
+    case core::SystemEventSource::update:
+        return "Update provider";
+    case core::SystemEventSource::application:
+        return "Application";
+    case core::SystemEventSource::network:
+        return "Network";
+    case core::SystemEventSource::graphics:
+        return "Graphics";
+    case core::SystemEventSource::storage:
+        return "Storage";
+    case core::SystemEventSource::process:
+        return "Process";
     }
     return "Unknown";
 }
 
 [[nodiscard]] const char* event_kind_text(const core::SystemEventKind kind) noexcept {
     switch (kind) {
-    case core::SystemEventKind::suspend: return "System suspended";
-    case core::SystemEventKind::resume_automatic: return "System resumed automatically";
-    case core::SystemEventKind::resume_user: return "System resumed for user";
-    case core::SystemEventKind::device_enumerated: return "Device enumerated";
-    case core::SystemEventKind::device_started: return "Device started";
-    case core::SystemEventKind::device_removed: return "Device removed";
-    case core::SystemEventKind::audio_endpoint_added: return "Audio endpoint added";
-    case core::SystemEventKind::audio_endpoint_removed: return "Audio endpoint removed";
-    case core::SystemEventKind::audio_endpoint_state_changed: return "Audio endpoint state changed";
-    case core::SystemEventKind::audio_default_changed: return "Default audio endpoint changed";
-    case core::SystemEventKind::service_state_changed: return "Service state changed";
-    case core::SystemEventKind::service_unexpected_stop: return "Service stopped unexpectedly";
-    case core::SystemEventKind::defender_scan_started: return "Defender scan started";
-    case core::SystemEventKind::defender_scan_completed: return "Defender scan completed";
-    case core::SystemEventKind::defender_threat_detected: return "Defender threat detected";
-    case core::SystemEventKind::defender_action: return "Defender action";
-    case core::SystemEventKind::defender_configuration_changed: return "Defender configuration changed";
-    case core::SystemEventKind::update_activity_started: return "Update activity started";
-    case core::SystemEventKind::update_succeeded: return "Update succeeded";
-    case core::SystemEventKind::update_failed: return "Update failed";
-    case core::SystemEventKind::application_started: return "Application started";
-    case core::SystemEventKind::application_terminated: return "Application terminated";
-    case core::SystemEventKind::application_crash: return "Application crash reported";
-    case core::SystemEventKind::application_hang: return "Application hang reported";
+    case core::SystemEventKind::suspend:
+        return "System suspended";
+    case core::SystemEventKind::resume_automatic:
+        return "System resumed automatically";
+    case core::SystemEventKind::resume_user:
+        return "System resumed for user";
+    case core::SystemEventKind::device_enumerated:
+        return "Device enumerated";
+    case core::SystemEventKind::device_started:
+        return "Device started";
+    case core::SystemEventKind::device_removed:
+        return "Device removed";
+    case core::SystemEventKind::audio_endpoint_added:
+        return "Audio endpoint added";
+    case core::SystemEventKind::audio_endpoint_removed:
+        return "Audio endpoint removed";
+    case core::SystemEventKind::audio_endpoint_state_changed:
+        return "Audio endpoint state changed";
+    case core::SystemEventKind::audio_default_changed:
+        return "Default audio endpoint changed";
+    case core::SystemEventKind::service_state_changed:
+        return "Service state changed";
+    case core::SystemEventKind::service_unexpected_stop:
+        return "Service stopped unexpectedly";
+    case core::SystemEventKind::security_scan_started:
+        return "Security scan started";
+    case core::SystemEventKind::security_scan_completed:
+        return "Security scan completed";
+    case core::SystemEventKind::security_threat_detected:
+        return "Security threat detected";
+    case core::SystemEventKind::security_action:
+        return "Security action";
+    case core::SystemEventKind::security_configuration_changed:
+        return "Security configuration changed";
+    case core::SystemEventKind::update_activity_started:
+        return "Update activity started";
+    case core::SystemEventKind::update_succeeded:
+        return "Update succeeded";
+    case core::SystemEventKind::update_failed:
+        return "Update failed";
+    case core::SystemEventKind::application_started:
+        return "Application started";
+    case core::SystemEventKind::application_terminated:
+        return "Application terminated";
+    case core::SystemEventKind::application_crash:
+        return "Application crash reported";
+    case core::SystemEventKind::application_hang:
+        return "Application hang reported";
     case core::SystemEventKind::network_connectivity_changed:
         return "Network connectivity changed";
     case core::SystemEventKind::dns_resolution_timeout:
@@ -158,28 +192,35 @@ struct IdentityHash {
         return "Display configuration changed";
     case core::SystemEventKind::display_driver_recovery:
         return "Display timeout recovery reported";
-    case core::SystemEventKind::storage_device_added: return "Storage device added";
-    case core::SystemEventKind::storage_device_removed: return "Storage device removed";
+    case core::SystemEventKind::storage_device_added:
+        return "Storage device added";
+    case core::SystemEventKind::storage_device_removed:
+        return "Storage device removed";
     case core::SystemEventKind::storage_io_retry:
         return "Storage I/O retry reported";
-    case core::SystemEventKind::process_started: return "Process started";
-    case core::SystemEventKind::process_exited: return "Process exited";
+    case core::SystemEventKind::process_started:
+        return "Process started";
+    case core::SystemEventKind::process_exited:
+        return "Process exited";
     }
     return "Unknown event";
 }
 
 [[nodiscard]] const char* event_level_text(const core::SystemEventLevel level) noexcept {
     switch (level) {
-    case core::SystemEventLevel::informational: return "Info";
-    case core::SystemEventLevel::warning: return "Warning";
-    case core::SystemEventLevel::error: return "Error";
+    case core::SystemEventLevel::informational:
+        return "Info";
+    case core::SystemEventLevel::warning:
+        return "Warning";
+    case core::SystemEventLevel::error:
+        return "Error";
     }
     return "Unknown";
 }
 
 template <typename Value>
-void update_peak(bool& available, double& peak,
-                 const core::RecordedValue<Value>& value, const double multiplier) {
+void update_peak(bool& available, double& peak, const core::RecordedValue<Value>& value,
+                 const double multiplier) {
     if (value.status == core::RecordedValueStatus::available) {
         available = true;
         peak = std::max(peak, static_cast<double>(value.value) * multiplier);
@@ -201,19 +242,18 @@ std::string format_utc_milliseconds(const std::int64_t epoch_milliseconds) {
     char text[64]{};
     std::snprintf(text, sizeof(text), "%04d-%02u-%02u %02lld:%02lld:%02lld.%03lld UTC",
                   static_cast<int>(date.year()), static_cast<unsigned>(date.month()),
-                  static_cast<unsigned>(date.day()),
-                  static_cast<long long>(time.hours().count()),
+                  static_cast<unsigned>(date.day()), static_cast<long long>(time.hours().count()),
                   static_cast<long long>(time.minutes().count()),
                   static_cast<long long>(time.seconds().count()),
                   static_cast<long long>(time.subseconds().count()));
     return text;
 }
 
-IncidentDetailView build_incident_detail(
-    const std::int64_t id, const std::int64_t created_utc_milliseconds,
-    std::string label, std::string note, const core::IncidentSnapshot& incident,
-    const std::optional<core::IncidentProcessIdentity> selected_process,
-    const std::size_t maximum_plot_points) {
+IncidentDetailView
+build_incident_detail(const std::int64_t id, const std::int64_t created_utc_milliseconds,
+                      std::string label, std::string note, const core::IncidentSnapshot& incident,
+                      const std::optional<core::IncidentProcessIdentity> selected_process,
+                      const std::size_t maximum_plot_points) {
     IncidentDetailView result{};
     result.id = id;
     result.created_utc = format_utc_milliseconds(created_utc_milliseconds);
@@ -242,12 +282,10 @@ IncidentDetailView build_incident_detail(
                       [](const double value) { return value * 100.0; });
         append_metric(result.memory_percent, sample, sample.memory_fraction, event,
                       [](const double value) { return value * 100.0; });
-        append_metric(result.disk_read_mib_per_second, sample,
-                      sample.disk_read_bytes_per_second, event,
-                      [](const double value) { return value / bytes_per_mebibyte; });
-        append_metric(result.disk_write_mib_per_second, sample,
-                      sample.disk_write_bytes_per_second, event,
-                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.disk_read_mib_per_second, sample, sample.disk_read_bytes_per_second,
+                      event, [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.disk_write_mib_per_second, sample, sample.disk_write_bytes_per_second,
+                      event, [](const double value) { return value / bytes_per_mebibyte; });
         append_metric(result.network_receive_mib_per_second, sample,
                       sample.network_receive_bytes_per_second, event,
                       [](const double value) { return value / bytes_per_mebibyte; });
@@ -265,42 +303,29 @@ IncidentDetailView build_incident_detail(
                       [](const double value) { return value * 1'000.0; });
         append_metric(result.disk_queue_depth, sample, sample.disk_queue_depth, event,
                       [](const double value) { return value; });
-        append_metric(result.network_connectivity_level, sample,
-                      sample.network_connectivity_level, event,
-                      [](const std::uint8_t value) {
-                          return static_cast<double>(value);
-                      });
-        append_metric(result.network_interface_changes, sample,
-                      sample.network_interface_changes, event,
-                      [](const std::uint64_t value) {
-                          return static_cast<double>(value);
-                      });
+        append_metric(result.network_connectivity_level, sample, sample.network_connectivity_level,
+                      event, [](const std::uint8_t value) { return static_cast<double>(value); });
+        append_metric(result.network_interface_changes, sample, sample.network_interface_changes,
+                      event, [](const std::uint64_t value) { return static_cast<double>(value); });
         append_metric(result.network_tcp_retransmit_percent, sample,
                       sample.network_tcp_retransmit_fraction, event,
                       [](const double value) { return value * 100.0; });
         append_metric(result.network_tcp_failed_connections, sample,
                       sample.network_tcp_failed_connections, event,
-                      [](const std::uint64_t value) {
-                          return static_cast<double>(value);
-                      });
-        append_metric(result.network_tcp_resets, sample, sample.network_tcp_resets,
-                      event, [](const std::uint64_t value) {
-                          return static_cast<double>(value);
-                      });
+                      [](const std::uint64_t value) { return static_cast<double>(value); });
+        append_metric(result.network_tcp_resets, sample, sample.network_tcp_resets, event,
+                      [](const std::uint64_t value) { return static_cast<double>(value); });
         append_metric(result.gpu_percent, sample, sample.gpu_fraction, event,
                       [](const double value) { return value * 100.0; });
-        append_metric(result.gpu_dedicated_memory_mib, sample,
-                      sample.gpu_dedicated_memory_bytes, event,
+        append_metric(result.gpu_dedicated_memory_mib, sample, sample.gpu_dedicated_memory_bytes,
+                      event, [](const std::uint64_t value) {
+                          return static_cast<double>(value) / bytes_per_mebibyte;
+                      });
+        append_metric(result.gpu_shared_memory_mib, sample, sample.gpu_shared_memory_bytes, event,
                       [](const std::uint64_t value) {
                           return static_cast<double>(value) / bytes_per_mebibyte;
                       });
-        append_metric(result.gpu_shared_memory_mib, sample,
-                      sample.gpu_shared_memory_bytes, event,
-                      [](const std::uint64_t value) {
-                          return static_cast<double>(value) / bytes_per_mebibyte;
-                      });
-        append_metric(result.foreground_gpu_percent, sample,
-                      sample.foreground_gpu_fraction, event,
+        append_metric(result.foreground_gpu_percent, sample, sample.foreground_gpu_fraction, event,
                       [](const double value) { return value * 100.0; });
         append_metric(result.dpc_percent, sample, sample.dpc_fraction, event,
                       [](const double value) { return value * 100.0; });
@@ -310,14 +335,26 @@ IncidentDetailView build_incident_detail(
                       [](const double value) { return value; });
         append_metric(result.cpu_current_mhz, sample, sample.cpu_current_mhz, event,
                       [](const double value) { return value; });
-        append_metric(result.cpu_thermal_limit_mhz, sample,
-                      sample.cpu_thermal_limit_mhz, event,
+        append_metric(result.cpu_thermal_limit_mhz, sample, sample.cpu_thermal_limit_mhz, event,
                       [](const double value) { return value; });
-        append_metric(result.cpu_thermal_limit_percent, sample,
-                      sample.cpu_thermal_limit_fraction, event,
-                      [](const double value) { return value * 100.0; });
+        append_metric(result.cpu_thermal_limit_percent, sample, sample.cpu_thermal_limit_fraction,
+                      event, [](const double value) { return value * 100.0; });
         append_metric(result.battery_percent, sample, sample.battery_fraction, event,
                       [](const double value) { return value * 100.0; });
+        append_metric(result.cpu_some_pressure_percent, sample, sample.cpu_some_pressure_fraction,
+                      event, [](const double value) { return value * 100.0; });
+        append_metric(result.memory_some_pressure_percent, sample,
+                      sample.memory_some_pressure_fraction, event,
+                      [](const double value) { return value * 100.0; });
+        append_metric(result.memory_full_pressure_percent, sample,
+                      sample.memory_full_pressure_fraction, event,
+                      [](const double value) { return value * 100.0; });
+        append_metric(result.io_some_pressure_percent, sample, sample.io_some_pressure_fraction,
+                      event, [](const double value) { return value * 100.0; });
+        append_metric(result.io_full_pressure_percent, sample, sample.io_full_pressure_fraction,
+                      event, [](const double value) { return value * 100.0; });
+        append_metric(result.thermal_pressure_state, sample, sample.thermal_pressure_state, event,
+                      [](const std::uint8_t value) { return static_cast<double>(value); });
     }
 
     std::unordered_map<core::IncidentProcessIdentity, std::size_t, IdentityHash> row_by_id;
@@ -347,18 +384,17 @@ IncidentDetailView build_incident_detail(
         auto& row = result.processes[found->second];
         ++row.sample_count;
         update_peak(row.cpu_available, row.peak_cpu_percent, sample.cpu_fraction, 100.0);
-        update_peak(row.working_set_available, row.peak_working_set_mib,
-                    sample.working_set_bytes, 1.0 / bytes_per_mebibyte);
+        update_peak(row.working_set_available, row.peak_working_set_mib, sample.working_set_bytes,
+                    1.0 / bytes_per_mebibyte);
         update_peak(row.disk_read_available, row.peak_disk_read_mib_per_second,
                     sample.disk_read_bytes_per_second, 1.0 / bytes_per_mebibyte);
         update_peak(row.disk_write_available, row.peak_disk_write_mib_per_second,
                     sample.disk_write_bytes_per_second, 1.0 / bytes_per_mebibyte);
         if (selected_process && sample.identity == *selected_process) {
-            append_metric(result.selected_process_cpu_percent, sample, sample.cpu_fraction,
-                          event, [](const double value) { return value * 100.0; });
-            append_metric(result.selected_process_working_set_mib, sample,
-                          sample.working_set_bytes, event,
-                          [](const std::uint64_t value) {
+            append_metric(result.selected_process_cpu_percent, sample, sample.cpu_fraction, event,
+                          [](const double value) { return value * 100.0; });
+            append_metric(result.selected_process_working_set_mib, sample, sample.working_set_bytes,
+                          event, [](const std::uint64_t value) {
                               return static_cast<double>(value) / bytes_per_mebibyte;
                           });
             append_metric(result.selected_process_disk_read_mib_per_second, sample,
@@ -385,8 +421,7 @@ IncidentDetailView build_incident_detail(
         row.name = found != row_by_id.end()
                        ? result.processes[found->second].name
                        : std::string{"PID "} + std::to_string(row.identity.pid);
-        if (sample.foreground_gpu_fraction.status ==
-            core::RecordedValueStatus::available) {
+        if (sample.foreground_gpu_fraction.status == core::RecordedValueStatus::available) {
             row.gpu_available = true;
             row.gpu_percent = sample.foreground_gpu_fraction.value * 100.0;
         }
@@ -396,25 +431,22 @@ IncidentDetailView build_incident_detail(
     for (const auto& recorded_event : incident.system_events()) {
         std::string description{event_kind_text(recorded_event.kind)};
         if (recorded_event.has_process_identity) {
-            const core::IncidentProcessIdentity identity{
-                recorded_event.process_pid,
-                recorded_event.process_creation_token};
+            const core::IncidentProcessIdentity identity{recorded_event.process_pid,
+                                                         recorded_event.process_creation_token};
             const auto found = row_by_id.find(identity);
             description += ": ";
             description += found != row_by_id.end()
                                ? result.processes[found->second].name
-                               : std::string{"PID "} +
-                                     std::to_string(recorded_event.process_pid);
+                               : std::string{"PID "} + std::to_string(recorded_event.process_pid);
         }
-        result.system_events.push_back(SystemEventRow{
-            seconds_from(recorded_event.observed_at, event),
-            event_source_text(recorded_event.source),
-            std::move(description),
-            event_level_text(recorded_event.level),
-            recorded_event.native_event_id});
+        result.system_events.push_back(
+            SystemEventRow{seconds_from(recorded_event.observed_at, event),
+                           event_source_text(recorded_event.source), std::move(description),
+                           event_level_text(recorded_event.level), recorded_event.native_event_id});
     }
 
-    for (auto* series : {&result.cpu_percent, &result.memory_percent,
+    for (auto* series : {&result.cpu_percent,
+                         &result.memory_percent,
                          &result.disk_read_mib_per_second,
                          &result.disk_write_mib_per_second,
                          &result.network_receive_mib_per_second,
@@ -439,6 +471,12 @@ IncidentDetailView build_incident_detail(
                          &result.cpu_thermal_limit_mhz,
                          &result.cpu_thermal_limit_percent,
                          &result.battery_percent,
+                         &result.cpu_some_pressure_percent,
+                         &result.memory_some_pressure_percent,
+                         &result.memory_full_pressure_percent,
+                         &result.io_some_pressure_percent,
+                         &result.io_full_pressure_percent,
+                         &result.thermal_pressure_state,
                          &result.selected_process_cpu_percent,
                          &result.selected_process_working_set_mib,
                          &result.selected_process_disk_read_mib_per_second,
@@ -448,17 +486,18 @@ IncidentDetailView build_incident_detail(
     return result;
 }
 
-std::vector<std::size_t> filter_and_sort_processes(
-    const std::vector<IncidentProcessRow>& rows, const std::string& filter,
-    const IncidentProcessSort sort, const bool ascending,
-    const std::size_t maximum_results) {
+std::vector<std::size_t> filter_and_sort_processes(const std::vector<IncidentProcessRow>& rows,
+                                                   const std::string& filter,
+                                                   const IncidentProcessSort sort,
+                                                   const bool ascending,
+                                                   const std::size_t maximum_results) {
     const auto needle = lower(filter);
     std::vector<std::size_t> indices;
     indices.reserve(std::min(rows.size(), maximum_results));
     for (std::size_t index = 0U; index < rows.size(); ++index) {
         const auto& row = rows[index];
-        const auto haystack = lower(row.name + " " + row.executable_path + " " +
-                                    std::to_string(row.identity.pid));
+        const auto haystack =
+            lower(row.name + " " + row.executable_path + " " + std::to_string(row.identity.pid));
         if (needle.empty() || haystack.find(needle) != std::string::npos) {
             indices.push_back(index);
         }
@@ -467,7 +506,7 @@ std::vector<std::size_t> filter_and_sort_processes(
         const auto& left = rows[left_index];
         const auto& right = rows[right_index];
         const auto ordered = [ascending, left_index, right_index](const auto& left_value,
-                                                                 const auto& right_value) {
+                                                                  const auto& right_value) {
             if (left_value == right_value) return left_index < right_index;
             return ascending ? left_value < right_value : left_value > right_value;
         };
@@ -481,8 +520,7 @@ std::vector<std::size_t> filter_and_sort_processes(
         case IncidentProcessSort::peak_working_set:
             return ordered(left.peak_working_set_mib, right.peak_working_set_mib);
         case IncidentProcessSort::peak_disk_read:
-            return ordered(left.peak_disk_read_mib_per_second,
-                           right.peak_disk_read_mib_per_second);
+            return ordered(left.peak_disk_read_mib_per_second, right.peak_disk_read_mib_per_second);
         case IncidentProcessSort::peak_disk_write:
             return ordered(left.peak_disk_write_mib_per_second,
                            right.peak_disk_write_mib_per_second);
@@ -515,12 +553,11 @@ void synchronize_incident_editor(IncidentViewerState& state) {
     };
     copy(state.label_editor, detail.label);
     copy(state.note_editor, detail.note);
-    copy(state.recurring_group_override_editor,
-         detail.recurring_group_override);
+    copy(state.recurring_group_override_editor, detail.recurring_group_override);
     state.category_editor = detail.category;
-    state.visible_process_indices = filter_and_sort_processes(
-        detail.processes, state.process_filter.data(), state.process_sort,
-        state.process_sort_ascending);
+    state.visible_process_indices =
+        filter_and_sort_processes(detail.processes, state.process_filter.data(), state.process_sort,
+                                  state.process_sort_ascending);
 }
 
 } // namespace blackbox::ui

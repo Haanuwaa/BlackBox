@@ -1,7 +1,7 @@
 #include "app/wall_clock_report.hpp"
 
-#include <fstream>
 #include <exception>
+#include <fstream>
 #include <sstream>
 #include <string_view>
 #include <system_error>
@@ -10,8 +10,7 @@
 namespace blackbox::app {
 namespace {
 
-[[nodiscard]] WallClockReportError error(const WallClockReportErrorCode code,
-                                         std::string message) {
+[[nodiscard]] WallClockReportError error(const WallClockReportErrorCode code, std::string message) {
     return WallClockReportError{code, std::move(message)};
 }
 
@@ -20,33 +19,28 @@ namespace {
     for (const unsigned char character : value) {
         const bool allowed = (character >= 'a' && character <= 'z') ||
                              (character >= 'A' && character <= 'Z') ||
-                             (character >= '0' && character <= '9') ||
-                             character == '.' || character == '-' || character == '_';
+                             (character >= '0' && character <= '9') || character == '.' ||
+                             character == '-' || character == '_';
         if (!allowed) return false;
     }
     return true;
 }
 
 template <typename Value>
-void append(std::ostringstream& output, const std::string_view name,
-            const Value value) {
+void append(std::ostringstream& output, const std::string_view name, const Value value) {
     output << name << '=' << value << '\n';
 }
 
-[[nodiscard]] bool valid_scheduling_drop_events(
-    const WallClockReport& report) noexcept {
-    if (report.scheduling_drop_events.size() >
-        wall_clock_scheduling_drop_event_capacity) {
+[[nodiscard]] bool valid_scheduling_drop_events(const WallClockReport& report) noexcept {
+    if (report.scheduling_drop_events.size() > wall_clock_scheduling_drop_event_capacity) {
         return false;
     }
     std::uint64_t previous_collection{};
     std::uint64_t previous_timestamp{};
-    for (std::size_t index = 0U;
-         index < report.scheduling_drop_events.size(); ++index) {
+    for (std::size_t index = 0U; index < report.scheduling_drop_events.size(); ++index) {
         const auto& event = report.scheduling_drop_events[index];
         if (event.collection_index == 0U || event.utc_unix_nanoseconds == 0U ||
-            event.dropped_ticks == 0U ||
-            event.collection_index <= previous_collection ||
+            event.dropped_ticks == 0U || event.collection_index <= previous_collection ||
             event.utc_unix_nanoseconds < previous_timestamp) {
             return false;
         }
@@ -56,30 +50,26 @@ void append(std::ostringstream& output, const std::string_view name,
     return true;
 }
 
-void append(std::ostringstream& output, const std::string_view name,
-            const bool value) {
+void append(std::ostringstream& output, const std::string_view name, const bool value) {
     output << name << '=' << (value ? 1 : 0) << '\n';
 }
 
 } // namespace
 
-std::expected<void, WallClockReportError> write_wall_clock_report(
-    const std::filesystem::path& destination,
-    const WallClockReport& report) noexcept {
+std::expected<void, WallClockReportError>
+write_wall_clock_report(const std::filesystem::path& destination,
+                        const WallClockReport& report) noexcept {
     try {
-        if (destination.empty() || !destination.is_absolute() ||
-            destination.filename().empty() || destination.extension() != ".ini" ||
-            !safe_identifier(report.application_version) ||
-            !safe_identifier(report.platform) ||
-            !safe_identifier(report.video_driver) ||
-            !safe_identifier(report.source_revision) ||
-            report.requested_runtime_seconds == 0U ||
+        if (destination.empty() || !destination.is_absolute() || destination.filename().empty() ||
+            destination.extension() != ".ini" || !safe_identifier(report.application_version) ||
+            !safe_identifier(report.platform) || !safe_identifier(report.video_driver) ||
+            !safe_identifier(report.source_revision) || report.requested_runtime_seconds == 0U ||
             report.requested_runtime_seconds > 7U * 24U * 60U * 60U ||
             report.capture_interval_seconds > 24U * 60U * 60U ||
             !valid_scheduling_drop_events(report)) {
-            return std::unexpected{error(
-                WallClockReportErrorCode::invalid_report,
-                "wall-clock report requires bounded values and an absolute .ini destination")};
+            return std::unexpected{error(WallClockReportErrorCode::invalid_report,
+                                         "wall-clock report requires bounded values "
+                                         "and an absolute .ini destination")};
         }
         auto staging = destination;
         staging += ".partial";
@@ -105,29 +95,23 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "requested_runtime_seconds", report.requested_runtime_seconds);
         append(output, "capture_interval_seconds", report.capture_interval_seconds);
         append(output, "collections", report.collections);
-        append(output, "sampling_thread_prepared",
-               report.sampling_thread_prepared);
+        append(output, "sampling_thread_prepared", report.sampling_thread_prepared);
         append(output, "partial_samples", report.partial_samples);
         append(output, "failed_samples", report.failed_samples);
         append(output, "dropped_samples", report.dropped_samples);
         append(output, "late_samples", report.late_samples);
         append(output, "deadline_misses", report.deadline_misses);
-        append(output, "scheduling_drop_event_count",
-               report.scheduling_drop_events.size());
-        append(output, "scheduling_drop_event_overflow",
-               report.scheduling_drop_event_overflow);
+        append(output, "scheduling_drop_event_count", report.scheduling_drop_events.size());
+        append(output, "scheduling_drop_event_overflow", report.scheduling_drop_event_overflow);
         output << "scheduling_drop_events=";
         if (report.scheduling_drop_events.empty()) {
             output << "none";
         } else {
-            for (std::size_t index = 0U;
-                 index < report.scheduling_drop_events.size(); ++index) {
+            for (std::size_t index = 0U; index < report.scheduling_drop_events.size(); ++index) {
                 if (index != 0U) output << ';';
                 const auto& event = report.scheduling_drop_events[index];
-                output << event.collection_index << ':'
-                       << event.utc_unix_nanoseconds << ':'
-                       << event.deadline_overrun_nanoseconds << ':'
-                       << event.dropped_ticks;
+                output << event.collection_index << ':' << event.utc_unix_nanoseconds << ':'
+                       << event.deadline_overrun_nanoseconds << ':' << event.dropped_ticks;
             }
         }
         output << '\n';
@@ -155,12 +139,9 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "capture_queue_rejections", report.capture_queue_rejections);
         append(output, "snapshot_failures", report.snapshot_failures);
         append(output, "captures_cancelled", report.captures_cancelled);
-        append(output, "automatic_detection_enabled",
-               report.automatic_detection_enabled);
-        append(output, "automatic_detector_triggers",
-               report.automatic_detector_triggers);
-        append(output, "automatic_captures_started",
-               report.automatic_captures_started);
+        append(output, "automatic_detection_enabled", report.automatic_detection_enabled);
+        append(output, "automatic_detector_triggers", report.automatic_detector_triggers);
+        append(output, "automatic_captures_started", report.automatic_captures_started);
         append(output, "automatic_event_requests", report.automatic_event_requests);
         append(output, "event_polls", report.event_polls);
         append(output, "system_events_recorded", report.system_events_recorded);
@@ -168,9 +149,8 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "device_events_recorded", report.device_events_recorded);
         append(output, "audio_events_recorded", report.audio_events_recorded);
         append(output, "service_events_recorded", report.service_events_recorded);
-        append(output, "defender_events_recorded", report.defender_events_recorded);
-        append(output, "windows_update_events_recorded",
-               report.windows_update_events_recorded);
+        append(output, "security_events_recorded", report.security_events_recorded);
+        append(output, "update_events_recorded", report.update_events_recorded);
         append(output, "application_events_recorded", report.application_events_recorded);
         append(output, "network_events_recorded", report.network_events_recorded);
         append(output, "graphics_events_recorded", report.graphics_events_recorded);
@@ -196,13 +176,11 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         append(output, "notifications_dropped", report.notifications_dropped);
         append(output, "explorer_restarts", report.explorer_restarts);
         append(output, "tray_readd_failures", report.tray_readd_failures);
-        append(output, "session_notifications_available",
-               report.session_notifications_available);
+        append(output, "session_notifications_available", report.session_notifications_available);
         append(output, "session_locks", report.session_locks);
         append(output, "session_unlocks", report.session_unlocks);
         append(output, "crash_diagnostics_armed", report.crash_diagnostics_armed);
-        append(output, "previous_crash_evidence",
-               report.previous_crash_evidence);
+        append(output, "previous_crash_evidence", report.previous_crash_evidence);
 
         {
             std::ofstream stream{staging, std::ios::binary | std::ios::trunc};
@@ -221,11 +199,10 @@ std::expected<void, WallClockReportError> write_wall_clock_report(
         }
         return {};
     } catch (const std::exception& exception) {
-        return std::unexpected{error(WallClockReportErrorCode::cannot_write,
-                                     exception.what())};
+        return std::unexpected{error(WallClockReportErrorCode::cannot_write, exception.what())};
     } catch (...) {
-        return std::unexpected{error(WallClockReportErrorCode::cannot_write,
-                                     "unknown wall-clock report failure")};
+        return std::unexpected{
+            error(WallClockReportErrorCode::cannot_write, "unknown wall-clock report failure")};
     }
 }
 

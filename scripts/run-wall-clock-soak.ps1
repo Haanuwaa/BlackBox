@@ -186,7 +186,7 @@ hotkey_key=10
 hotkey_control=1
 hotkey_shift=1
 hotkey_alt=1
-hotkey_windows=0
+hotkey_system_modifier=0
 automatic_detection=0
 detector_sensitivity=1
 detect_cpu=1
@@ -365,8 +365,8 @@ try {
                          [uint64]$fields['device_events_recorded'] +
                          [uint64]$fields['audio_events_recorded'] +
                          [uint64]$fields['service_events_recorded'] +
-                         [uint64]$fields['defender_events_recorded'] +
-                         [uint64]$fields['windows_update_events_recorded'] +
+                         [uint64]$fields['security_events_recorded'] +
+                         [uint64]$fields['update_events_recorded'] +
                          [uint64]$fields['application_events_recorded'] +
                          [uint64]$fields['network_events_recorded'] +
                          [uint64]$fields['graphics_events_recorded'] +

@@ -88,8 +88,8 @@ struct WallClockReport {
     std::uint64_t device_events_recorded{};
     std::uint64_t audio_events_recorded{};
     std::uint64_t service_events_recorded{};
-    std::uint64_t defender_events_recorded{};
-    std::uint64_t windows_update_events_recorded{};
+    std::uint64_t security_events_recorded{};
+    std::uint64_t update_events_recorded{};
     std::uint64_t application_events_recorded{};
     std::uint64_t network_events_recorded{};
     std::uint64_t graphics_events_recorded{};
@@ -124,8 +124,8 @@ struct WallClockReport {
     std::uint64_t previous_crash_evidence{};
 };
 
-[[nodiscard]] std::expected<void, WallClockReportError> write_wall_clock_report(
-    const std::filesystem::path& destination,
-    const WallClockReport& report) noexcept;
+[[nodiscard]] std::expected<void, WallClockReportError>
+write_wall_clock_report(const std::filesystem::path& destination,
+                        const WallClockReport& report) noexcept;
 
 } // namespace blackbox::app

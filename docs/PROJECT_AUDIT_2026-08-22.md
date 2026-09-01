@@ -1,5 +1,9 @@
 # Project audit — 2026-08-22
 
+> Historical snapshot. Test counts, platform capability rows, version numbers, and open-work totals
+> below describe the repository on 2026-08-22 and are not current status. Use `README.md`,
+> `PLATFORM_PARITY.md`, `RELEASE_READINESS.md`, and the tail of `ROADMAP.md` for the active state.
+
 BlackBox has implemented most of the original Windows product architecture. The remaining distance
 to a trustworthy public `1.0.0` is dominated by real-world evidence, distribution trust, and product
 polish rather than missing recorder mechanics. This audit separates work that can proceed on one

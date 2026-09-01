@@ -14,47 +14,47 @@ namespace app = blackbox::app;
 namespace {
 
 [[nodiscard]] std::string product_seed() {
-    const auto archive = (std::filesystem::temp_directory_path() /
-                          "blackbox-property-archive.sqlite3").generic_string();
-    return
-        "format=1\n"
-        "hotkey_key=12\n"
-        "hotkey_control=1\n"
-        "hotkey_shift=1\n"
-        "hotkey_alt=0\n"
-        "hotkey_windows=0\n"
-        "automatic_detection=1\n"
-        "detector_sensitivity=1\n"
-        "detect_cpu=1\n"
-        "detect_memory=1\n"
-        "detect_disk=1\n"
-        "detect_network=1\n"
-        "detector_cooldown_seconds=120\n"
-        "notifications=1\n"
-        "record_foreground_application=0\n"
-        "record_process_lifecycle=0\n"
-        "record_power_and_device_events=0\n"
-        "record_audio_device_events=0\n"
-        "record_system_event_evidence=0\n"
-        "archive_path=" + archive + "\n"
-        "archive_maximum_bytes=1073741824\n"
-        "onboarding_completed=0\n";
+    const auto archive =
+        (std::filesystem::temp_directory_path() / "blackbox-property-archive.sqlite3")
+            .generic_string();
+    return "format=1\n"
+           "hotkey_key=12\n"
+           "hotkey_control=1\n"
+           "hotkey_shift=1\n"
+           "hotkey_alt=0\n"
+           "hotkey_system_modifier=0\n"
+           "automatic_detection=1\n"
+           "detector_sensitivity=1\n"
+           "detect_cpu=1\n"
+           "detect_memory=1\n"
+           "detect_disk=1\n"
+           "detect_network=1\n"
+           "detector_cooldown_seconds=120\n"
+           "notifications=1\n"
+           "record_foreground_application=0\n"
+           "record_process_lifecycle=0\n"
+           "record_power_and_device_events=0\n"
+           "record_audio_device_events=0\n"
+           "record_system_event_evidence=0\n"
+           "archive_path=" +
+           archive +
+           "\n"
+           "archive_maximum_bytes=1073741824\n"
+           "onboarding_completed=0\n";
 }
 
-constexpr std::string_view recorder_seed =
-    "format=1\n"
-    "sample_interval_ms=1000\n"
-    "history_duration_ms=300000\n"
-    "late_tolerance_ms=250\n"
-    "metadata_interval_ms=30000\n"
-    "incident_pre_window_ms=120000\n"
-    "incident_post_window_ms=30000\n"
-    "resume_gap_threshold_ms=5000\n"
-    "collect_process_paths=1\n";
+constexpr std::string_view recorder_seed = "format=1\n"
+                                           "sample_interval_ms=1000\n"
+                                           "history_duration_ms=300000\n"
+                                           "late_tolerance_ms=250\n"
+                                           "metadata_interval_ms=30000\n"
+                                           "incident_pre_window_ms=120000\n"
+                                           "incident_post_window_ms=30000\n"
+                                           "resume_gap_threshold_ms=5000\n"
+                                           "collect_process_paths=1\n";
 
 template <typename Parser, typename Validator>
-void exercise_mutations(const std::string& seed, Parser&& parse,
-                        Validator&& validate) {
+void exercise_mutations(const std::string& seed, Parser&& parse, Validator&& validate) {
     const auto accepted_seed = parse(seed);
     REQUIRE(accepted_seed.has_value());
     CHECK(validate(*accepted_seed));
@@ -95,20 +95,15 @@ TEST_CASE("strict direct-v1 settings parsers survive bounded deterministic mutat
           "[property][settings][format-v1]") {
     exercise_mutations(
         product_seed(),
-        [](const std::string_view text) {
-            return app::parse_product_settings_text(text);
-        },
+        [](const std::string_view text) { return app::parse_product_settings_text(text); },
         [](const app::ProductSettings& value) {
             return app::validate_product_settings(value).has_value();
         });
 
     exercise_mutations(
         std::string{recorder_seed},
-        [](const std::string_view text) {
-            return app::parse_recorder_settings_text(text);
-        },
+        [](const std::string_view text) { return app::parse_recorder_settings_text(text); },
         [](const blackbox::telemetry::ValidatedRecorderConfiguration& value) {
-            return blackbox::telemetry::validate_recorder_configuration(value.values)
-                .has_value();
+            return blackbox::telemetry::validate_recorder_configuration(value.values).has_value();
         });
 }

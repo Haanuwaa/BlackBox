@@ -10,6 +10,7 @@ add_executable(blackbox_tests
     telemetry/gpu_aggregation_tests.cpp
     telemetry/incident_snapshot_builder_tests.cpp
     telemetry/linux_proc_parser_tests.cpp
+    telemetry/linux_psi_parser_tests.cpp
     telemetry/linux_uevent_parser_tests.cpp
     telemetry/mock_telemetry_provider_tests.cpp
     telemetry/network_interface_tracker_tests.cpp
@@ -19,6 +20,7 @@ add_executable(blackbox_tests
     telemetry/public_headers_tests.cpp
     telemetry/types_tests.cpp
     app/product_settings_tests.cpp
+    app/dashboard_projection_tests.cpp
     app/recorder_settings_tests.cpp
     app/support_bundle_tests.cpp
     app/wall_clock_report_tests.cpp
@@ -35,6 +37,17 @@ target_link_libraries(blackbox_tests PRIVATE
     BlackBox::AppSupport
     Catch2::Catch2WithMain
 )
+
+add_executable(blackbox_dashboard_projection_benchmark
+    benchmarks/dashboard_projection_benchmark.cpp)
+target_compile_features(blackbox_dashboard_projection_benchmark PRIVATE cxx_std_23)
+target_link_libraries(blackbox_dashboard_projection_benchmark PRIVATE
+    BlackBox::AppSupport)
+blackbox_set_project_warnings(blackbox_dashboard_projection_benchmark)
+add_test(NAME dashboard_projection_overhead_contract
+         COMMAND blackbox_dashboard_projection_benchmark)
+set_tests_properties(dashboard_projection_overhead_contract
+    PROPERTIES LABELS "app;performance")
 blackbox_copy_address_sanitizer_runtime(blackbox_tests)
 
 if(BLACKBOX_BUILD_FUZZERS)
@@ -48,6 +61,16 @@ if(BLACKBOX_BUILD_FUZZERS)
     target_link_libraries(blackbox_settings_fuzzer PRIVATE BlackBox::AppSupport)
     blackbox_set_project_warnings(blackbox_settings_fuzzer)
 
+    add_executable(blackbox_native_parser_fuzzer
+        fuzz/native_parser_fuzzer.cpp)
+    target_include_directories(blackbox_native_parser_fuzzer PRIVATE
+        ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_native_parser_fuzzer PRIVATE cxx_std_23)
+    target_compile_options(blackbox_native_parser_fuzzer PRIVATE -fsanitize=fuzzer)
+    target_link_options(blackbox_native_parser_fuzzer PRIVATE -fsanitize=fuzzer)
+    target_link_libraries(blackbox_native_parser_fuzzer PRIVATE BlackBox::Telemetry)
+    blackbox_set_project_warnings(blackbox_native_parser_fuzzer)
+
     file(COPY fuzz/corpus/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
     add_test(
         NAME settings_native_fuzz_smoke
@@ -55,6 +78,12 @@ if(BLACKBOX_BUILD_FUZZERS)
             -runs=2000 -max_len=20000 -timeout=5
             ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
     set_tests_properties(settings_native_fuzz_smoke PROPERTIES LABELS "fuzz")
+    add_test(
+        NAME native_parser_fuzz_smoke
+        COMMAND blackbox_native_parser_fuzzer
+            -runs=4000 -max_len=65536 -timeout=5
+            ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
+    set_tests_properties(native_parser_fuzz_smoke PROPERTIES LABELS "fuzz")
 endif()
 
 if(BLACKBOX_ENABLE_AUTOMATIC_DETECTION)

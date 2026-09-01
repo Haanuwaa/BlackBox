@@ -27,8 +27,7 @@ enum class RecordedValueStatus : std::uint8_t {
     temporarily_unavailable,
 };
 
-template <typename T>
-struct RecordedValue {
+template <typename T> struct RecordedValue {
     T value{};
     RecordedValueStatus status{RecordedValueStatus::unsupported};
 
@@ -79,8 +78,13 @@ struct IncidentSystemSample {
     RecordedValue<double> battery_fraction{};
     RecordedValue<bool> battery_saver{};
     RecordedValue<double> system_uptime_seconds{};
-    friend bool operator==(const IncidentSystemSample&,
-                           const IncidentSystemSample&) = default;
+    RecordedValue<double> cpu_some_pressure_fraction{};
+    RecordedValue<double> memory_some_pressure_fraction{};
+    RecordedValue<double> memory_full_pressure_fraction{};
+    RecordedValue<double> io_some_pressure_fraction{};
+    RecordedValue<double> io_full_pressure_fraction{};
+    RecordedValue<std::uint8_t> thermal_pressure_state{};
+    friend bool operator==(const IncidentSystemSample&, const IncidentSystemSample&) = default;
 };
 
 struct IncidentProcessSample {
@@ -90,8 +94,7 @@ struct IncidentProcessSample {
     RecordedValue<std::uint64_t> working_set_bytes{};
     RecordedValue<double> disk_read_bytes_per_second{};
     RecordedValue<double> disk_write_bytes_per_second{};
-    friend bool operator==(const IncidentProcessSample&,
-                           const IncidentProcessSample&) = default;
+    friend bool operator==(const IncidentProcessSample&, const IncidentProcessSample&) = default;
 };
 
 struct IncidentProcessInfo {
@@ -136,8 +139,7 @@ struct IncidentCaptureTrigger {
     double observed_value{};
     double baseline_value{};
     double score{};
-    AutomaticIncidentSignal signal{
-        AutomaticIncidentSignal::throughput_or_utilization};
+    AutomaticIncidentSignal signal{AutomaticIncidentSignal::throughput_or_utilization};
     friend constexpr bool operator==(const IncidentCaptureTrigger&,
                                      const IncidentCaptureTrigger&) = default;
 };
@@ -154,8 +156,7 @@ struct IncidentCaptureWindow {
     double automatic_observed_value{};
     double automatic_baseline_value{};
     double automatic_score{};
-    AutomaticIncidentSignal automatic_signal{
-        AutomaticIncidentSignal::throughput_or_utilization};
+    AutomaticIncidentSignal automatic_signal{AutomaticIncidentSignal::throughput_or_utilization};
     friend constexpr bool operator==(const IncidentCaptureWindow&,
                                      const IncidentCaptureWindow&) = default;
 };
@@ -175,8 +176,7 @@ struct IncidentHeader {
 // without copying or changing the recorder-owned result.
 class IncidentSnapshot final {
 public:
-    IncidentSnapshot(IncidentHeader header,
-                     std::vector<IncidentSystemSample> system_samples,
+    IncidentSnapshot(IncidentHeader header, std::vector<IncidentSystemSample> system_samples,
                      std::vector<IncidentProcessInfo> process_metadata,
                      std::vector<IncidentProcessSample> process_samples,
                      std::vector<SystemEvent> system_events = {}) noexcept;
@@ -199,8 +199,8 @@ class IIncidentWorkSource {
 public:
     virtual ~IIncidentWorkSource() = default;
 
-    [[nodiscard]] virtual std::shared_ptr<const IncidentSnapshot> wait_pop(
-        std::stop_token stop_token) noexcept = 0;
+    [[nodiscard]] virtual std::shared_ptr<const IncidentSnapshot>
+    wait_pop(std::stop_token stop_token) noexcept = 0;
     [[nodiscard]] virtual std::shared_ptr<const IncidentSnapshot> try_pop() noexcept = 0;
 };
 
@@ -214,9 +214,9 @@ enum class IncidentCaptureRequestResult : std::uint8_t {
 class IIncidentCaptureRequestSink {
 public:
     virtual ~IIncidentCaptureRequestSink() = default;
-    [[nodiscard]] virtual IncidentCaptureRequestResult request_incident_capture(
-        MonotonicTimePoint event_time,
-        IncidentCaptureTrigger trigger) noexcept = 0;
+    [[nodiscard]] virtual IncidentCaptureRequestResult
+    request_incident_capture(MonotonicTimePoint event_time,
+                             IncidentCaptureTrigger trigger) noexcept = 0;
 };
 
 enum class IncidentCapturePhase : std::uint8_t {
@@ -259,18 +259,16 @@ public:
     void start_accepting() noexcept;
     void stop_accepting() noexcept;
 
-    [[nodiscard]] IncidentCaptureRequestResult request(
-        MonotonicTimePoint event_time,
-        std::chrono::nanoseconds pre_window,
-        std::chrono::nanoseconds post_window,
-        IncidentCaptureTrigger trigger = {}) noexcept;
-    [[nodiscard]] std::optional<IncidentCaptureWindow> try_begin_snapshot(
-        MonotonicTimePoint observed_at) noexcept;
+    [[nodiscard]] IncidentCaptureRequestResult
+    request(MonotonicTimePoint event_time, std::chrono::nanoseconds pre_window,
+            std::chrono::nanoseconds post_window, IncidentCaptureTrigger trigger = {}) noexcept;
+    [[nodiscard]] std::optional<IncidentCaptureWindow>
+    try_begin_snapshot(MonotonicTimePoint observed_at) noexcept;
     void finish_snapshot(std::shared_ptr<const IncidentSnapshot> snapshot) noexcept;
     void cancel_pending() noexcept;
 
-    [[nodiscard]] std::shared_ptr<const IncidentSnapshot> wait_pop(
-        std::stop_token stop_token) noexcept override;
+    [[nodiscard]] std::shared_ptr<const IncidentSnapshot>
+    wait_pop(std::stop_token stop_token) noexcept override;
     [[nodiscard]] std::shared_ptr<const IncidentSnapshot> try_pop() noexcept override;
     [[nodiscard]] IncidentCaptureStatus status() const noexcept;
 

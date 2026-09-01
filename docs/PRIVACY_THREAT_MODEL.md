@@ -14,7 +14,7 @@ process's memory or the user's files.
 
 - Incident system/process samples and timestamps.
 - Process identities, executable names, and optional executable paths.
-- Foreground-application identity, durable process start/exit identity, and selected normalized Windows event evidence when enabled;
+- Foreground-application identity, durable process start/exit identity, and selected normalized system-event evidence when enabled;
   queried DNS hostnames, display driver names, adapter identities, storage LBAs/device paths/PDO
   identities, Event Log messages, and payloads are never collected.
 - User labels, notes, feedback, recurrence overrides, and personalized observations.

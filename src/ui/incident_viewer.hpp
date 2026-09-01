@@ -96,8 +96,7 @@ struct IncidentContributorRow {
     };
     Resource resource{Resource::cpu};
     Attribution attribution{Attribution::unsure};
-    TemporalRelationship temporal_relationship{
-        TemporalRelationship::preceding_activity};
+    TemporalRelationship temporal_relationship{TemporalRelationship::preceding_activity};
     double score_before_feedback{};
     double feedback_multiplier{1.0};
     std::size_t feedback_matching_observations{};
@@ -301,8 +300,7 @@ struct IncidentDetailView {
     std::uint32_t trigger_count{};
     std::uint32_t manual_trigger_count{};
     std::uint32_t automatic_trigger_count{};
-    core::AutomaticIncidentResource automatic_resource{
-        core::AutomaticIncidentResource::none};
+    core::AutomaticIncidentResource automatic_resource{core::AutomaticIncidentResource::none};
     double automatic_observed_value{};
     double automatic_baseline_value{};
     double automatic_score{};
@@ -340,6 +338,12 @@ struct IncidentDetailView {
     IncidentPlotSeries cpu_thermal_limit_mhz{};
     IncidentPlotSeries cpu_thermal_limit_percent{};
     IncidentPlotSeries battery_percent{};
+    IncidentPlotSeries cpu_some_pressure_percent{};
+    IncidentPlotSeries memory_some_pressure_percent{};
+    IncidentPlotSeries memory_full_pressure_percent{};
+    IncidentPlotSeries io_some_pressure_percent{};
+    IncidentPlotSeries io_full_pressure_percent{};
+    IncidentPlotSeries thermal_pressure_state{};
     std::vector<ForegroundApplicationRow> foreground_applications{};
     std::vector<SystemEventRow> system_events{};
     std::vector<IncidentProcessRow> processes{};
@@ -371,8 +375,7 @@ struct IncidentViewerState {
     IncidentListOrder order{IncidentListOrder::newest_first};
     std::array<char, incident_label_capacity + 1U> label_editor{};
     std::array<char, incident_note_capacity + 1U> note_editor{};
-    std::array<char, recurring_group_override_capacity + 1U>
-        recurring_group_override_editor{};
+    std::array<char, recurring_group_override_capacity + 1U> recurring_group_override_editor{};
     IncidentCategory category_editor{IncidentCategory::unknown};
     std::array<char, incident_search_capacity + 1U> process_filter{};
     IncidentProcessSort process_sort{IncidentProcessSort::peak_cpu};
@@ -383,15 +386,15 @@ struct IncidentViewerState {
 };
 
 [[nodiscard]] std::string format_utc_milliseconds(std::int64_t milliseconds);
-[[nodiscard]] IncidentDetailView build_incident_detail(
-    std::int64_t id, std::int64_t created_utc_milliseconds,
-    std::string label, std::string note, const core::IncidentSnapshot& incident,
-    std::optional<core::IncidentProcessIdentity> selected_process = std::nullopt,
-    std::size_t maximum_plot_points = incident_plot_point_capacity);
-[[nodiscard]] std::vector<std::size_t> filter_and_sort_processes(
-    const std::vector<IncidentProcessRow>& rows, const std::string& filter,
-    IncidentProcessSort sort, bool ascending,
-    std::size_t maximum_results = incident_process_visible_capacity);
+[[nodiscard]] IncidentDetailView
+build_incident_detail(std::int64_t id, std::int64_t created_utc_milliseconds, std::string label,
+                      std::string note, const core::IncidentSnapshot& incident,
+                      std::optional<core::IncidentProcessIdentity> selected_process = std::nullopt,
+                      std::size_t maximum_plot_points = incident_plot_point_capacity);
+[[nodiscard]] std::vector<std::size_t>
+filter_and_sort_processes(const std::vector<IncidentProcessRow>& rows, const std::string& filter,
+                          IncidentProcessSort sort, bool ascending,
+                          std::size_t maximum_results = incident_process_visible_capacity);
 void synchronize_incident_editor(IncidentViewerState& state);
 
 } // namespace blackbox::ui

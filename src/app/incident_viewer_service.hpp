@@ -21,11 +21,20 @@ class IIncidentAnalyzer;
 
 namespace blackbox::app {
 
+struct IncidentViewerQueueDiagnostics {
+    std::size_t queued_reads{};
+    std::size_t queued_mutations{};
+    std::uint64_t coalesced_reads{};
+    std::uint64_t cancelled_reads{};
+    std::uint64_t rejected_mutations{};
+    std::uint64_t completed_reads{};
+    std::uint64_t completed_mutations{};
+};
+
 class IncidentViewerService final {
 public:
     explicit IncidentViewerService(
-        storage::IIncidentRepository& repository,
-        analysis::IIncidentAnalyzer* analyzer = nullptr,
+        storage::IIncidentRepository& repository, analysis::IIncidentAnalyzer* analyzer = nullptr,
         storage::IProcessProfileRepository* profile_repository = nullptr,
         storage::IFeedbackCalibrationRepository* feedback_repository = nullptr,
         storage::IRecurringIncidentRepository* recurring_repository = nullptr) noexcept;
@@ -36,32 +45,35 @@ public:
 
     void start();
     void stop() noexcept;
-    void request_page(std::size_t offset, std::string search,
-                      ui::IncidentListOrder order);
+    void request_page(std::size_t offset, std::string search, ui::IncidentListOrder order);
     void request_detail(std::int64_t incident_id);
-    void request_process(std::int64_t incident_id,
-                         core::IncidentProcessIdentity identity);
-    void update_annotation(std::int64_t incident_id, std::string label,
-                           std::string note,
+    void request_process(std::int64_t incident_id, core::IncidentProcessIdentity identity);
+    bool update_annotation(std::int64_t incident_id, std::string label, std::string note,
                            storage::IncidentUserFeedback feedback,
                            storage::IncidentCategory category);
-    void update_contributor_feedback(
+    bool update_contributor_feedback(
         std::int64_t incident_id, std::string executable_key,
         storage::ContributorFeedbackResource resource,
         storage::ContributorFeedbackDisposition disposition,
         storage::ContributorFeedbackTemporalRelationship temporal_relationship);
     void request_recurring_incidents();
-    void update_recurring_group_override(std::int64_t incident_id,
-                                         std::string override_group);
-    void reset_feedback_profile();
-    void rollback_feedback_profile_reset();
+    bool update_recurring_group_override(std::int64_t incident_id, std::string override_group);
+    bool reset_feedback_profile();
+    bool rollback_feedback_profile_reset();
     [[nodiscard]] std::shared_ptr<const ui::IncidentViewerContent> snapshot() const;
+    [[nodiscard]] IncidentViewerQueueDiagnostics queue_diagnostics() const noexcept;
 
 private:
     enum class JobType : std::uint8_t {
-        page, detail, process, annotation, contributor_feedback, recurring,
+        page,
+        detail,
+        process,
+        annotation,
+        contributor_feedback,
+        recurring,
         recurring_override,
-        feedback_reset, feedback_rollback
+        feedback_reset,
+        feedback_rollback
     };
     struct Job {
         JobType type{JobType::page};
@@ -72,22 +84,20 @@ private:
         core::IncidentProcessIdentity identity{};
         std::string label{};
         std::string note{};
-        storage::IncidentUserFeedback feedback{
-            storage::IncidentUserFeedback::unanswered};
+        storage::IncidentUserFeedback feedback{storage::IncidentUserFeedback::unanswered};
         storage::IncidentCategory category{storage::IncidentCategory::unknown};
         std::string contributor_executable_key{};
         storage::ContributorFeedbackResource contributor_resource{
             storage::ContributorFeedbackResource::cpu};
         storage::ContributorFeedbackDisposition contributor_disposition{
             storage::ContributorFeedbackDisposition::unsure};
-        storage::ContributorFeedbackTemporalRelationship
-            contributor_temporal_relationship{
-                storage::ContributorFeedbackTemporalRelationship::
-                    preceding_activity};
+        storage::ContributorFeedbackTemporalRelationship contributor_temporal_relationship{
+            storage::ContributorFeedbackTemporalRelationship::preceding_activity};
         std::string recurring_group_override{};
     };
 
-    void enqueue(Job job);
+    bool enqueue(Job job);
+    [[nodiscard]] static bool is_mutation(JobType type) noexcept;
     void run(std::stop_token stop_token) noexcept;
     void handle_page(const Job& job);
     void handle_detail(const Job& job);
@@ -109,7 +119,8 @@ private:
     storage::IRecurringIncidentRepository* recurring_repository_{};
     mutable std::mutex mutex_{};
     std::condition_variable_any available_{};
-    std::deque<Job> jobs_{};
+    std::deque<Job> read_jobs_{};
+    std::deque<Job> mutation_jobs_{};
     std::jthread worker_{};
     std::shared_ptr<const ui::IncidentViewerContent> snapshot_{
         std::make_shared<const ui::IncidentViewerContent>()};
@@ -121,6 +132,8 @@ private:
     std::int64_t loaded_incident_id_{};
     std::int64_t loaded_created_utc_milliseconds_{};
     std::map<std::int64_t, std::int64_t> recurring_created_utc_by_id_{};
+    IncidentViewerQueueDiagnostics queue_diagnostics_{};
+    bool accepting_jobs_{};
     std::uint64_t generation_{};
 };
 

@@ -13,8 +13,8 @@ struct EventProviderConfiguration {
     bool device_events{true};
     bool audio_device_events{true};
     bool service_events{true};
-    bool defender_events{true};
-    bool windows_update_events{true};
+    bool security_events{true};
+    bool update_events{true};
     bool application_events{true};
     bool network_events{true};
     bool graphics_events{true};
@@ -28,8 +28,8 @@ struct EventProviderCapabilities {
     bool device_events{};
     bool audio_device_events{};
     bool service_events{};
-    bool defender_events{};
-    bool windows_update_events{};
+    bool security_events{};
+    bool update_events{};
     bool application_events{};
     bool network_events{};
     bool graphics_events{};
@@ -58,11 +58,11 @@ public:
 
     // Lifecycle runs on the event collector thread. Poll writes at most the
     // caller-provided span and performs no persistent I/O.
-    [[nodiscard]] virtual EventProviderStatus start(
-        const EventProviderConfiguration& configuration) noexcept = 0;
-    [[nodiscard]] virtual EventProviderPollResult poll(
-        core::MonotonicTimePoint observed_at,
-        std::span<core::SystemEvent> destination) noexcept = 0;
+    [[nodiscard]] virtual EventProviderStatus
+    start(const EventProviderConfiguration& configuration) noexcept = 0;
+    [[nodiscard]] virtual EventProviderPollResult
+    poll(core::MonotonicTimePoint observed_at,
+         std::span<core::SystemEvent> destination) noexcept = 0;
     virtual void stop() noexcept = 0;
     [[nodiscard]] virtual EventProviderCapabilities capabilities() const noexcept = 0;
 };

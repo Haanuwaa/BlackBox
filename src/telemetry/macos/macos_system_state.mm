@@ -14,8 +14,7 @@ MetricValue<bool> macos_low_power_mode() noexcept {
         if (@available(macOS 12.0, *)) {
             NSProcessInfo* process_info = NSProcessInfo.processInfo;
             if (process_info == nil) {
-                return MetricValue<bool>::unavailable(
-                    MetricStatus::temporarily_unavailable);
+                return MetricValue<bool>::unavailable(MetricStatus::temporarily_unavailable);
             }
             return MetricValue<bool>::available(process_info.lowPowerModeEnabled != NO);
         }
@@ -23,48 +22,65 @@ MetricValue<bool> macos_low_power_mode() noexcept {
     return MetricValue<bool>::unavailable(MetricStatus::unsupported);
 }
 
+MetricValue<ThermalPressureState> macos_thermal_pressure_state() noexcept {
+    @autoreleasepool {
+        NSProcessInfo* process_info = NSProcessInfo.processInfo;
+        if (process_info == nil) {
+            return MetricValue<ThermalPressureState>::unavailable(
+                MetricStatus::temporarily_unavailable);
+        }
+        switch (process_info.thermalState) {
+        case NSProcessInfoThermalStateNominal:
+            return MetricValue<ThermalPressureState>::available(ThermalPressureState::nominal);
+        case NSProcessInfoThermalStateFair:
+            return MetricValue<ThermalPressureState>::available(ThermalPressureState::fair);
+        case NSProcessInfoThermalStateSerious:
+            return MetricValue<ThermalPressureState>::available(ThermalPressureState::serious);
+        case NSProcessInfoThermalStateCritical:
+            return MetricValue<ThermalPressureState>::available(ThermalPressureState::critical);
+        }
+    }
+    return MetricValue<ThermalPressureState>::available(ThermalPressureState::unknown);
+}
+
 MetricValue<ProcessId> macos_frontmost_process_id() noexcept {
     @autoreleasepool {
         NSRunningApplication* application = NSWorkspace.sharedWorkspace.frontmostApplication;
         if (application == nil || application.processIdentifier <= 0) {
-            return MetricValue<ProcessId>::unavailable(
-                MetricStatus::temporarily_unavailable);
+            return MetricValue<ProcessId>::unavailable(MetricStatus::temporarily_unavailable);
         }
         const auto pid = static_cast<std::uint64_t>(application.processIdentifier);
         if (pid > std::numeric_limits<std::uint32_t>::max()) {
-            return MetricValue<ProcessId>::unavailable(
-                MetricStatus::temporarily_unavailable);
+            return MetricValue<ProcessId>::unavailable(MetricStatus::temporarily_unavailable);
         }
-        return MetricValue<ProcessId>::available(
-            ProcessId{static_cast<std::uint32_t>(pid)});
+        return MetricValue<ProcessId>::available(ProcessId{static_cast<std::uint32_t>(pid)});
     }
 }
 
 GpuInventoryEvidence macos_gpu_inventory() noexcept {
     @autoreleasepool {
         NSArray<id<MTLDevice>>* devices = MTLCopyAllDevices();
-        if (devices == nil || devices.count >
-                static_cast<NSUInteger>(std::numeric_limits<std::uint32_t>::max())) {
+        if (devices == nil ||
+            devices.count > static_cast<NSUInteger>(std::numeric_limits<std::uint32_t>::max())) {
             return {};
         }
         std::uint32_t integrated{};
         std::uint32_t discrete{};
         for (id<MTLDevice> device in devices) {
             if (device == nil) continue;
-            if (device.lowPower != NO) ++integrated;
-            else ++discrete;
+            if (device.lowPower != NO)
+                ++integrated;
+            else
+                ++discrete;
         }
         const auto count = integrated + discrete;
         GpuInventoryEvidence result{};
         result.device_count = MetricValue<std::uint32_t>::available(count);
-        result.integrated_device_count =
-            MetricValue<std::uint32_t>::available(integrated);
-        result.discrete_device_count =
-            MetricValue<std::uint32_t>::available(discrete);
-        result.unknown_device_count =
-            MetricValue<std::uint32_t>::available(0U);
-        result.render_device_available = MetricValue<bool>::available(
-            MTLCreateSystemDefaultDevice() != nil);
+        result.integrated_device_count = MetricValue<std::uint32_t>::available(integrated);
+        result.discrete_device_count = MetricValue<std::uint32_t>::available(discrete);
+        result.unknown_device_count = MetricValue<std::uint32_t>::available(0U);
+        result.render_device_available =
+            MetricValue<bool>::available(MTLCreateSystemDefaultDevice() != nil);
         return result;
     }
 }

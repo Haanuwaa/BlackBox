@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.20.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.22.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 
@@ -79,7 +79,9 @@ secrets, so this validates telemetry, composition, and unsigned native package s
 qualify background services, signing/notarization, installation on a physical client, or product support.
 
 `.github/workflows/quality.yml` adds isolated dependency/SBOM, dependency-review, CodeQL, MSVC
-native-analysis, Windows ASan, Linux UBSan, native-fuzz, and coverage jobs. Run the local policy,
+native-analysis, Windows ASan, Linux UBSan/TSan, native-fuzz, and coverage jobs. The CodeQL graph
+restores a pinned vcpkg binary cache before dependency resolution while keeping third-party builds
+outside tracing. Run the local policy,
 Visual Studio 2026 analyzer, and ASan commands documented in `QUALITY_GATES.md` before a release
 candidate. Authored jobs do not satisfy the separate hosted-execution gate until the release
 revision actually passes and its artifacts are retained.

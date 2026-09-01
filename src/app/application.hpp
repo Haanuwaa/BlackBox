@@ -1,10 +1,10 @@
 #pragma once
 
-#include "core/clock.hpp"
 #include "app/product_settings.hpp"
 #include "app/recorder_settings.hpp"
 #include "app/support_bundle.hpp"
 #include "app/wall_clock_report.hpp"
+#include "core/clock.hpp"
 #include "platform/background_shell.hpp"
 #include "platform/crash_diagnostics.hpp"
 #include "platform/global_hotkey.hpp"
@@ -25,8 +25,9 @@
 
 #include <atomic>
 #include <chrono>
-#include <memory>
 #include <filesystem>
+#include <limits>
+#include <memory>
 #include <string_view>
 
 struct SDL_Renderer;
@@ -79,8 +80,7 @@ private:
     void request_support_bundle(const ui::DashboardCommand& command) noexcept;
     void synchronize_product_ui() noexcept;
     void write_diagnostic_report() noexcept;
-    [[nodiscard]] bool register_configured_hotkey(
-        platform::HotkeyCombination combination) noexcept;
+    [[nodiscard]] bool register_configured_hotkey(platform::HotkeyCombination combination) noexcept;
     void refresh_hotkey_status() noexcept;
     void shutdown() noexcept;
 
@@ -105,8 +105,7 @@ private:
     std::unique_ptr<platform::IBackgroundShell> background_shell_{};
     std::unique_ptr<platform::ICrashDiagnostics> crash_diagnostics_{};
 #if defined(__linux__)
-    std::unique_ptr<platform::linux::LinuxAccessibilityMonitor>
-        linux_accessibility_monitor_{};
+    std::unique_ptr<platform::linux::LinuxAccessibilityMonitor> linux_accessibility_monitor_{};
 #endif
     SupportBundleService support_bundle_service_{};
     std::atomic<std::uint32_t> pending_background_commands_{};
@@ -115,6 +114,9 @@ private:
     ui::ProductUiState product_ui_state_{};
     core::MonotonicTimePoint next_dashboard_refresh_at_{};
     core::MonotonicTimePoint next_accessibility_refresh_at_{};
+    std::uint64_t dashboard_projection_collection_count_{std::numeric_limits<std::uint64_t>::max()};
+    std::uint64_t dashboard_gpu_inventory_collection_count_{
+        std::numeric_limits<std::uint64_t>::max()};
     std::string_view provider_name_{"Not configured"};
     std::string hotkey_status_{"Unsupported"};
     std::string hotkey_display_name_{};

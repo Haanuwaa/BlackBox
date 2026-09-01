@@ -11,8 +11,8 @@
 #include <string>
 #include <string_view>
 #include <thread>
-#include <utility>
 #include <unistd.h>
+#include <utility>
 
 namespace blackbox::platform::linux {
 namespace {
@@ -33,35 +33,31 @@ constexpr int portal_timeout_milliseconds = 2'000;
            key <= static_cast<std::uint8_t>(HotkeyKey::f12);
 }
 
-[[nodiscard]] bool append_basic(DBusMessageIter& iterator,
-                                const int type,
+[[nodiscard]] bool append_basic(DBusMessageIter& iterator, const int type,
                                 const void* value) noexcept {
     return dbus_message_iter_append_basic(&iterator, type, value) != FALSE;
 }
 
-[[nodiscard]] bool append_string_option(DBusMessageIter& options,
-                                        const char* key,
+[[nodiscard]] bool append_string_option(DBusMessageIter& options, const char* key,
                                         const char* value) noexcept {
     DBusMessageIter entry{};
     DBusMessageIter variant{};
-    return dbus_message_iter_open_container(
-               &options, DBUS_TYPE_DICT_ENTRY, nullptr, &entry) != FALSE &&
+    return dbus_message_iter_open_container(&options, DBUS_TYPE_DICT_ENTRY, nullptr, &entry) !=
+               FALSE &&
            append_basic(entry, DBUS_TYPE_STRING, &key) &&
-           dbus_message_iter_open_container(
-               &entry, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING,
-               &variant) != FALSE &&
+           dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING,
+                                            &variant) != FALSE &&
            append_basic(variant, DBUS_TYPE_STRING, &value) &&
            dbus_message_iter_close_container(&entry, &variant) != FALSE &&
            dbus_message_iter_close_container(&options, &entry) != FALSE;
 }
 
-[[nodiscard]] DBusMessage* call(DBusConnection* connection,
-                                DBusMessage* request,
-                                const int timeout_milliseconds =
-                                    portal_timeout_milliseconds) noexcept {
+[[nodiscard]] DBusMessage*
+call(DBusConnection* connection, DBusMessage* request,
+     const int timeout_milliseconds = portal_timeout_milliseconds) noexcept {
     if (connection == nullptr || request == nullptr) return nullptr;
-    DBusMessage* reply = dbus_connection_send_with_reply_and_block(
-        connection, request, timeout_milliseconds, nullptr);
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, request,
+                                                                   timeout_milliseconds, nullptr);
     dbus_message_unref(request);
     if (reply != nullptr && dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
         dbus_message_unref(reply);
@@ -71,8 +67,8 @@ constexpr int portal_timeout_milliseconds = 2'000;
 }
 
 [[nodiscard]] std::uint32_t portal_version(DBusConnection* connection) noexcept {
-    DBusMessage* request = dbus_message_new_method_call(
-        portal_service, portal_path, properties_interface, "Get");
+    DBusMessage* request =
+        dbus_message_new_method_call(portal_service, portal_path, properties_interface, "Get");
     if (request == nullptr) return 0U;
     DBusMessageIter arguments{};
     dbus_message_iter_init_append(request, &arguments);
@@ -99,8 +95,7 @@ constexpr int portal_timeout_milliseconds = 2'000;
     return valid ? static_cast<std::uint32_t>(result) : 0U;
 }
 
-[[nodiscard]] bool add_match(DBusConnection* connection,
-                             const char* rule) noexcept {
+[[nodiscard]] bool add_match(DBusConnection* connection, const char* rule) noexcept {
     DBusError error{};
     dbus_error_init(&error);
     dbus_bus_add_match(connection, rule, &error);
@@ -123,8 +118,7 @@ constexpr int portal_timeout_milliseconds = 2'000;
     return name != nullptr && std::strcmp(name, portal_service) == 0;
 }
 
-[[nodiscard]] bool matching_session_signal(DBusMessage* message,
-                                           const char* interface_name,
+[[nodiscard]] bool matching_session_signal(DBusMessage* message, const char* interface_name,
                                            const char* member,
                                            const std::string& session_handle) noexcept {
     if (dbus_message_is_signal(message, interface_name, member) == FALSE) return false;
@@ -179,8 +173,7 @@ constexpr int portal_timeout_milliseconds = 2'000;
     return value != nullptr ? std::string{value} : std::string{};
 }
 
-[[nodiscard]] bool response_session_handle(DBusMessage* message,
-                                           std::string& session_handle) {
+[[nodiscard]] bool response_session_handle(DBusMessage* message, std::string& session_handle) {
     DBusMessageIter iterator{};
     if (!dbus_message_iter_init(message, &iterator) ||
         dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_UINT32) {
@@ -255,8 +248,7 @@ constexpr int portal_timeout_milliseconds = 2'000;
                 if (dbus_message_iter_get_arg_type(&shortcut) == DBUS_TYPE_STRING) {
                     dbus_message_iter_get_basic(&shortcut, &identifier);
                 }
-                if (identifier != nullptr &&
-                    std::string_view{identifier} == shortcut_id) {
+                if (identifier != nullptr && std::string_view{identifier} == shortcut_id) {
                     return true;
                 }
                 dbus_message_iter_next(&shortcuts);
@@ -269,16 +261,16 @@ constexpr int portal_timeout_milliseconds = 2'000;
 }
 
 template <typename Response>
-[[nodiscard]] bool wait_for_response(DBusConnection* connection,
-                                     const std::string& request_path,
+[[nodiscard]] bool wait_for_response(DBusConnection* connection, const std::string& request_path,
                                      Response response) {
-    const auto deadline = std::chrono::steady_clock::now() +
-                          std::chrono::milliseconds{portal_timeout_milliseconds};
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds{portal_timeout_milliseconds};
     while (std::chrono::steady_clock::now() < deadline) {
         if (dbus_connection_read_write(connection, 50) == FALSE) return false;
         while (DBusMessage* message = dbus_connection_pop_message(connection)) {
             const char* path = dbus_message_get_path(message);
-            const bool matching = path != nullptr && request_path == path &&
+            const bool matching =
+                path != nullptr && request_path == path &&
                 dbus_message_is_signal(message, request_interface, "Response") != FALSE;
             const bool accepted = matching && response(message);
             dbus_message_unref(message);
@@ -295,14 +287,14 @@ template <typename Response>
 }
 
 [[nodiscard]] std::string create_session(DBusConnection* connection) {
-    DBusMessage* request = dbus_message_new_method_call(
-        portal_service, portal_path, shortcuts_interface, "CreateSession");
+    DBusMessage* request = dbus_message_new_method_call(portal_service, portal_path,
+                                                        shortcuts_interface, "CreateSession");
     if (request == nullptr) return {};
     DBusMessageIter arguments{};
     DBusMessageIter options{};
     dbus_message_iter_init_append(request, &arguments);
-    bool valid = dbus_message_iter_open_container(
-                     &arguments, DBUS_TYPE_ARRAY, "{sv}", &options) != FALSE;
+    bool valid =
+        dbus_message_iter_open_container(&arguments, DBUS_TYPE_ARRAY, "{sv}", &options) != FALSE;
     const auto handle_token = unique_token("blackbox_request");
     const auto session_token = unique_token("blackbox_session");
     const char* handle_value = handle_token.c_str();
@@ -319,19 +311,17 @@ template <typename Response>
     if (reply != nullptr) dbus_message_unref(reply);
     if (request_path.empty()) return {};
     std::string session_handle{};
-    const bool accepted = wait_for_response(
-        connection, request_path,
-        [&session_handle](DBusMessage* response) {
+    const bool accepted =
+        wait_for_response(connection, request_path, [&session_handle](DBusMessage* response) {
             return response_session_handle(response, session_handle);
         });
     return accepted ? session_handle : std::string{};
 }
 
-[[nodiscard]] bool bind_shortcut(DBusConnection* connection,
-                                 const std::string& session_handle,
+[[nodiscard]] bool bind_shortcut(DBusConnection* connection, const std::string& session_handle,
                                  const std::string& accelerator) {
-    DBusMessage* request = dbus_message_new_method_call(
-        portal_service, portal_path, shortcuts_interface, "BindShortcuts");
+    DBusMessage* request = dbus_message_new_method_call(portal_service, portal_path,
+                                                        shortcuts_interface, "BindShortcuts");
     if (request == nullptr) return false;
     DBusMessageIter arguments{};
     dbus_message_iter_init_append(request, &arguments);
@@ -341,16 +331,17 @@ template <typename Response>
     DBusMessageIter shortcuts{};
     DBusMessageIter shortcut{};
     DBusMessageIter shortcut_options{};
-    valid = valid && dbus_message_iter_open_container(
-                         &arguments, DBUS_TYPE_ARRAY, "(sa{sv})", &shortcuts) != FALSE &&
-            dbus_message_iter_open_container(
-                &shortcuts, DBUS_TYPE_STRUCT, nullptr, &shortcut) != FALSE;
+    valid =
+        valid &&
+        dbus_message_iter_open_container(&arguments, DBUS_TYPE_ARRAY, "(sa{sv})", &shortcuts) !=
+            FALSE &&
+        dbus_message_iter_open_container(&shortcuts, DBUS_TYPE_STRUCT, nullptr, &shortcut) != FALSE;
     const char* identifier = shortcut_id;
     const char* description = "Capture the recent BlackBox incident window";
     const char* trigger = accelerator.c_str();
     valid = valid && append_basic(shortcut, DBUS_TYPE_STRING, &identifier) &&
-            dbus_message_iter_open_container(
-                &shortcut, DBUS_TYPE_ARRAY, "{sv}", &shortcut_options) != FALSE &&
+            dbus_message_iter_open_container(&shortcut, DBUS_TYPE_ARRAY, "{sv}",
+                                             &shortcut_options) != FALSE &&
             append_string_option(shortcut_options, "description", description) &&
             append_string_option(shortcut_options, "preferred_trigger", trigger) &&
             dbus_message_iter_close_container(&shortcut, &shortcut_options) != FALSE &&
@@ -360,8 +351,8 @@ template <typename Response>
     const char* parent_window = "";
     valid = valid && append_basic(arguments, DBUS_TYPE_STRING, &parent_window);
     DBusMessageIter options{};
-    valid = valid && dbus_message_iter_open_container(
-                         &arguments, DBUS_TYPE_ARRAY, "{sv}", &options) != FALSE;
+    valid = valid && dbus_message_iter_open_container(&arguments, DBUS_TYPE_ARRAY, "{sv}",
+                                                      &options) != FALSE;
     const auto token = unique_token("blackbox_bind");
     const char* token_value = token.c_str();
     valid = valid && append_string_option(options, "handle_token", token_value) &&
@@ -373,19 +364,19 @@ template <typename Response>
     DBusMessage* reply = call(connection, request);
     const auto request_path = reply_object_path(reply);
     if (reply != nullptr) dbus_message_unref(reply);
-    return !request_path.empty() && wait_for_response(
-        connection, request_path,
-        [](DBusMessage* response) { return response_bound_shortcut(response); });
+    return !request_path.empty() &&
+           wait_for_response(connection, request_path, [](DBusMessage* response) {
+               return response_bound_shortcut(response);
+           });
 }
 
-void close_session(DBusConnection* connection,
-                   const std::string& session_handle) noexcept {
+void close_session(DBusConnection* connection, const std::string& session_handle) noexcept {
     if (connection == nullptr || session_handle.empty() ||
         dbus_connection_get_is_connected(connection) == FALSE) {
         return;
     }
-    DBusMessage* request = dbus_message_new_method_call(
-        portal_service, session_handle.c_str(), session_interface, "Close");
+    DBusMessage* request = dbus_message_new_method_call(portal_service, session_handle.c_str(),
+                                                        session_interface, "Close");
     if (request == nullptr) return;
     static_cast<void>(dbus_connection_send(connection, request, nullptr));
     dbus_connection_flush(connection);
@@ -400,7 +391,7 @@ std::string portal_accelerator(const HotkeyCombination combination) {
     if (combination.control) result += "CTRL+";
     if (combination.shift) result += "SHIFT+";
     if (combination.alt) result += "ALT+";
-    if (combination.windows) result += "LOGO+";
+    if (combination.system_modifier) result += "LOGO+";
     result += 'F';
     result += std::to_string(static_cast<unsigned>(combination.key));
     return result;
@@ -444,28 +435,27 @@ struct LinuxGlobalHotkeyManager::NativeState {
         dbus_connection_set_exit_on_disconnect(connection, FALSE);
 
         dbus_error_init(&error);
-        const bool owner = dbus_bus_name_has_owner(
-            connection, portal_service, &error) != FALSE;
+        const bool owner = dbus_bus_name_has_owner(connection, portal_service, &error) != FALSE;
         if (dbus_error_is_set(&error)) dbus_error_free(&error);
         const auto version = owner ? portal_version(connection) : 0U;
-        const bool matches = owner && version >= 1U &&
-            add_match(connection,
-                "type='signal',interface='org.freedesktop.portal.Request',member='Response'") &&
-            add_match(connection,
-                "type='signal',interface='org.freedesktop.portal.GlobalShortcuts'") &&
-            add_match(connection,
-                "type='signal',interface='org.freedesktop.portal.Session',member='Closed'") &&
-            add_match(connection,
-                "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged',"
-                "arg0='org.freedesktop.portal.Desktop'");
+        const bool matches =
+            owner && version >= 1U &&
+            add_match(connection, "type='signal',interface='org.freedesktop.portal."
+                                  "Request',member='Response'") &&
+            add_match(connection, "type='signal',interface='org.freedesktop.portal."
+                                  "GlobalShortcuts'") &&
+            add_match(connection, "type='signal',interface='org.freedesktop.portal."
+                                  "Session',member='Closed'") &&
+            add_match(connection, "type='signal',interface='org.freedesktop.DBus',"
+                                  "member='NameOwnerChanged',"
+                                  "arg0='org.freedesktop.portal.Desktop'");
         if (!matches) {
             close_connection();
             return false;
         }
         dbus_connection_flush(connection);
         session_handle = create_session(connection);
-        if (session_handle.empty() ||
-            !bind_shortcut(connection, session_handle, accelerator)) {
+        if (session_handle.empty() || !bind_shortcut(connection, session_handle, accelerator)) {
             close_connection();
             return false;
         }
@@ -487,13 +477,11 @@ struct LinuxGlobalHotkeyManager::NativeState {
     }
 
     [[nodiscard]] bool capture_activated(DBusMessage* message) noexcept {
-        if (!matching_session_signal(message, shortcuts_interface, "Activated",
-                                     session_handle)) {
+        if (!matching_session_signal(message, shortcuts_interface, "Activated", session_handle)) {
             return false;
         }
         DBusMessageIter iterator{};
-        if (!dbus_message_iter_init(message, &iterator) ||
-            !dbus_message_iter_next(&iterator) ||
+        if (!dbus_message_iter_init(message, &iterator) || !dbus_message_iter_next(&iterator) ||
             dbus_message_iter_get_arg_type(&iterator) != DBUS_TYPE_STRING) {
             return false;
         }
@@ -518,15 +506,15 @@ struct LinuxGlobalHotkeyManager::NativeState {
 
     [[nodiscard]] bool process_messages() noexcept {
         while (DBusMessage* message = dbus_connection_pop_message(connection)) {
-            bool session_lost = service_owner_changed(message) ||
-                matching_session_signal(message, session_interface, "Closed",
-                                        session_handle);
-            if (!session_lost && capture_activated(message) && registered.load(
-                    std::memory_order_acquire)) {
+            bool session_lost =
+                service_owner_changed(message) ||
+                matching_session_signal(message, session_interface, "Closed", session_handle);
+            if (!session_lost && capture_activated(message) &&
+                registered.load(std::memory_order_acquire)) {
                 dispatch_activation();
             }
-            if (!session_lost && matching_session_signal(
-                    message, shortcuts_interface, "ShortcutsChanged", session_handle)) {
+            if (!session_lost && matching_session_signal(message, shortcuts_interface,
+                                                         "ShortcutsChanged", session_handle)) {
                 const bool retained = shortcut_signal_contains_capture(message);
                 {
                     const std::scoped_lock lock{mutex};
@@ -544,8 +532,7 @@ struct LinuxGlobalHotkeyManager::NativeState {
     void listen(const std::stop_token stop_token) noexcept {
         std::uint32_t retry_attempt{};
         while (!stop_token.stop_requested()) {
-            if (connection != nullptr &&
-                dbus_connection_read_write(connection, 100) != FALSE &&
+            if (connection != nullptr && dbus_connection_read_write(connection, 100) != FALSE &&
                 process_messages()) {
                 retry_attempt = 0U;
                 continue;
@@ -554,8 +541,8 @@ struct LinuxGlobalHotkeyManager::NativeState {
             if (connection != nullptr) mark_session_lost();
             const auto delay = portal_reconnect_delay(retry_attempt++);
             std::unique_lock lock{mutex};
-            const bool stopped = retry_condition.wait_for(
-                lock, stop_token, delay, [] { return false; });
+            const bool stopped =
+                retry_condition.wait_for(lock, stop_token, delay, [] { return false; });
             if (stopped || stop_token.stop_requested()) break;
             ++diagnostics.reconnect_attempts;
             lock.unlock();
@@ -568,16 +555,13 @@ struct LinuxGlobalHotkeyManager::NativeState {
     }
 };
 
-LinuxGlobalHotkeyManager::LinuxGlobalHotkeyManager()
-    : native_{std::make_unique<NativeState>()} {}
+LinuxGlobalHotkeyManager::LinuxGlobalHotkeyManager() : native_{std::make_unique<NativeState>()} {}
 
-LinuxGlobalHotkeyManager::~LinuxGlobalHotkeyManager() {
-    unregister_hotkey();
-}
+LinuxGlobalHotkeyManager::~LinuxGlobalHotkeyManager() { unregister_hotkey(); }
 
-HotkeyRegistrationResult LinuxGlobalHotkeyManager::register_hotkey(
-    const HotkeyCombination combination,
-    HotkeyCallback callback) {
+HotkeyRegistrationResult
+LinuxGlobalHotkeyManager::register_hotkey(const HotkeyCombination combination,
+                                          HotkeyCallback callback) {
     unregister_hotkey();
     const auto accelerator = portal_accelerator(combination);
     if (accelerator.empty() || !callback) {
@@ -594,9 +578,7 @@ HotkeyRegistrationResult LinuxGlobalHotkeyManager::register_hotkey(
         return HotkeyRegistrationResult::unavailable;
     }
     native_->worker = std::jthread{
-        [state = native_.get()](const std::stop_token stop_token) {
-            state->listen(stop_token);
-        }};
+        [state = native_.get()](const std::stop_token stop_token) { state->listen(stop_token); }};
     return HotkeyRegistrationResult::registered;
 }
 

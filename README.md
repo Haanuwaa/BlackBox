@@ -6,39 +6,26 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.18.0** is the pre-1.0 cross-platform evidence engineering line of the local-native Windows
-flight recorder, with unsupported Linux and macOS engineering previews.
-It combines bounded configurable recording, manual/automatic capture, an evidence-first six-page
-workflow, synchronized incident timelines, guided archive recovery, privacy-safe local support
-bundles, bounded platform crash evidence, the versioned local analysis
-pipeline, archive browsing and labeling, explicit retention/privacy maintenance, persisted validated
-recorder profiles, bounded retry for transient incident-persistence failures, and a native Windows
-tray/background shell with close-to-tray, pause/resume, launch-at-login, lifecycle notifications,
-Explorer recovery, single-instance activation, capability-gated GPU/responsiveness/power gauges,
-independent privacy-bounded Windows event evidence, and a frozen one-host dogfood evaluation with
-calibration/held-out tooling. It is not yet the production product
-described by the vision: representative multi-host/natural diagnostic quality, held-out symptom
-classification/ML comparison, clean-client qualification, distribution lifecycle, and official
-signing remain roadmap gates. A development-only Linux system/process provider and label-free offline
-model-comparison harness now exercise the platform and evaluation boundaries, but neither is a
-support claim or a shipped ML runtime. Native ML remains unshipped because no representative
-held-out dataset demonstrates material benefit; all intelligence stays optional and unable to
-affect recording.
+Version **0.22.0** is the pre-1.0 durability, portable-semantics, and pressure-evidence engineering
+line. The product has one bounded native recorder, direct-V1 archive, optional statistical-analysis
+pipeline, and evidence-first desktop workflow across its Windows product target and Linux/macOS
+engineering previews. Accepted incident-viewer mutations are now isolated from coalescible reads and
+drained on shutdown; portable settings and event contracts use source-neutral terminology; and the
+dashboard avoids rebuilding large projections when the collector has not advanced.
 
-Windows is the only currently supported product platform. Linux now has an engineering desktop build,
-CPU/memory/disk/network/power/uptime/process telemetry, passive TCP/link-quality evidence, a bounded
-provider-overhead gate, and an explicitly
-unsupported TGZ engineering preview. A separate Ubuntu 24.04, Debian 13, and Fedora 43 hosted matrix
-builds, measures, extracts, and launches that package. The Linux platform boundary also owns a native
-SDL tray, per-user instance lock, and exact XDG autostart entry, while unavailable tray/notification
-protocols remain explicit. Linux still lacks physical desktop/accessibility/session/power/installer
-qualification and the evidence required for support.
-macOS now has an engineering-only native CPU/memory/disk/network/power/uptime/process provider,
-passive TCP/link-quality evidence, and `.app` bundle. Its platform
-adapter adds a bounded single-instance lock, SDL menu-bar tray, current ServiceManagement login item,
-permission-aware local notifications, and AppKit contrast/reduced-motion preferences. Global shortcuts,
-remaining system telemetry, signing/notarization, and physical-client qualification remain
-open, so this is not a macOS support claim.
+Windows remains the intended first product target, but no platform has a public support claim before
+the remaining physical, signing, long-run, and diagnostic-quality gates pass. Linux implements native
+CPU/memory/process/disk/network/power/uptime evidence, capability-driven GPU backends, exact PSI
+CPU/memory/I/O stall fractions, X11 foreground identity, Wayland portal integration, and TGZ/DEB/RPM
+engineering packages. Wayland foreground identity remains explicitly unavailable because the public
+portal surface has no standardized permission-bounded active-window identity API.
+
+macOS implements native CPU/memory/process/disk/network/power/uptime evidence, public Metal inventory,
+BlackBox renderer health, coarse public thermal-pressure state, desktop integration, global-shortcut
+permission UX, and unsigned TGZ/DMG/PKG engineering packages. It does not relabel renderer health as
+whole-system GPU utilization or invent exact disk-queue/PSI evidence. Runtime ML remains unshipped:
+the offline comparison harness exists, but adoption stays blocked until a representative,
+independently labelled held-out corpus proves material value over the optional statistical baseline.
 
 ## Principles
 
