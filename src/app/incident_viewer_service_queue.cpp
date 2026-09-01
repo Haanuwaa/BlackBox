@@ -209,6 +209,7 @@ void IncidentViewerService::run(const std::stop_token stop_token) noexcept {
                 continue;
             }
         }
+        bool mutation_succeeded = true;
         try {
             switch (job.type) {
             case JobType::page:
@@ -221,32 +222,38 @@ void IncidentViewerService::run(const std::stop_token stop_token) noexcept {
                 handle_process(job);
                 break;
             case JobType::annotation:
-                handle_annotation(job);
+                mutation_succeeded = handle_annotation(job);
                 break;
             case JobType::contributor_feedback:
-                handle_contributor_feedback(job);
+                mutation_succeeded = handle_contributor_feedback(job);
                 break;
             case JobType::recurring:
                 handle_recurring();
                 break;
             case JobType::recurring_override:
-                handle_recurring_override(job);
+                mutation_succeeded = handle_recurring_override(job);
                 break;
             case JobType::feedback_reset:
-                handle_feedback_reset();
+                mutation_succeeded = handle_feedback_reset();
                 break;
             case JobType::feedback_rollback:
-                handle_feedback_rollback();
+                mutation_succeeded = handle_feedback_rollback();
                 break;
             }
         } catch (const std::exception& exception) {
+            mutation_succeeded = false;
             publish_error(exception.what());
         } catch (...) {
+            mutation_succeeded = false;
             publish_error("Unknown incident viewer failure");
         }
         const std::scoped_lock lock{mutex_};
         if (mutation) {
-            ++queue_diagnostics_.completed_mutations;
+            if (mutation_succeeded) {
+                ++queue_diagnostics_.completed_mutations;
+            } else {
+                ++queue_diagnostics_.failed_mutations;
+            }
         } else {
             ++queue_diagnostics_.completed_reads;
         }

@@ -41,6 +41,14 @@ Completed or in-progress snapshots reserve slots in a fixed two-item FIFO. If bo
 
 Stopping collection first stops acceptance and cancels an incomplete post-window. The application unregisters and joins the hotkey service before stopping the collector, so a native callback cannot race destruction. It then drains queued writer work, joins the writer, and closes SQLite before tearing down the UI. A drain failure is observable but never restarts collection during shutdown.
 
+The incident viewer has a separate fixed-capacity durability queue for accepted annotations,
+contributor feedback, recurrence overrides, and feedback-profile controls. Refresh/detail work may be
+coalesced or cancelled, but accepted mutations are never evicted and are drained in submission order
+at shutdown. A persistence failure increments `failed_mutations`, does not increment
+`completed_mutations`, and does not terminate the worker: later accepted mutations still run. Queue
+depth, coalescing, cancellation, rejection, successful completion, and failed completion are exposed
+as bounded primitive diagnostics; they never enter the collector path.
+
 ## Windows hotkey
 
 The default chord is `Ctrl+Shift+F12`. `IGlobalHotkeyManager` contains no Win32 types. `WindowsGlobalHotkeyManager` registers the chord with `MOD_NOREPEAT` on a dedicated ordinary-user message thread, receives `WM_HOTKEY`, and emits the capture callback. Clean shutdown posts `WM_QUIT`; the same thread calls `UnregisterHotKey` before exiting.

@@ -226,6 +226,7 @@ struct DashboardState {
     std::uint64_t viewer_reads_cancelled{};
     std::uint64_t viewer_mutations_rejected{};
     std::uint64_t viewer_mutations_completed{};
+    std::uint64_t viewer_mutations_failed{};
     std::uint64_t stored_incident_count{};
     double storage_write_average_microseconds{};
     double storage_write_p95_microseconds{};

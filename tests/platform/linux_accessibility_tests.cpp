@@ -3,6 +3,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
+#include <cstdint>
+#include <optional>
 #include <thread>
 
 namespace linux_platform = blackbox::platform::linux;
@@ -35,5 +37,22 @@ TEST_CASE("Linux accessibility refresh stays off the caller thread",
     std::this_thread::sleep_for(std::chrono::milliseconds{10});
   }
   CHECK(monitor.snapshot().refreshes_completed == 1U);
-  monitor.stop();
+    monitor.stop();
+}
+
+TEST_CASE("Linux accessibility randomized permission loss fails to safe defaults and recovers",
+          "[platform][linux][accessibility][property][permission-loss][recovery]") {
+  std::uint64_t random_state{0x94d049bb133111ebULL};
+  for (std::size_t iteration = 0U; iteration < 4'096U; ++iteration) {
+    random_state ^= random_state << 13U;
+    random_state ^= random_state >> 7U;
+    random_state ^= random_state << 17U;
+    const bool permission = (random_state & 1U) != 0U;
+    const auto contrast = permission ? std::optional<std::uint32_t>{1U} : std::nullopt;
+    const auto animations = permission ? std::optional<std::uint32_t>{1U} : std::nullopt;
+    const auto preferences =
+        linux_platform::portal_accessibility_preferences(contrast, animations);
+    CHECK(preferences.high_contrast == permission);
+    CHECK(preferences.animations_enabled == !permission);
+  }
 }

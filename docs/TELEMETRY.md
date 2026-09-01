@@ -239,8 +239,8 @@ macOS exposes only public, non-identifying Metal inventory counts and default re
 availability. The UI separately reports the successfully initialized SDL renderer backend. Public
 Metal counters measure command buffers or passes owned by BlackBox, so passive whole-system and
 foreground GPU utilization remain `unsupported`; private IOReport/IORegistry properties and
-privileged `powermetrics` parsing are not used. Linux PSI remains future pressure evidence, not a
-substitute for Windows DPC/ISR semantics.
+privileged `powermetrics` parsing are not used. Linux PSI is implemented as separate cumulative-stall
+pressure evidence; it is not a substitute for Windows DPC/ISR semantics.
 
 ## Portable system-event parity
 

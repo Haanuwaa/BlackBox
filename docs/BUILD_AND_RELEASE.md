@@ -2,7 +2,7 @@
 
 ## Intended release target
 
-V0.20 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
+V0.23 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
 Windows 11 and an ordinary, interactive user session. It has not completed the clean-client,
 wall-clock soak, usability, accessibility, or official-signing gates required for V1.0. The native
 APIs selected are non-elevated. Protected processes may remain inaccessible and are represented
@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.22.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.23.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 
@@ -81,7 +81,9 @@ qualify background services, signing/notarization, installation on a physical cl
 `.github/workflows/quality.yml` adds isolated dependency/SBOM, dependency-review, CodeQL, MSVC
 native-analysis, Windows ASan, Linux UBSan/TSan, native-fuzz, and coverage jobs. The CodeQL graph
 restores a pinned vcpkg binary cache before dependency resolution while keeping third-party builds
-outside tracing. Run the local policy,
+outside tracing. Every dependency-building quality job now uses the same OS/architecture restore
+prefix with a job-specific save key, so later runs can reuse compatible vcpkg binaries without
+coupling jobs or weakening their independent configurations. Run the local policy,
 Visual Studio 2026 analyzer, and ASan commands documented in `QUALITY_GATES.md` before a release
 candidate. Authored jobs do not satisfy the separate hosted-execution gate until the release
 revision actually passes and its artifacts are retained.

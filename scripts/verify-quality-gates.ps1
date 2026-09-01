@@ -45,6 +45,8 @@ Require-Text $cmake 'clang_rt\.asan_dynamic-x86_64\.dll' 'MSVC ASan runtime disc
 Require-Text $cmake 'blackbox_copy_address_sanitizer_runtime' 'MSVC ASan runtime staging helper'
 Require-Text $tests 'settings_native_fuzz_smoke' 'native fuzz smoke registration'
 Require-Text $tests 'native_parser_fuzz_smoke' 'native parser fuzz smoke registration'
+Require-Text $tests 'direct_v1_archive_fuzz_smoke' 'direct-v1 archive fuzz smoke registration'
+Require-Text $tests 'linux_portal_message_fuzz_smoke' 'portal-message fuzz smoke registration'
 Require-Text $tests 'strict_v1_input_property_tests\.cpp' 'strict-v1 mutation property test'
 Require-Text $tests 'corrupt_archive_property_tests\.cpp' 'corrupt archive property test'
 
@@ -66,8 +68,8 @@ Require-Text $workflow 'BLACKBOX_ENABLE_THREAD_SANITIZER=ON' 'ThreadSanitizer ac
 Require-Text $workflow 'BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS=ON' 'MSVC analysis activation'
 Require-Text $workflow 'BLACKBOX_BUILD_FUZZERS=ON' 'libFuzzer activation'
 Require-Text $workflow 'BLACKBOX_ENABLE_COVERAGE=ON' 'coverage activation'
-if (([regex]::Matches($workflow, '-max_total_time=30')).Count -ne 2) {
-    throw 'Quality gate contract failed: native fuzz campaign must be split into two bounded 30-second targets'
+if (([regex]::Matches($workflow, '-max_total_time=30')).Count -ne 4) {
+    throw 'Quality gate contract failed: native fuzz campaign must contain four bounded 30-second targets'
 }
 $fuzzJobStart = $workflow.IndexOf("`n  linux-native-fuzz:", [System.StringComparison]::Ordinal)
 $threadSanitizerJobStart = $workflow.IndexOf("`n  linux-thread-sanitizer:", [System.StringComparison]::Ordinal)
@@ -81,13 +83,17 @@ $threadSanitizerJob = $workflow.Substring(
     $threadSanitizerJobStart, $coverageJobStart - $threadSanitizerJobStart)
 Require-Text $fuzzJob 'blackbox_settings_fuzzer[\s\S]+-max_total_time=30' 'settings fuzz campaign placement'
 Require-Text $fuzzJob 'blackbox_native_parser_fuzzer[\s\S]+-max_total_time=30' 'parser fuzz campaign placement'
+Require-Text $fuzzJob 'blackbox_direct_v1_archive_fuzzer[\s\S]+-max_total_time=30' `
+    'direct-v1 archive fuzz campaign placement'
+Require-Text $fuzzJob 'blackbox_linux_portal_message_fuzzer[\s\S]+-max_total_time=30' `
+    'portal-message fuzz campaign placement'
 Require-Text $threadSanitizerJob 'BLACKBOX_BUILD_APP=OFF' 'headless ThreadSanitizer graph'
 Require-Text $threadSanitizerJob 'CC=gcc CXX=g\+\+' `
     'native GCC/libstdc++ ThreadSanitizer toolchain pairing'
 if ($threadSanitizerJob.Contains('__cpp_concepts', [System.StringComparison]::Ordinal)) {
     throw 'Quality gate contract failed: ThreadSanitizer must not override compiler feature macros'
 }
-if (([regex]::Matches($fuzzJob, '-max_total_time=30')).Count -ne 2 -or
+if (([regex]::Matches($fuzzJob, '-max_total_time=30')).Count -ne 4 -or
     $threadSanitizerJob.Contains('out/build/linux-fuzz', [System.StringComparison]::Ordinal)) {
     throw 'Quality gate contract failed: both bounded fuzz campaigns must run only in linux-native-fuzz'
 }
@@ -95,6 +101,14 @@ Require-Text $workflow '--fail-under-line 60' 'line coverage floor'
 Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
 Require-Text $workflow '--fail-under-line 45' 'component line coverage floor'
 Require-Text $workflow '--fail-under-branch 30' 'component branch coverage floor'
+Require-Text $workflow 'for component in app ui' 'application and UI component coverage floors'
+Require-Text $workflow '--fail-under-line 15' 'application and UI line coverage floor'
+Require-Text $workflow '--fail-under-branch 10' 'application and UI branch coverage floor'
+Require-Text $workflow '-DBLACKBOX_BUILD_APP=ON -DBLACKBOX_ENABLE_COVERAGE=ON' `
+    'full desktop coverage graph'
+if (([regex]::Matches($workflow, 'Restore shared vcpkg binary cache')).Count -lt 7) {
+    throw 'Quality gate contract failed: shared vcpkg cache must cover non-CodeQL quality jobs'
+}
 Require-Text $codeqlWorkflow 'actions/cache@[0-9a-f]{40}' 'immutable CodeQL dependency cache action'
 Reject-Text $codeqlWorkflow 'VCPKG_DEFAULT_BINARY_CACHE:[^\r\n]*runner\.' `
     'runner context in job-level CodeQL environment'
@@ -145,6 +159,8 @@ Require-Text $asanTriplet 'VCPKG_CXX_FLAGS "\/fsanitize=address \/Zi"' 'ASan dep
 foreach ($path in @(
     'tests/fuzz/settings_fuzzer.cpp',
     'tests/fuzz/native_parser_fuzzer.cpp',
+    'tests/fuzz/direct_v1_archive_fuzzer.cpp',
+    'tests/fuzz/linux_portal_message_fuzzer.cpp',
     'tests/fuzz/corpus/product-settings.ini',
     'tests/fuzz/corpus/recorder-settings.ini',
     'tests/fuzz/corpus/linux-proc-stat.txt',
@@ -156,4 +172,4 @@ foreach ($path in @(
     }
 }
 
-Write-Output 'Quality gate contract verified: asan=1 ubsan=1 tsan=1 msvc_analysis=1 fuzz_targets=2 property=2 dependency_review=1 codeql_production_targets=6 codeql_dependency_prime=1 codeql_cache=1 codeql_concurrency=1 sbom=1 coverage=60/45 components=45/30'
+Write-Output 'Quality gate contract verified: asan=1 ubsan=1 tsan=1 msvc_analysis=1 fuzz_targets=4 randomized_models=3 dependency_review=1 codeql_production_targets=6 codeql_dependency_prime=1 shared_vcpkg_caches=7 codeql_concurrency=1 sbom=1 coverage=60/45 components=45/30 app_ui=15/10'

@@ -54,7 +54,7 @@ status_name(const core::RecordedValueStatus value) noexcept {
     case core::SystemEventSource::service_manager:
         return "service";
     case core::SystemEventSource::security:
-        return "defender";
+        return "security";
     case core::SystemEventSource::update:
         return "update";
     case core::SystemEventSource::application:

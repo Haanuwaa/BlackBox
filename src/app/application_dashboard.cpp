@@ -300,6 +300,7 @@ void Application::refresh_dashboard_if_due() {
         dashboard_state_.viewer_reads_cancelled = queue.cancelled_reads;
         dashboard_state_.viewer_mutations_rejected = queue.rejected_mutations;
         dashboard_state_.viewer_mutations_completed = queue.completed_mutations;
+        dashboard_state_.viewer_mutations_failed = queue.failed_mutations;
     }
     if (archive_maintenance_service_ != nullptr) {
         const auto maintenance = archive_maintenance_service_->snapshot();

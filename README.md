@@ -6,12 +6,15 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.22.0** is the pre-1.0 durability, portable-semantics, and pressure-evidence engineering
-line. The product has one bounded native recorder, direct-V1 archive, optional statistical-analysis
+Version **0.23.0** is the pre-1.0 audit-closure and quality-hardening engineering line. The product
+has one bounded native recorder, direct-V1 archive, optional statistical-analysis
 pipeline, and evidence-first desktop workflow across its Windows product target and Linux/macOS
 engineering previews. Accepted incident-viewer mutations are now isolated from coalescible reads and
-drained on shutdown; portable settings and event contracts use source-neutral terminology; and the
-dashboard avoids rebuilding large projections when the collector has not advanced.
+drained on shutdown, with persistence failure counted separately while later FIFO work continues;
+portable settings and event contracts use source-neutral terminology; and the dashboard avoids
+rebuilding large projections when the collector has not advanced. The V0.23 quality graph adds four
+native fuzz targets, randomized lifecycle models, full-desktop app/UI coverage floors, shared pinned
+dependency caches, and an exact-process visible/minimized/hidden/background measurement harness.
 
 Windows remains the intended first product target, but no platform has a public support claim before
 the remaining physical, signing, long-run, and diagnostic-quality gates pass. Linux implements native

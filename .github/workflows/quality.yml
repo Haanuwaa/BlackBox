@@ -17,8 +17,19 @@ jobs:
     runs-on: windows-2022
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-sbom-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Verify immutable dependency and action policy
         shell: pwsh
         run: |
@@ -106,9 +117,9 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: codeql-vcpkg-windows-2022-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-codeql-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
-            codeql-vcpkg-windows-2022-
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare CodeQL vcpkg binary cache
         shell: pwsh
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
@@ -155,8 +166,19 @@ jobs:
     runs-on: windows-2022
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-static-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -181,9 +203,20 @@ jobs:
     runs-on: windows-2022
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
       ASAN_OPTIONS: halt_on_error=1:detect_leaks=0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-asan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/x64-windows-blackbox-asan.cmake') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -215,9 +248,20 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-ubsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -244,9 +288,25 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
       ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install portal parser dependency
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libdbus-1-dev
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-fuzz-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -261,14 +321,16 @@ jobs:
           CC=clang-18 CXX=clang++-18 cmake -S . -B out/build/linux-fuzz -G Ninja
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=OFF
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_STORAGE_DEPENDENCIES=ON
           -DBLACKBOX_ENABLE_ANALYSIS=OFF -DBLACKBOX_BUILD_TESTS=ON
           -DBLACKBOX_BUILD_FUZZERS=ON -DBLACKBOX_ENABLE_ADDRESS_SANITIZER=ON
           -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L"
       - name: Build and smoke the seed corpus
         shell: bash
         run: |
-          cmake --build out/build/linux-fuzz --target blackbox_settings_fuzzer blackbox_native_parser_fuzzer --parallel
+          cmake --build out/build/linux-fuzz --target \
+            blackbox_settings_fuzzer blackbox_native_parser_fuzzer \
+            blackbox_direct_v1_archive_fuzzer blackbox_linux_portal_message_fuzzer --parallel
           ctest --test-dir out/build/linux-fuzz --output-on-failure -L fuzz
       - name: Run bounded native fuzz campaign
         shell: bash
@@ -279,14 +341,31 @@ jobs:
           out/build/linux-fuzz/tests/blackbox_native_parser_fuzzer \
             -max_total_time=30 -max_len=65536 -timeout=5 -rss_limit_mb=1024 \
             out/build/linux-fuzz/tests/fuzz-corpus
+          out/build/linux-fuzz/tests/blackbox_direct_v1_archive_fuzzer \
+            -max_total_time=30 -max_len=1048576 -timeout=5 -rss_limit_mb=1024 \
+            out/build/linux-fuzz/tests/fuzz-corpus
+          out/build/linux-fuzz/tests/blackbox_linux_portal_message_fuzzer \
+            -max_total_time=30 -max_len=4096 -timeout=5 -rss_limit_mb=1024 \
+            out/build/linux-fuzz/tests/fuzz-corpus
 
   linux-thread-sanitizer:
     runs-on: ubuntu-24.04
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
       TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-tsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -316,8 +395,30 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install desktop coverage dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            pkg-config xvfb xauth dbus-x11 \
+            libx11-dev libxext-dev libxrandr-dev libxrender-dev libxfixes-dev \
+            libxi-dev libxss-dev libxtst-dev libxcursor-dev libxinerama-dev \
+            libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
+            libgl1-mesa-dev libasound2-dev libpulse-dev libudev-dev \
+            libdbus-1-dev libsystemd-dev
+      - name: Restore shared vcpkg binary cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-coverage-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
+      - name: Prepare shared vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: |
@@ -332,12 +433,20 @@ jobs:
           CC=gcc CXX=g++ cmake -S . -B out/build/linux-coverage -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_COVERAGE=ON
+          -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_ENABLE_COVERAGE=ON
       - name: Build and run coverage suite
         shell: bash
         run: |
           cmake --build out/build/linux-coverage --parallel
-          ctest --test-dir out/build/linux-coverage --output-on-failure
+          xvfb-run -a dbus-run-session -- \
+            ctest --test-dir out/build/linux-coverage --output-on-failure
+          mkdir -p out/quality/coverage-runtime/config out/quality/coverage-runtime/data
+          report="$PWD/out/quality/coverage-runtime/visible.ini"
+          XDG_CONFIG_HOME="$PWD/out/quality/coverage-runtime/config" \
+          XDG_DATA_HOME="$PWD/out/quality/coverage-runtime/data" \
+            xvfb-run -a dbus-run-session -- env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software \
+            timeout 20s out/build/linux-coverage/src/blackbox \
+              --visible-diagnostic-seconds=5 --diagnostic-report="$report"
       - name: Generate bounded coverage report
         shell: bash
         run: |
@@ -352,6 +461,11 @@ jobs:
             python3 -m gcovr --root . --filter "src/$component/" --print-summary \
               --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
               --fail-under-line 45 --fail-under-branch 30
+          done
+          for component in app ui; do
+            python3 -m gcovr --root . --filter "src/$component/" --print-summary \
+              --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+              --fail-under-line 15 --fail-under-branch 10
           done
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

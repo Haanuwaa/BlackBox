@@ -29,10 +29,12 @@ not introduce migrations, compatibility adapters, or legacy fixtures.
 - Linux UndefinedBehaviorSanitizer for the portable headless graph;
 - a narrowly scoped Linux ThreadSanitizer graph for collector, writer, viewer, and metadata-cache
   concurrency;
-- Clang libFuzzer seed smoke plus a bounded 60-second campaign split between direct-V1 settings and
-  native `/proc`/sysfs/power/PSI parsers; and
+- Clang libFuzzer seed smoke plus four bounded 30-second campaigns covering direct-V1 settings,
+  native `/proc`/sysfs/power/PSI/GPU parsers, read-only direct-V1 SQLite schema validation, and typed
+  XDG portal response decoding; and
 - Linux line/branch coverage with 60%/45% aggregate minimums, 45%/30% component minimums for core,
-  telemetry, storage, and analysis, and retained HTML/XML reports.
+  telemetry, storage, and analysis, conservative 15%/10% app/UI module floors, a real visible
+  diagnostic launch under Xvfb, and retained HTML/XML reports.
 
 Every GitHub Action reference is an immutable 40-character commit. Dependabot checks those action
 pins weekly. The vcpkg registry baseline is an immutable commit, the direct dependency and ImGui
@@ -159,17 +161,21 @@ their bytes.
 
 One native fuzzer calls the same in-memory strict-v1 settings parsers with a 20 KiB input ceiling.
 A second independently bounded entry point exercises Linux `/proc`, sysfs frequency/profile, power,
-and PSI parsers with a 64 KiB ceiling and caller-owned fixed interface storage. Checked-in product and
-recorder seeds are copied into a build-local corpus. CI first runs deterministic smoke iterations,
-then splits a 60-second ASan-backed campaign across both targets with explicit timeout, input, and
-memory limits. A short bounded campaign is a regression gate, not a claim of exhaustive fuzzing.
+PSI, AMD GPU, and DRM `fdinfo` parsers plus the strict finite-decimal evaluation parser. A third
+deserializes at most 1 MiB into an in-memory, read-only SQLite database and invokes the production
+direct-V1 schema validator. A fourth builds typed, bounded D-Bus responses and exercises the
+production portal response decoders without connecting to a user session. Checked-in seeds are
+copied into a build-local corpus. CI first runs deterministic smoke iterations, then runs four
+30-second ASan-backed campaigns with explicit timeout, input, and memory limits. A short bounded
+campaign is a regression gate, not a claim of exhaustive fuzzing.
 
 ## Coverage meaning
 
 Coverage measures the portable `src/` graph on Linux and excludes Windows-only platform and
 telemetry sources that are not compiled there. The 60% line and 45% branch aggregate floors prevent
 global regression, while conservative 45%/30% floors independently prevent core, telemetry, storage,
-or analysis from disappearing behind another well-covered component. They are minimum gates, not a
+or analysis from disappearing behind another well-covered component. The app and UI each have a
+15% line/10% branch floor after the suite and a visible diagnostic launch. They are minimum gates, not a
 statement that the unmeasured Windows or interactive UI paths are covered. Windows behavior is
 covered by its ordinary, integration, static-analysis, and ASan jobs.
 

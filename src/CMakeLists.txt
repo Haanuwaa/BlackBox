@@ -211,6 +211,19 @@ target_include_directories(blackbox_platform INTERFACE ${PROJECT_SOURCE_DIR}/src
 target_compile_features(blackbox_platform INTERFACE cxx_std_23)
 target_link_libraries(blackbox_platform INTERFACE BlackBox::Core)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET PkgConfig::BLACKBOX_DBUS)
+    add_library(blackbox_linux_portal_message_parser STATIC
+        platform/linux/linux_portal_message_parser.cpp)
+    add_library(BlackBox::LinuxPortalMessageParser ALIAS
+        blackbox_linux_portal_message_parser)
+    target_include_directories(blackbox_linux_portal_message_parser
+        PUBLIC ${PROJECT_SOURCE_DIR}/src)
+    target_compile_features(blackbox_linux_portal_message_parser PUBLIC cxx_std_23)
+    target_link_libraries(blackbox_linux_portal_message_parser
+        PRIVATE PkgConfig::BLACKBOX_DBUS)
+    blackbox_set_project_warnings(blackbox_linux_portal_message_parser)
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
     if(NOT TARGET PkgConfig::BLACKBOX_DBUS)
         message(FATAL_ERROR "The Linux desktop app requires the dbus-1 development package")
@@ -227,7 +240,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND BLACKBOX_BUILD_APP)
     target_link_libraries(blackbox_platform_linux PUBLIC BlackBox::Platform)
     target_link_libraries(blackbox_platform_linux PRIVATE
         SDL3::SDL3
-        PkgConfig::BLACKBOX_DBUS)
+        PkgConfig::BLACKBOX_DBUS
+        BlackBox::LinuxPortalMessageParser)
     blackbox_set_project_warnings(blackbox_platform_linux)
 endif()
 
@@ -301,7 +315,9 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
         storage/incident_dataset.cpp
         storage/incident_writer.cpp
         storage/sqlite_incident_archive.cpp
+        storage/sqlite_incident_archive_feedback.cpp
         storage/sqlite_incident_archive_maintenance.cpp
+        storage/sqlite_incident_archive_recurrence.cpp
         storage/sqlite_incident_archive_status.cpp
     )
     add_library(BlackBox::Storage ALIAS blackbox_storage)
@@ -402,6 +418,7 @@ blackbox_set_project_warnings(blackbox_app_support)
 if(BLACKBOX_BUILD_APP)
     add_library(blackbox_ui STATIC
         ui/dashboard.cpp
+        ui/dashboard_incidents.cpp
         ui/dashboard_pressure.cpp
         ui/dashboard_settings.cpp
         ui/incident_viewer.cpp
@@ -416,7 +433,9 @@ if(BLACKBOX_BUILD_APP)
     if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
         add_library(blackbox_incident_viewer_service STATIC
             app/archive_maintenance_service.cpp
+            app/incident_viewer_analysis.cpp
             app/incident_viewer_service.cpp
+            app/incident_viewer_service_mutations.cpp
             app/incident_viewer_service_queue.cpp
         )
         add_library(BlackBox::IncidentViewerService ALIAS

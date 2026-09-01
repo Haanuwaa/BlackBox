@@ -47,6 +47,32 @@ Percentiles must use a bounded histogram or bounded diagnostic window; diagnosti
 
 Repeat the idle procedure with the Live view visible. Record render frame rate and UI-thread CPU separately where tooling permits. Compare visible, minimized, and hidden states. Hidden/minimized UI CPU is a release gate once tray/background behavior exists.
 
+### V0.23 four-state desktop characterization
+
+Measured 2026-09-01 with the MSVC 19.51 x64 Release `0.23.0` executable on Windows
+10.0.26200, 12 logical processors, High performance power mode, default one-second/five-minute
+recording, and approximately 289 host processes. Each 20-second run discarded the first five
+seconds, sampled the exact launched process every 250 ms, and retained the application diagnostic
+report beside the measurement. All four runs completed 21 collections with zero partial, failed,
+dropped, late, or deadline-missed samples. The executable SHA-256 was
+`b5881bf7c5bc0bd3ddec57abebb12f77ce4c2767f52b34d2f4355c82a349e523`.
+
+| Shell state | Samples | Average/max total-machine CPU | Average/max working set | Average/max private bytes |
+|---|---:|---:|---:|---:|
+| Visible live dashboard | 63 | 1.730% / 4.114% | 68.86 / 72.30 MiB | 123.92 / 128.34 MiB |
+| Minimized after visible startup | 63 | 0.155% / 2.051% | 64.02 / 65.20 MiB | 122.81 / 124.95 MiB |
+| Runtime-hidden after visible startup | 63 | 0.033% / 1.026% | 64.64 / 66.06 MiB | 123.16 / 125.55 MiB |
+| Start-hidden background | 64 | 0.080% / 0.515% | 53.71 / 54.99 MiB | 113.74 / 116.25 MiB |
+
+This closes the missing full-app visible comparison and confirms that hidden/start-hidden average CPU
+remains below the 1% release floor and working set remains below 80 MiB on this host. The visible
+result includes SDL/ImGui command generation, renderer submission, presentation,
+dashboard refresh, and native telemetry; it is deliberately not substituted with the existing CPU-
+side ImGui microbenchmark. These are short dirty-worktree development measurements, not the required
+three 30-minute clean-revision repetitions. Reproduce them with `scripts/measure-ui-runtime.ps1` in
+`Visible`, `Minimized`, `Hidden`, and `Background` modes; the four outputs use an atomic `.partial`
+publication path and record OS, processor capacity, executable hash, duration, and memory samples.
+
 ### Process-scale matrix
 
 Measure at approximately 50, 200, 500, and the highest practical process count. Report full collection latency and per-process cost. Include protected/inaccessible processes to verify failures do not cause retry storms or repeated path resolution.

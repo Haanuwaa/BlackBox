@@ -2192,8 +2192,9 @@ portable application boundary source-neutral and the unreleased product on one d
 - [x] Add a Linux ThreadSanitizer graph, native parser/settings fuzzing, per-module coverage floors,
   and a pinned vcpkg binary cache for CodeQL without reducing production target or query coverage.
 - [x] Keep schema and persisted settings at direct V1 with no migration or compatibility reader.
-- [ ] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
-  clean V0.21-or-later revision before treating this milestone as integrated evidence.
+- [x] Obtain the complete Windows, Linux, macOS, and quality/security hosted evidence on one exact
+  clean V0.21-or-later revision before treating this milestone as integrated evidence. Revision
+  `2d7ac36b49a76011309b10b74ba9ca70bba39333` passed all four hosted workflows.
 
 ## V0.22 — Cross-platform pressure evidence
 
@@ -2212,10 +2213,40 @@ thermal state, utilization, or inferred cause.
   exports, and render CPU, memory, I/O, and thermal evidence separately in live and incident views.
 - [x] Explain in product copy and engineering docs that pressure is evidence of waiting or OS thermal
   response, not utilization and not an attribution or diagnosis by itself.
-- [ ] Obtain exact-revision Windows, Linux, macOS, ThreadSanitizer, fuzzing, coverage, CodeQL, and
-  packaging evidence for V0.22.
+- [x] Obtain exact-revision Windows, Linux, macOS, ThreadSanitizer, fuzzing, coverage, CodeQL, and
+  packaging evidence for V0.22 on `2d7ac36b49a76011309b10b74ba9ca70bba39333`.
 - [ ] Physically validate pressure availability, overhead, suspend/resume, permission behavior, and
   UI legibility on representative Linux and macOS systems before promoting platform support.
+
+## V0.23 — Audit closure and quality hardening
+
+**Objective:** Close the remaining internal audit gaps with observable mutation recovery, broader
+adversarial testing, full desktop performance evidence, and responsibility-aligned source files while
+preserving the collector boundary and the unreleased direct-V1 contract.
+
+- [x] Distinguish completed and failed accepted viewer mutations, continue after a persistence
+  failure, expose the failure count in diagnostics, and prove mixed annotation/reset traffic remains
+  FIFO ordered without losing later accepted writes.
+- [x] Serialize the portable security event source as `security` in truth-review evidence and add a
+  semantic regression assertion that rejects the stale Windows product term.
+- [x] Add an exact-process four-state Windows runtime harness and characterize visible, minimized,
+  runtime-hidden, and start-hidden background CPU/working-set/private-byte behavior with matching
+  application diagnostics.
+- [x] Split dashboard incident rendering, viewer analysis/mutations, and SQLite feedback/profile/
+  recurrence persistence behind the existing UI, application, and storage boundaries. Keep one
+  direct V1 schema and introduce no migration or legacy path.
+- [x] Extend native fuzzing to GPU/DRM, strict evaluation numbers, read-only direct-V1 SQLite layout,
+  and typed portal responses; add deterministic randomized service-loss, permission-loss, hotplug,
+  and reconnect models.
+- [x] Build the complete Linux desktop in coverage, execute a visible diagnostic session, enforce
+  explicit app/UI floors, and reuse pinned vcpkg binary caches across every dependency-building
+  quality job without combining or weakening sanitizer/analyzer graphs.
+- [x] Refresh parity, telemetry, performance, build, quality, release, and architecture documentation
+  and advance the pre-release engineering version to `0.23.0`.
+- [ ] Obtain Windows, Linux, macOS, and quality/security hosted evidence for the clean V0.23
+  implementation revision.
+- [ ] Complete the resource-dependent physical desktop, pressure/GPU hardware, signing/notarization,
+  replacement 72-hour campaign, consented corpus, and held-out ML gates before any support or V1 claim.
 
 ## V2.0 — Optional advanced intelligence and additional platforms
 
@@ -2365,14 +2396,14 @@ permission-bounded public API exists. The operator-assisted 72-hour Windows camp
 client matrix, signing, consented diagnostic corpus, and one-shot held-out result remain separate V1
 qualification gates; none is relaxed by this engineering milestone.
 
-V0.21 and V0.22 now implement the durable viewer-mutation boundary, bounded dashboard projection,
-portable terminology cleanup, characterization-led source decomposition, stronger quality graphs,
-Linux PSI evidence, macOS thermal-pressure evidence, and direct-V1 pressure persistence/UI/export.
-The engineering version is `0.22.0`; final `1.0.0` remains reserved for actual V1 qualification.
-The local Windows Release graph passes 364/364 tests, including architecture, direct-V1, durability,
-pressure, performance, repository, and release-documentation contracts. The full product-and-test MSVC
-native-analysis graph also passes with warnings treated as errors. These are local implementation
-results until the revision is frozen and the hosted evidence below succeeds.
+V0.21 and V0.22 implement the durable viewer-mutation boundary, bounded dashboard projection,
+portable terminology cleanup, characterization-led source decomposition, Linux PSI evidence, macOS
+thermal-pressure evidence, and direct-V1 pressure persistence/UI/export. Exact revision
+`2d7ac36b49a76011309b10b74ba9ca70bba39333` passed the complete 364-test local Release graph plus
+[Windows run 33465385573](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385573),
+[Linux run 33465385795](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385795),
+[macOS run 33465385552](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385552), and
+[quality/security run 33465385553](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385553).
 
 The pre-freeze hosted diagnostic pass hardened four toolchain boundaries without weakening a gate:
 CodeQL now creates its restored vcpkg binary-cache directory before dependency resolution; the Linux
@@ -2387,10 +2418,29 @@ referring to stale provider fields. Windows crash capture now hands its prealloc
 to a dedicated bounded dump thread, avoiding the hosted Debug failure mode where DbgHelp could leave
 only incomplete staging data when invoked on the damaged thread.
 
-The exact next gate is one clean V0.22 revision: rebuild and pass the complete local Release and MSVC
-native-analysis graphs, then obtain Windows, Linux, macOS, and quality/security hosted evidence for
-that same revision. After it passes, perform physical Linux/macOS pressure and desktop review and
-restart the operator-assisted 72-hour Windows campaign only when the PC can remain available for the
-full run. Signing, notarization, physical client/accessibility qualification, the consented diagnostic
-corpus, and the held-out ML decision remain independent evidence gates; engineering breadth does not
-substitute for them.
+V0.23 closes the remaining internal audit gaps. Accepted viewer writes now distinguish persistence
+success from failure and continue FIFO processing after a failed write; truth-review exports use the
+portable `security` source. Dashboard incident rendering, viewer analysis/mutations, and SQLite
+feedback/profile/recurrence responsibilities compile separately without adding an ownership edge or
+changing direct schema V1. Four bounded native fuzz targets now cover settings, native/GPU/evaluation
+parsers, read-only direct-V1 SQLite validation, and typed portal responses. Deterministic randomized
+models cover service loss, permission loss, hotplug, and reconnect. The full Linux desktop coverage
+graph has explicit app/UI floors and dependency-building quality jobs share compatible pinned vcpkg
+cache prefixes.
+
+The engineering version is `0.23.0`; final `1.0.0` remains reserved for actual V1 qualification. The
+local Windows Release graph registers 367 tests and passes when the current-user launch-at-login
+contract is allowed its scoped registry access; the complete product-and-test MSVC native-analysis
+graph passes with warnings treated as errors. A four-state 20-second full-app characterization retained
+visible, minimized, runtime-hidden, and start-hidden reports. Hidden/background average CPU was
+0.033%/0.080% of total machine capacity, maximum working set stayed at or below 72.30 MiB in every
+state, and all runs recorded zero failed, dropped, late, or deadline-missed samples. These short dirty-
+worktree measurements close the missing comparison but do not replace controlled 30-minute repeats.
+
+The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
+complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
+hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,
+GPU, portal, package, DPI, and accessibility behavior; restart the operator-assisted 72-hour Windows
+campaign only when the PC can remain available for the full run; then complete signing/notarization,
+physical client qualification, the consented diagnostic corpus, and the one-shot held-out ML decision.
+Engineering breadth does not substitute for those V1 evidence gates.

@@ -29,6 +29,7 @@ struct IncidentViewerQueueDiagnostics {
     std::uint64_t rejected_mutations{};
     std::uint64_t completed_reads{};
     std::uint64_t completed_mutations{};
+    std::uint64_t failed_mutations{};
 };
 
 class IncidentViewerService final {
@@ -102,12 +103,12 @@ private:
     void handle_page(const Job& job);
     void handle_detail(const Job& job);
     void handle_process(const Job& job);
-    void handle_annotation(const Job& job);
-    void handle_contributor_feedback(const Job& job);
+    [[nodiscard]] bool handle_annotation(const Job& job);
+    [[nodiscard]] bool handle_contributor_feedback(const Job& job);
     void handle_recurring();
-    void handle_recurring_override(const Job& job);
-    void handle_feedback_reset();
-    void handle_feedback_rollback();
+    [[nodiscard]] bool handle_recurring_override(const Job& job);
+    [[nodiscard]] bool handle_feedback_reset();
+    [[nodiscard]] bool handle_feedback_rollback();
     void publish(ui::IncidentViewerContent content);
     void publish_error(std::string message);
     [[nodiscard]] storage::IncidentListQuery storage_query(const Job& job) const;

@@ -101,6 +101,12 @@ reject_literal("docs/V017_RELEASE_EVIDENCE.md"
 reject_literal("docs/V1_RELEASE_EVIDENCE.md"
     "BlackBox-0.22.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
+reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+    "BlackBox-0.23.0-windows-x64.zip"
+    "current engineering package in final V0.17 evidence instructions")
+reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+    "BlackBox-0.23.0-windows-x64.zip"
+    "current engineering package in final V1 evidence instructions")
 require_literal("docs/V1_RELEASE_EVIDENCE.md"
     "rejects reuse of one directory"
     "V1 evidence role-reuse rejection")

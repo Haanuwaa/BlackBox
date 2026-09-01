@@ -1155,3 +1155,27 @@ cadence but copies history/process frames only when the collector sequence advan
 top-K selection, indexes process metadata once by stable identity, and refreshes inventory on a slow
 generation cadence. The extracted projection, dashboard refresh, and viewer queue translation units
 do not add a dependency edge; UI still receives only bounded primitive state.
+
+## V0.23 audit-closure implementation note
+
+Viewer mutation acceptance remains the durability boundary. Persistence failures now increment a
+separate bounded diagnostic counter and do not terminate the worker or consume the success count;
+later accepted mutations still execute in FIFO order and shutdown still drains them. This is recovery
+and observability, not an alternate write path. Portable truth-review serialization emits the source-
+neutral `security` value; no Windows product name crosses the evaluation boundary.
+
+The large-file split follows existing ownership rather than adding layers. SQLite record store/load,
+feedback/profile persistence, recurrence persistence, and maintenance remain sibling implementations
+of the same direct-V1 archive interfaces behind one native state and one transaction helper contract.
+The viewer service owns orchestration, while analysis-to-view assembly and durable mutation handling
+compile separately. The dashboard shell delegates only incident-workspace rendering to another UI
+translation unit. None of these units is visible to telemetry, and no schema, migration, legacy
+reader, thread owner, or persisted representation changes.
+
+Quality expansion stays outside the shipped runtime: typed D-Bus response decoding is isolated in
+`platform/linux`, fuzz targets call bounded production parsers and read-only direct-V1 validation,
+and deterministic randomized tests exercise production transition functions for service loss,
+permission loss, hotplug, and reconnect. Coverage now builds the full Linux desktop graph and gives
+app/UI explicit conservative floors. The Windows measurement harness launches the exact executable
+and records visible, minimized, runtime-hidden, and start-hidden background resource samples without
+querying unrelated processes.

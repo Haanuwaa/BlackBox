@@ -17,7 +17,9 @@
 #include <expected>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
+#include <vector>
 
 namespace app = blackbox::app;
 namespace core = blackbox::core;
@@ -90,6 +92,11 @@ public:
             std::this_thread::sleep_for(1ms);
         }
         const std::scoped_lock lock{mutex};
+        mutation_calls.push_back("annotation:" + value.label);
+        if (fail_next_annotation.exchange(false, std::memory_order_acq_rel)) {
+            return std::unexpected{storage::StorageError{
+                storage::StorageErrorCode::busy, 0, "injected annotation failure"}};
+        }
         annotation_value = value;
         ++annotation_stores;
         return {};
@@ -131,6 +138,7 @@ public:
     std::expected<storage::FeedbackProfileControlState, storage::StorageError>
     reset_feedback_profile() noexcept override {
         const std::scoped_lock lock{mutex};
+        mutation_calls.emplace_back("feedback-reset");
         feedback_previous_reset_after = feedback_reset_after;
         feedback_reset_after = 1'800'000'000'001LL;
         feedback_rollback_available = true;
@@ -140,6 +148,7 @@ public:
     std::expected<storage::FeedbackProfileControlState, storage::StorageError>
     rollback_feedback_profile_reset() noexcept override {
         const std::scoped_lock lock{mutex};
+        mutation_calls.emplace_back("feedback-rollback");
         if (!feedback_rollback_available) {
             return std::unexpected{storage::StorageError{storage::StorageErrorCode::invalid_data, 0,
                                                          "no feedback reset available"}};
@@ -260,6 +269,7 @@ public:
     std::uint64_t feature_stores{};
     std::uint64_t override_stores{};
     std::uint64_t annotation_stores{};
+    std::vector<std::string> mutation_calls{};
     storage::IncidentAnnotation annotation_value{};
     std::shared_ptr<const core::IncidentSnapshot> incident_value{
         storage::test::representative_incident()};
@@ -267,6 +277,7 @@ public:
     std::atomic<bool> block_annotation{};
     std::atomic<bool> annotation_entered{};
     std::atomic<bool> release_annotation{};
+    std::atomic<bool> fail_next_annotation{};
 };
 
 #if BLACKBOX_ANALYSIS_ENABLED
@@ -468,6 +479,40 @@ TEST_CASE("viewer drains accepted mutations and never evicts them for read work"
     CHECK(drained.cancelled_reads >= 1U);
     CHECK(repository.annotation_stores == 65U);
     CHECK(repository.annotation_value.label == "accepted-63");
+}
+
+TEST_CASE("viewer preserves mixed mutation order and recovers after persistence failure",
+          "[app][viewer][threading][queue][failure]") {
+    ViewerRepository repository;
+    repository.block_annotation.store(true, std::memory_order_release);
+    repository.fail_next_annotation.store(true, std::memory_order_release);
+    app::IncidentViewerService viewer{repository, nullptr, &repository, &repository, &repository};
+    viewer.start();
+
+    REQUIRE(viewer.update_annotation(1, "fails", {},
+                                     storage::IncidentUserFeedback::unanswered,
+                                     storage::IncidentCategory::unknown));
+    REQUIRE(
+        wait_until([&] { return repository.annotation_entered.load(std::memory_order_acquire); }));
+    REQUIRE(viewer.update_annotation(1, "persists", {},
+                                     storage::IncidentUserFeedback::unanswered,
+                                     storage::IncidentCategory::unknown));
+    REQUIRE(viewer.reset_feedback_profile());
+
+    repository.release_annotation.store(true, std::memory_order_release);
+    viewer.stop();
+
+    const auto diagnostics = viewer.queue_diagnostics();
+    CHECK(diagnostics.queued_mutations == 0U);
+    CHECK(diagnostics.completed_mutations == 2U);
+    CHECK(diagnostics.failed_mutations == 1U);
+    CHECK(diagnostics.rejected_mutations == 0U);
+    const std::vector<std::string> expected{
+        "annotation:fails", "annotation:persists", "feedback-reset"};
+    CHECK(repository.mutation_calls == expected);
+    CHECK(repository.annotation_stores == 1U);
+    CHECK(repository.annotation_value.label == "persists");
+    CHECK(repository.feedback_revision == 1U);
 }
 
 #if BLACKBOX_ANALYSIS_ENABLED

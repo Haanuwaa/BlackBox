@@ -71,6 +71,31 @@ if(BLACKBOX_BUILD_FUZZERS)
     target_link_libraries(blackbox_native_parser_fuzzer PRIVATE BlackBox::Telemetry)
     blackbox_set_project_warnings(blackbox_native_parser_fuzzer)
 
+    if(TARGET BlackBox::Storage)
+        add_executable(blackbox_direct_v1_archive_fuzzer
+            fuzz/direct_v1_archive_fuzzer.cpp)
+        target_include_directories(blackbox_direct_v1_archive_fuzzer PRIVATE
+            ${PROJECT_SOURCE_DIR}/src)
+        target_compile_features(blackbox_direct_v1_archive_fuzzer PRIVATE cxx_std_23)
+        target_compile_options(blackbox_direct_v1_archive_fuzzer PRIVATE -fsanitize=fuzzer)
+        target_link_options(blackbox_direct_v1_archive_fuzzer PRIVATE -fsanitize=fuzzer)
+        target_link_libraries(blackbox_direct_v1_archive_fuzzer PRIVATE BlackBox::Storage)
+        blackbox_set_project_warnings(blackbox_direct_v1_archive_fuzzer)
+    endif()
+
+    if(TARGET BlackBox::LinuxPortalMessageParser)
+        add_executable(blackbox_linux_portal_message_fuzzer
+            fuzz/linux_portal_message_fuzzer.cpp)
+        target_include_directories(blackbox_linux_portal_message_fuzzer PRIVATE
+            ${PROJECT_SOURCE_DIR}/src)
+        target_compile_features(blackbox_linux_portal_message_fuzzer PRIVATE cxx_std_23)
+        target_compile_options(blackbox_linux_portal_message_fuzzer PRIVATE -fsanitize=fuzzer)
+        target_link_options(blackbox_linux_portal_message_fuzzer PRIVATE -fsanitize=fuzzer)
+        target_link_libraries(blackbox_linux_portal_message_fuzzer PRIVATE
+            BlackBox::LinuxPortalMessageParser)
+        blackbox_set_project_warnings(blackbox_linux_portal_message_fuzzer)
+    endif()
+
     file(COPY fuzz/corpus/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
     add_test(
         NAME settings_native_fuzz_smoke
@@ -84,6 +109,22 @@ if(BLACKBOX_BUILD_FUZZERS)
             -runs=4000 -max_len=65536 -timeout=5
             ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
     set_tests_properties(native_parser_fuzz_smoke PROPERTIES LABELS "fuzz")
+    if(TARGET blackbox_direct_v1_archive_fuzzer)
+        add_test(
+            NAME direct_v1_archive_fuzz_smoke
+            COMMAND blackbox_direct_v1_archive_fuzzer
+                -runs=1000 -max_len=1048576 -timeout=5
+                ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
+        set_tests_properties(direct_v1_archive_fuzz_smoke PROPERTIES LABELS "fuzz;storage")
+    endif()
+    if(TARGET blackbox_linux_portal_message_fuzzer)
+        add_test(
+            NAME linux_portal_message_fuzz_smoke
+            COMMAND blackbox_linux_portal_message_fuzzer
+                -runs=2000 -max_len=4096 -timeout=5
+                ${CMAKE_CURRENT_BINARY_DIR}/fuzz-corpus)
+        set_tests_properties(linux_portal_message_fuzz_smoke PROPERTIES LABELS "fuzz;platform")
+    endif()
 endif()
 
 if(BLACKBOX_ENABLE_AUTOMATIC_DETECTION)
@@ -353,6 +394,14 @@ if(WIN32)
                 -SourceRoot ${PROJECT_SOURCE_DIR})
         set_tests_properties(hosted_ci_attestation_script_contracts
             PROPERTIES LABELS "release;script;hosted-ci")
+        add_test(
+            NAME ui_runtime_performance_script_contracts
+            COMMAND ${BLACKBOX_POWERSHELL_EXECUTABLE}
+                -NoProfile -NonInteractive -ExecutionPolicy Bypass
+                -File ${CMAKE_CURRENT_SOURCE_DIR}/scripts/ui_runtime_performance_contract_tests.ps1
+                -SourceRoot ${PROJECT_SOURCE_DIR})
+        set_tests_properties(ui_runtime_performance_script_contracts
+            PROPERTIES LABELS "performance;script;ui")
         add_test(
             NAME ui_qualification_script_contracts
             COMMAND ${BLACKBOX_POWERSHELL_EXECUTABLE}

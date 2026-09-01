@@ -17,6 +17,7 @@
 int main(const int argc, char** argv) {
     try {
         bool start_hidden = false;
+        bool background_seen = false;
         blackbox::app::ApplicationDiagnosticOptions diagnostic_options{};
         bool runtime_seen = false;
         bool report_seen = false;
@@ -25,6 +26,8 @@ int main(const int argc, char** argv) {
         std::uint32_t argument_count = 0U;
         constexpr std::string_view diagnostic_prefix{
             "--background-diagnostic-seconds="};
+        constexpr std::string_view visible_diagnostic_prefix{
+            "--visible-diagnostic-seconds="};
         constexpr std::string_view report_prefix{"--diagnostic-report="};
         constexpr std::string_view capture_interval_prefix{
             "--diagnostic-capture-interval-seconds="};
@@ -39,6 +42,11 @@ int main(const int argc, char** argv) {
             ++argument_count;
             const std::string_view argument{argv[index]};
             if (argument == "--background") {
+                if (background_seen || (runtime_seen && !start_hidden)) {
+                    return invalid_argument(
+                        "Background mode conflicts with a visible diagnostic");
+                }
+                background_seen = true;
                 start_hidden = true;
             } else if (argument == "--validate-settings-only") {
                 if (validate_settings_only) {
@@ -61,6 +69,23 @@ int main(const int argc, char** argv) {
                 }
                 runtime_seen = true;
                 start_hidden = true;
+                diagnostic_options.runtime = std::chrono::seconds{seconds};
+            } else if (argument.starts_with(visible_diagnostic_prefix)) {
+                if (runtime_seen || background_seen) {
+                    return invalid_argument(
+                        "Visible diagnostic duration conflicts with background mode");
+                }
+                std::uint32_t seconds = 0U;
+                const auto value = argument.substr(visible_diagnostic_prefix.size());
+                const auto parsed = std::from_chars(
+                    value.data(), value.data() + value.size(), seconds);
+                if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
+                    seconds == 0U || seconds > 60U * 60U) {
+                    return invalid_argument(
+                        "Visible diagnostic duration must be 1-3600 seconds");
+                }
+                runtime_seen = true;
+                start_hidden = false;
                 diagnostic_options.runtime = std::chrono::seconds{seconds};
             } else if (argument.starts_with(report_prefix)) {
                 if (report_seen) {

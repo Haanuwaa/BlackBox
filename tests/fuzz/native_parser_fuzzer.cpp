@@ -1,3 +1,5 @@
+#include "evaluation/strict_number_parser.hpp"
+#include "telemetry/linux/linux_gpu_parser.hpp"
 #include "telemetry/linux/linux_proc_parser.hpp"
 #include "telemetry/linux/linux_psi_parser.hpp"
 
@@ -28,5 +30,9 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, const std::size_
     static_cast<void>(parse_proc_pid_status_memory(text));
     static_cast<void>(parse_proc_pid_io(text));
     static_cast<void>(parse_linux_psi(text));
+    static_cast<void>(parse_gpu_busy_percent(text));
+    static_cast<void>(parse_gpu_memory_bytes(text));
+    static_cast<void>(parse_drm_fdinfo(text, 1U));
+    static_cast<void>(blackbox::evaluation::parse_finite_decimal(text));
     return 0;
 }

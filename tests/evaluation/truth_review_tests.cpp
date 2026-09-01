@@ -88,10 +88,16 @@ public:
     lifecycle.process_pid = identity.pid;
     lifecycle.process_creation_token = identity.creation_token;
 
+    core::SystemEvent security{};
+    security.observed_at = core::MonotonicTimePoint{102s};
+    security.source = core::SystemEventSource::security;
+    security.kind = core::SystemEventKind::security_scan_started;
+    security.level = core::SystemEventLevel::informational;
+
     return std::make_shared<const core::IncidentSnapshot>(
         std::move(header), std::vector{before, after},
         std::vector{std::move(metadata)}, std::vector{process},
-        std::vector{event, lifecycle});
+        std::vector{event, lifecycle, security});
 }
 
 } // namespace
@@ -103,7 +109,7 @@ TEST_CASE("truth review publishes exact prediction-free ordinal evidence atomica
         *incident(), "00112233445566778899aabbccddeeff", 1'700'000'000'000,
         output);
     REQUIRE(result);
-    const evaluation::TruthReviewStatistics expected{2U, 1U, 1U, 2U, false};
+    const evaluation::TruthReviewStatistics expected{2U, 1U, 1U, 3U, false};
     CHECK(*result == expected);
     CHECK_FALSE(std::filesystem::exists(temporary.path / "review.partial"));
 
@@ -129,6 +135,8 @@ TEST_CASE("truth review publishes exact prediction-free ordinal evidence atomica
     CHECK(processes.find("fixture") == std::string::npos);
     CHECK(processes.find("123456") == std::string::npos);
     CHECK(events.find("process_started") != std::string::npos);
+    CHECK(events.find("\tsecurity\tsecurity_scan_started\t") != std::string::npos);
+    CHECK(events.find("\tdefender\t") == std::string::npos);
     CHECK(events.find("\t0\n") != std::string::npos);
     CHECK(events.find("123456") == std::string::npos);
     CHECK(html.find("const sys=[{t:-1,cpu:25") != std::string::npos);
