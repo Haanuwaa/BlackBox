@@ -2376,10 +2376,12 @@ results until the revision is frozen and the hosted evidence below succeeds.
 
 The pre-freeze hosted diagnostic pass hardened four toolchain boundaries without weakening a gate:
 CodeQL now creates its restored vcpkg binary-cache directory before dependency resolution; the Linux
-ThreadSanitizer graph is explicitly headless and carries the same Clang/libstdc++ C++23 feature
-compatibility setting as the native fuzz graph; the direct-V1 SQL source is split below the Visual
-Studio 2022 per-literal limit without changing its concatenated schema; and PSI average validation
-uses a bounded fixed-point grammar that compiles on the supported macOS deployment target. Shared GPU
+ThreadSanitizer graph is explicitly headless and uses the native GCC/libstdc++ feature pairing rather
+than overriding a compiler-owned C++ feature macro; the deferred Wayland compositor matrix uses the
+current pinned Node 24 checkout action instead of its deprecated Node 20 runtime; the direct-V1 SQL
+source is split below the Visual
+Studio 2022 per-literal limit without changing its concatenated schema; and PSI average validation uses
+a bounded fixed-point grammar that compiles on the supported macOS deployment target. Shared GPU
 capability selection is compiled on every platform, preventing platform-conditional UI code from
 referring to stale provider fields. Windows crash capture now hands its preallocated exception state
 to a dedicated bounded dump thread, avoiding the hosted Debug failure mode where DbgHelp could leave

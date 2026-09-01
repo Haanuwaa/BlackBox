@@ -82,8 +82,11 @@ $threadSanitizerJob = $workflow.Substring(
 Require-Text $fuzzJob 'blackbox_settings_fuzzer[\s\S]+-max_total_time=30' 'settings fuzz campaign placement'
 Require-Text $fuzzJob 'blackbox_native_parser_fuzzer[\s\S]+-max_total_time=30' 'parser fuzz campaign placement'
 Require-Text $threadSanitizerJob 'BLACKBOX_BUILD_APP=OFF' 'headless ThreadSanitizer graph'
-Require-Text $threadSanitizerJob '__cpp_concepts=202002L' `
-    'Clang libstdc++ C++23 compatibility for ThreadSanitizer'
+Require-Text $threadSanitizerJob 'CC=gcc CXX=g\+\+' `
+    'native GCC/libstdc++ ThreadSanitizer toolchain pairing'
+if ($threadSanitizerJob.Contains('__cpp_concepts', [System.StringComparison]::Ordinal)) {
+    throw 'Quality gate contract failed: ThreadSanitizer must not override compiler feature macros'
+}
 if (([regex]::Matches($fuzzJob, '-max_total_time=30')).Count -ne 2 -or
     $threadSanitizerJob.Contains('out/build/linux-fuzz', [System.StringComparison]::Ordinal)) {
     throw 'Quality gate contract failed: both bounded fuzz campaigns must run only in linux-native-fuzz'

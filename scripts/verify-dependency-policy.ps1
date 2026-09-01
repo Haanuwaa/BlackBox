@@ -73,13 +73,18 @@ if ($workflowFiles.Count -eq 0) {
 }
 $actionCount = 0
 $bootstrapCount = 0
+$expectedCheckout = '3d3c42e5aac5ba805825da76410c181273ba90b1'
 foreach ($workflow in $workflowFiles) {
     $text = Get-Content -LiteralPath $workflow.FullName -Raw
     foreach ($match in [regex]::Matches($text, 'uses:\s*([^\s@]+)@([^\s#]+)')) {
         ++$actionCount
+        $actionName = $match.Groups[1].Value
         $reference = $match.Groups[2].Value
         if ($reference -notmatch '^[0-9a-f]{40}$') {
             Fail "$($workflow.Name) uses a mutable action reference '$reference'"
+        }
+        if ($actionName -eq 'actions/checkout' -and $reference -ne $expectedCheckout) {
+            Fail "$($workflow.Name) uses an outdated actions/checkout runtime '$reference'"
         }
     }
     foreach ($match in [regex]::Matches(

@@ -298,12 +298,11 @@ jobs:
       - name: Configure ThreadSanitizer graph
         shell: bash
         run: >-
-          CC=clang-18 CXX=clang++-18 cmake -S . -B out/build/linux-tsan -G Ninja
+          CC=gcc CXX=g++ cmake -S . -B out/build/linux-tsan -G Ninja
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_THREAD_SANITIZER=ON
           -DBLACKBOX_WARNINGS_AS_ERRORS=ON
-          -DCMAKE_CXX_FLAGS="-D__cpp_concepts=202002L"
       - name: Build instrumented concurrency graph
         shell: bash
         run: cmake --build out/build/linux-tsan --target blackbox_tests --parallel
