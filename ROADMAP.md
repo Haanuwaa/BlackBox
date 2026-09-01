@@ -2467,6 +2467,17 @@ The aggregate now excludes app/UI while retaining its 60%/45% floors; app and UI
 the instrumented desktop graph and are each enforced independently at 15%/10%. The quality contract
 locks those disjoint scopes so future workflow edits cannot silently weaken either gate.
 
+The first frozen candidate `b64269c121d2482eaa561a7efa574873153ad13f` passed Linux across all
+three distributions and four Wayland compositors, both macOS architectures, Windows 2025 Release,
+Windows 2022 Debug, the complete quality/security graph, all four fuzz campaigns, and the corrected
+coverage gates. Its two Windows 2022 Release graphs independently exposed the same intermittent DbgHelp
+failure: the dedicated crash writer left nonempty `.partial` evidence on all three bounded attempts
+and correctly refused to publish it as complete. Microsoft explicitly requires an in-process
+dedicated writer to be filtered from its own minidump thread walk; the writer now supplies that
+bounded callback without allocating, opening another file, accepting partial evidence, or changing
+the 15-second crash-path limit. The failed candidate remains diagnostic and receives no hosted
+qualification credit.
+
 The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
 complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
 hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,

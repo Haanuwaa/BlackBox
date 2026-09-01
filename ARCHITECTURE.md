@@ -1179,3 +1179,8 @@ permission loss, hotplug, and reconnect. Coverage now builds the full Linux desk
 app/UI explicit conservative floors. The Windows measurement harness launches the exact executable
 and records visible, minimized, runtime-hidden, and start-hidden background resource samples without
 querying unrelated processes.
+
+Windows crash capture remains below the application boundary. Its preallocated exception state is
+handed to a dedicated bounded dump thread, and the DbgHelp callback excludes that writer from its own
+thread walk. The damaged thread performs no dump traversal; failed or unpublished writes remain
+visibly partial and never masquerade as completed evidence.

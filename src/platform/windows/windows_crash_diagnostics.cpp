@@ -50,12 +50,30 @@ struct WindowsCrashDiagnostics::Impl final {
     explicit Impl(std::filesystem::path output_directory)
         : directory{std::move(output_directory)} {}
 
+    static BOOL CALLBACK filter_dump_worker(void* const context,
+                                            MINIDUMP_CALLBACK_INPUT* const input,
+                                            MINIDUMP_CALLBACK_OUTPUT*) noexcept {
+        if (context == nullptr || input == nullptr ||
+            input->CallbackType != IncludeThreadCallback) {
+            return TRUE;
+        }
+        const auto dump_worker_thread_id = *static_cast<const DWORD*>(context);
+        return input->IncludeThread.ThreadId == dump_worker_thread_id ? FALSE : TRUE;
+    }
+
     [[nodiscard]] bool write_dump(EXCEPTION_POINTERS* const pointers,
                                   const DWORD source_thread_id) noexcept {
         MINIDUMP_EXCEPTION_INFORMATION exception_information{};
         exception_information.ThreadId = source_thread_id;
         exception_information.ExceptionPointers = pointers;
         exception_information.ClientPointers = FALSE;
+        DWORD dump_worker_thread_id = GetCurrentThreadId();
+        MINIDUMP_CALLBACK_INFORMATION callback_information{};
+        callback_information.CallbackRoutine = &Impl::filter_dump_worker;
+        callback_information.CallbackParam = &dump_worker_thread_id;
+        auto* const callback = dump_worker_thread_id == source_thread_id
+                                   ? nullptr
+                                   : &callback_information;
         constexpr unsigned maximum_dump_attempts = 6U;
         constexpr DWORD dump_retry_delay_milliseconds = 100U;
         BOOL wrote = FALSE;
@@ -69,7 +87,7 @@ struct WindowsCrashDiagnostics::Impl final {
             }
             wrote = MiniDumpWriteDump(
                 GetCurrentProcess(), GetCurrentProcessId(), dump_file, MiniDumpNormal,
-                pointers == nullptr ? nullptr : &exception_information, nullptr, nullptr);
+                pointers == nullptr ? nullptr : &exception_information, nullptr, callback);
             if (wrote != FALSE) break;
             if (attempt + 1U != maximum_dump_attempts) {
                 Sleep(dump_retry_delay_milliseconds);

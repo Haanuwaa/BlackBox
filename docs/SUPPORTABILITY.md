@@ -10,14 +10,15 @@ On Windows, the application creates the local crash directory before normal init
 pre-opens one uniquely named `.dmp.partial` file for the current process. The top-level exception
 filter copies only the exception pointer and crashing thread ID into preallocated state, signals a
 dedicated dump thread, and waits at most 15 seconds. The dedicated thread writes `MiniDumpNormal`
-evidence through the already-open handle, flushes it, and renames it to `.dmp`; this avoids asking the
-damaged thread and stack to run DbgHelp. A failed dump write resets the same bounded staging file and
-retries at most five times with 100-millisecond delays. Neither path allocates nor opens another file
-after the crash. Final publication tolerates only bounded transient access/sharing/lock contention
-for at most 4.75 seconds. Permanent write or publication failure leaves the `.partial` artifact
-visibly incomplete rather than presenting it as completed evidence. A clean shutdown stops the
-worker, closes the handle, and removes the unused partial file. Existing completed dumps are never
-deleted automatically.
+evidence through the already-open handle, filters that writer thread from DbgHelp's thread walk,
+flushes it, and renames it to `.dmp`; this avoids asking the damaged thread and stack to run DbgHelp
+or asking DbgHelp to inspect its own writer. A failed dump write resets the same bounded staging file
+and retries at most five times with 100-millisecond delays. Neither path allocates nor opens another
+file after the crash. Final publication tolerates only bounded transient access/sharing/lock
+contention for at most 4.75 seconds. Permanent write or publication failure leaves the `.partial`
+artifact visibly incomplete rather than presenting it as completed evidence. A clean shutdown stops
+the worker, closes the handle, and removes the unused partial file. Existing completed dumps are
+never deleted automatically.
 
 The handler is deliberately small: it does not open SQLite, allocate an incident, render UI, acquire
 application locks, upload data, or attempt recovery. Windows implementation details remain under
