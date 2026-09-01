@@ -172,12 +172,14 @@ campaign is a regression gate, not a claim of exhaustive fuzzing.
 ## Coverage meaning
 
 Coverage measures the portable `src/` graph on Linux and excludes Windows-only platform and
-telemetry sources that are not compiled there. The 60% line and 45% branch aggregate floors prevent
-global regression, while conservative 45%/30% floors independently prevent core, telemetry, storage,
-or analysis from disappearing behind another well-covered component. The app and UI each have a
-15% line/10% branch floor after the suite and a visible diagnostic launch. They are minimum gates, not a
-statement that the unmeasured Windows or interactive UI paths are covered. Windows behavior is
-covered by its ordinary, integration, static-analysis, and ASan jobs.
+telemetry sources that are not compiled there. The established 60% line and 45% branch aggregate
+floors cover the non-app/UI portable graph. Conservative 45%/30% floors independently prevent core,
+telemetry, storage, or analysis from disappearing behind another well-covered component. App and UI
+are deliberately disjoint from that aggregate and each has its own 15% line/10% branch floor after
+the complete suite and a visible diagnostic launch. This prevents the lower new interactive-module
+floors from weakening or double-counting the established aggregate. These are minimum gates, not a
+statement that unmeasured Windows or interactive UI paths are covered. Windows behavior is covered
+by its ordinary, integration, static-analysis, and ASan jobs.
 
 ## Failure policy
 

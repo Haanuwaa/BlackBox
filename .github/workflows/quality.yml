@@ -453,7 +453,8 @@ jobs:
           mkdir -p out/quality
           python3 -m pip install --disable-pip-version-check gcovr==8.6
           python3 -m gcovr --root . --filter 'src/' --exclude 'src/platform/windows/' \
-            --exclude 'src/telemetry/windows/' --html-details out/quality/coverage.html \
+            --exclude 'src/telemetry/windows/' --exclude 'src/app/' --exclude 'src/ui/' \
+            --html-details out/quality/coverage.html \
             --xml-pretty --xml out/quality/coverage.xml --print-summary \
             --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
             --fail-under-line 60 --fail-under-branch 45

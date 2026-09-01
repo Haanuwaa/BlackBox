@@ -85,6 +85,7 @@ if ($fuzzJobStart -lt 0 -or $threadSanitizerJobStart -le $fuzzJobStart -or
 $fuzzJob = $workflow.Substring($fuzzJobStart, $threadSanitizerJobStart - $fuzzJobStart)
 $threadSanitizerJob = $workflow.Substring(
     $threadSanitizerJobStart, $coverageJobStart - $threadSanitizerJobStart)
+$coverageJob = $workflow.Substring($coverageJobStart)
 Require-Text $fuzzJob 'blackbox_settings_fuzzer[\s\S]+-max_total_time=30' 'settings fuzz campaign placement'
 Require-Text $fuzzJob 'blackbox_native_parser_fuzzer[\s\S]+-max_total_time=30' 'parser fuzz campaign placement'
 Require-Text $fuzzJob 'blackbox_direct_v1_archive_fuzzer[\s\S]+-max_total_time=30' `
@@ -110,6 +111,8 @@ Require-Text $workflow '--fail-under-line 15' 'application and UI line coverage 
 Require-Text $workflow '--fail-under-branch 10' 'application and UI branch coverage floor'
 Require-Text $workflow '-DBLACKBOX_BUILD_APP=ON -DBLACKBOX_ENABLE_COVERAGE=ON' `
     'full desktop coverage graph'
+Require-Text $coverageJob "--exclude 'src/app/' --exclude 'src/ui/'" `
+    'disjoint portable aggregate and application/UI coverage scopes'
 if (([regex]::Matches($workflow, 'Restore shared vcpkg binary cache')).Count -lt 7) {
     throw 'Quality gate contract failed: shared vcpkg cache must cover non-CodeQL quality jobs'
 }

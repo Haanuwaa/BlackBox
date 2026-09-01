@@ -2460,6 +2460,13 @@ correctly reports foreground identity unsupported there. The test now binds the 
 the sampled runtime status, retaining the stricter expectation whenever an X11/EWMH session is
 actually available.
 
+The following diagnostic coverage graph passed all 338 Linux tests and the visible Xvfb desktop
+session, then correctly rejected a policy-accounting overlap: adding app/UI to the full build made
+their deliberately conservative new module floors also dilute the established portable aggregate.
+The aggregate now excludes app/UI while retaining its 60%/45% floors; app and UI remain present in
+the instrumented desktop graph and are each enforced independently at 15%/10%. The quality contract
+locks those disjoint scopes so future workflow edits cannot silently weaken either gate.
+
 The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
 complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
 hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,
