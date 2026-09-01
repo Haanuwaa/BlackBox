@@ -2447,6 +2447,19 @@ identity now applies a command-scoped trust exception to this repository only, s
 not silently degrade to `local-uncommitted` without changing global Git configuration. Replacement
 evidence must come from the repaired clean revision.
 
+The first repaired hosted pass then compiled the expanded native parser fuzzer far enough to expose a
+missing link edge: the target exercised Linux GPU parser implementations while linking only the
+portable telemetry library. It now conditionally links the existing Linux telemetry provider target,
+and the quality-gate contract pins that native implementation dependency. This remains diagnostic;
+only a later clean revision can receive hosted evidence.
+
+The same diagnostic coverage graph passed 337 of 338 tests and correctly exposed that the native
+Linux provider test equated compile-time X11 support with a runtime EWMH capability. A minimal Xvfb
+server has X11 but no window manager and therefore no `_NET_ACTIVE_WINDOW` contract; production
+correctly reports foreground identity unsupported there. The test now binds the capability flag to
+the sampled runtime status, retaining the stricter expectation whenever an X11/EWMH session is
+actually available.
+
 The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
 complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
 hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,

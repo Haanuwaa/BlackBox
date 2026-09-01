@@ -69,6 +69,10 @@ if(BLACKBOX_BUILD_FUZZERS)
     target_compile_options(blackbox_native_parser_fuzzer PRIVATE -fsanitize=fuzzer)
     target_link_options(blackbox_native_parser_fuzzer PRIVATE -fsanitize=fuzzer)
     target_link_libraries(blackbox_native_parser_fuzzer PRIVATE BlackBox::Telemetry)
+    if(TARGET BlackBox::TelemetryLinux)
+        target_link_libraries(blackbox_native_parser_fuzzer PRIVATE
+            BlackBox::TelemetryLinux)
+    endif()
     blackbox_set_project_warnings(blackbox_native_parser_fuzzer)
 
     if(TARGET BlackBox::Storage)

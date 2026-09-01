@@ -45,6 +45,8 @@ Require-Text $cmake 'clang_rt\.asan_dynamic-x86_64\.dll' 'MSVC ASan runtime disc
 Require-Text $cmake 'blackbox_copy_address_sanitizer_runtime' 'MSVC ASan runtime staging helper'
 Require-Text $tests 'settings_native_fuzz_smoke' 'native fuzz smoke registration'
 Require-Text $tests 'native_parser_fuzz_smoke' 'native parser fuzz smoke registration'
+Require-Text $tests 'blackbox_native_parser_fuzzer PRIVATE[\s\S]+BlackBox::TelemetryLinux' `
+    'native parser fuzzer Linux parser implementation dependency'
 Require-Text $tests 'direct_v1_archive_fuzz_smoke' 'direct-v1 archive fuzz smoke registration'
 Require-Text $tests 'linux_portal_message_fuzz_smoke' 'portal-message fuzz smoke registration'
 Require-Text $tests 'blackbox_linux_portal_message_fuzzer PRIVATE[\s\S]+PkgConfig::BLACKBOX_DBUS' `

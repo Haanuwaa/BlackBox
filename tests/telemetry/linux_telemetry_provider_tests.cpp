@@ -67,7 +67,8 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(second.system.cpu_current_mhz.status !=
         telemetry::MetricStatus::inaccessible);
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
-  CHECK(provider.capabilities().foreground_application);
+  CHECK(provider.capabilities().foreground_application ==
+        (second.system.foreground_process.status != telemetry::MetricStatus::unsupported));
 #else
   CHECK_FALSE(provider.capabilities().foreground_application);
 #endif
