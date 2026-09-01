@@ -97,7 +97,8 @@ CREATE TABLE system_extended_samples (
  uptime_status INTEGER NOT NULL CHECK(uptime_status BETWEEN 0 AND 3), uptime_seconds REAL CHECK(uptime_status<>0 OR uptime_seconds IS NOT NULL),
  PRIMARY KEY(incident_id,sample_index),
  FOREIGN KEY(incident_id,sample_index) REFERENCES system_samples(incident_id,sample_index) ON DELETE CASCADE);
-CREATE TABLE system_pressure_samples (
+)sql"
+R"sql(CREATE TABLE system_pressure_samples (
  incident_id INTEGER NOT NULL, sample_index INTEGER NOT NULL,
  cpu_some_status INTEGER NOT NULL CHECK(cpu_some_status BETWEEN 0 AND 3),
  cpu_some_fraction REAL CHECK(cpu_some_status<>0 OR cpu_some_fraction IS NOT NULL),

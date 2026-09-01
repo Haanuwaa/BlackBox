@@ -81,6 +81,7 @@ $threadSanitizerJob = $workflow.Substring(
     $threadSanitizerJobStart, $coverageJobStart - $threadSanitizerJobStart)
 Require-Text $fuzzJob 'blackbox_settings_fuzzer[\s\S]+-max_total_time=30' 'settings fuzz campaign placement'
 Require-Text $fuzzJob 'blackbox_native_parser_fuzzer[\s\S]+-max_total_time=30' 'parser fuzz campaign placement'
+Require-Text $threadSanitizerJob 'BLACKBOX_BUILD_APP=OFF' 'headless ThreadSanitizer graph'
 if (([regex]::Matches($fuzzJob, '-max_total_time=30')).Count -ne 2 -or
     $threadSanitizerJob.Contains('out/build/linux-fuzz', [System.StringComparison]::Ordinal)) {
     throw 'Quality gate contract failed: both bounded fuzz campaigns must run only in linux-native-fuzz'
@@ -104,13 +105,16 @@ Require-Text $codeqlWorkflow 'BLACKBOX_BUILD_TESTS=OFF' 'production-only CodeQL 
 $dependencyStep = $codeqlWorkflow.IndexOf(
     '- name: Resolve production dependencies outside CodeQL tracing',
     [StringComparison]::Ordinal)
+$cachePreparationStep = $codeqlWorkflow.IndexOf(
+    '- name: Prepare CodeQL vcpkg binary cache', [StringComparison]::Ordinal)
 $initializationStep = $codeqlWorkflow.IndexOf(
     '- name: Initialize CodeQL C++ analysis', [StringComparison]::Ordinal)
 $productionBuildStep = $codeqlWorkflow.IndexOf(
     '- name: Build observed production graph', [StringComparison]::Ordinal)
-if ($dependencyStep -lt 0 -or $initializationStep -le $dependencyStep -or
+if ($cachePreparationStep -lt 0 -or $dependencyStep -le $cachePreparationStep -or
+    $initializationStep -le $dependencyStep -or
     $productionBuildStep -le $initializationStep) {
-    throw 'Quality gate contract failed: CodeQL must resolve dependencies before tracing the production build'
+    throw 'Quality gate contract failed: CodeQL must prepare its cache and resolve dependencies before tracing the production build'
 }
 foreach ($target in @(
     'blackbox',

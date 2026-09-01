@@ -1,8 +1,6 @@
 #include "telemetry/linux/linux_psi_parser.hpp"
 
 #include <charconv>
-#include <cmath>
-#include <limits>
 
 namespace blackbox::telemetry::linux {
 namespace {
@@ -15,10 +13,36 @@ namespace {
 
 [[nodiscard]] bool parse_average(const std::string_view text) noexcept {
     if (text.empty()) return false;
-    double value{};
-    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
-    return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() &&
-           std::isfinite(value) && value >= 0.0 && value <= 100.0;
+
+    // PSI averages are percentages serialized as fixed-point decimal text. Validate the
+    // grammar and range directly: floating-point from_chars is unavailable on supported
+    // macOS deployment targets and converting the value would only discard it.
+    const auto decimal = text.find('.');
+    const auto integer = text.substr(0U, decimal);
+    if (integer.empty()) return false;
+    for (const char digit : integer) {
+        if (digit < '0' || digit > '9') return false;
+    }
+
+    const auto significant = integer.find_first_not_of('0');
+    const auto normalized_integer =
+        significant == std::string_view::npos ? std::string_view{"0"} : integer.substr(significant);
+    if (normalized_integer.size() > 3U) return false;
+    std::uint16_t whole{};
+    const auto parsed = std::from_chars(
+        normalized_integer.data(), normalized_integer.data() + normalized_integer.size(), whole);
+    if (parsed.ec != std::errc{} ||
+        parsed.ptr != normalized_integer.data() + normalized_integer.size() || whole > 100U) {
+        return false;
+    }
+
+    if (decimal == std::string_view::npos) return true;
+    const auto fraction = text.substr(decimal + 1U);
+    if (fraction.empty() || fraction.find('.') != std::string_view::npos) return false;
+    for (const char digit : fraction) {
+        if (digit < '0' || digit > '9' || (whole == 100U && digit != '0')) return false;
+    }
+    return true;
 }
 
 [[nodiscard]] bool parse_record(const std::string_view line, std::string_view& name,

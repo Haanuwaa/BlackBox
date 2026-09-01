@@ -39,9 +39,25 @@ TEST_CASE("Linux PSI parser rejects missing duplicate unknown and malformed reco
           Error::unexpected_record);
     CHECK(linux_telemetry::parse_linux_psi("some avg10=nan avg60=0 avg300=0 total=1\n").error() ==
           Error::malformed);
+    CHECK(linux_telemetry::parse_linux_psi("some avg10=-1 avg60=0 avg300=0 total=1\n").error() ==
+          Error::malformed);
+    CHECK(
+        linux_telemetry::parse_linux_psi("some avg10=100.01 avg60=0 avg300=0 total=1\n").error() ==
+        Error::malformed);
+    CHECK(linux_telemetry::parse_linux_psi("some avg10=0. avg60=0 avg300=0 total=1\n").error() ==
+          Error::malformed);
+    CHECK(linux_telemetry::parse_linux_psi("some avg10=0.0.0 avg60=0 avg300=0 total=1\n").error() ==
+          Error::malformed);
     CHECK(linux_telemetry::parse_linux_psi(
               "some avg10=0 avg60=0 avg300=0 total=18446744073709551616\n")
               .error() == Error::malformed);
     CHECK(linux_telemetry::parse_linux_psi("some avg10=0 avg60=0 avg300=0 total=1 payload=secret\n")
               .error() == Error::malformed);
+}
+
+TEST_CASE("Linux PSI parser accepts fixed-point percentage boundaries",
+          "[telemetry][linux][psi][robustness]") {
+    CHECK(
+        linux_telemetry::parse_linux_psi("some avg10=000.00 avg60=99.999 avg300=100.000 total=1\n")
+            .has_value());
 }

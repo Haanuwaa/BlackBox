@@ -376,13 +376,14 @@ ApplicationInitializationResult Application::initialize() {
     dashboard_state_.provider_name = provider_name_;
     const auto platform_capabilities = telemetry_provider_->capabilities();
     dashboard_state_.foreground_identity_supported = platform_capabilities.foreground_application;
+    const auto whole_device_gpu_available = platform_capabilities.gpu_usage;
 #if defined(__linux__)
     dashboard_state_.gpu_usage_support =
-        platform_capabilities.gpu ? "Whole-device GPU evidence is available through a "
-                                    "capability-gated "
-                                    "native backend"
-                                  : "GPU inventory remains available; whole-device usage needs a "
-                                    "readable AMD sysfs or NVIDIA NVML backend";
+        whole_device_gpu_available ? "Whole-device GPU evidence is available through a "
+                                     "capability-gated "
+                                     "native backend"
+                                   : "GPU inventory remains available; whole-device usage needs a "
+                                     "readable AMD sysfs or NVIDIA NVML backend";
     dashboard_state_.foreground_identity_support =
         platform_capabilities.foreground_application
             ? "Available through privacy-bounded X11 identity"
@@ -390,15 +391,18 @@ ApplicationInitializationResult Application::initialize() {
               "active-window identity API";
 #elif defined(__APPLE__)
     dashboard_state_.gpu_usage_support =
-        "Whole-system GPU utilization is unavailable through the public "
-        "contract; inventory and BlackBox renderer health remain separate "
-        "evidence";
+        whole_device_gpu_available
+            ? "Whole-system GPU utilization is available through the native provider"
+            : "Whole-system GPU utilization is unavailable through the public "
+              "contract; inventory and BlackBox renderer health remain separate "
+              "evidence";
     dashboard_state_.foreground_identity_support =
         "Available through the public frontmost-application process identity";
 #elif defined(_WIN32)
-    dashboard_state_.gpu_usage_support = "Whole-device GPU engine and memory "
-                                         "evidence is available through native "
-                                         "counters";
+    dashboard_state_.gpu_usage_support =
+        whole_device_gpu_available
+            ? "Whole-device GPU engine and memory evidence is available through native counters"
+            : "GPU inventory remains available; whole-device usage counters are unavailable";
     dashboard_state_.foreground_identity_support =
         "Available through the native foreground process identity";
 #endif

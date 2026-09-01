@@ -109,6 +109,9 @@ jobs:
           key: codeql-vcpkg-windows-2022-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             codeql-vcpkg-windows-2022-
+      - name: Prepare CodeQL vcpkg binary cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: |
@@ -298,7 +301,8 @@ jobs:
           CC=clang-18 CXX=clang++-18 cmake -S . -B out/build/linux-tsan -G Ninja
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-          -DBLACKBOX_ENABLE_THREAD_SANITIZER=ON -DBLACKBOX_WARNINGS_AS_ERRORS=ON
+          -DBLACKBOX_BUILD_APP=OFF -DBLACKBOX_ENABLE_THREAD_SANITIZER=ON
+          -DBLACKBOX_WARNINGS_AS_ERRORS=ON
       - name: Build instrumented concurrency graph
         shell: bash
         run: cmake --build out/build/linux-tsan --target blackbox_tests --parallel
