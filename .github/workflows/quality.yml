@@ -99,13 +99,13 @@ jobs:
       packages: read
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore CodeQL vcpkg binary cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: ${{ runner.temp }}/vcpkg-binary-cache
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: codeql-vcpkg-windows-2022-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             codeql-vcpkg-windows-2022-

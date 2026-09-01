@@ -90,6 +90,8 @@ Require-Text $workflow '--fail-under-branch 45' 'branch coverage floor'
 Require-Text $workflow '--fail-under-line 45' 'component line coverage floor'
 Require-Text $workflow '--fail-under-branch 30' 'component branch coverage floor'
 Require-Text $codeqlWorkflow 'actions/cache@[0-9a-f]{40}' 'immutable CodeQL dependency cache action'
+Reject-Text $codeqlWorkflow 'VCPKG_DEFAULT_BINARY_CACHE:[^\r\n]*runner\.' `
+    'runner context in job-level CodeQL environment'
 Require-Text $workflow 'queries: security-extended' 'extended CodeQL security query suite'
 Reject-Text $workflow 'queries:\s*[^\r\n]*security-and-quality' `
     'broad CodeQL quality suite in security alert output'
