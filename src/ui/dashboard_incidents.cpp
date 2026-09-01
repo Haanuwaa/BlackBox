@@ -115,21 +115,6 @@ automatic_signal_text(const core::AutomaticIncidentSignal signal) noexcept {
     return "unknown signal";
 }
 
-[[nodiscard]] constexpr const char* connectivity_text(const std::uint8_t level) noexcept {
-    switch (level) {
-    case 0U:
-        return "Disconnected";
-    case 1U:
-        return "Local access";
-    case 2U:
-        return "Internet access";
-    case 3U:
-        return "Constrained internet";
-    default:
-        return "Unknown";
-    }
-}
-
 void request_page(DashboardCommand& command, const IncidentViewerState& state,
                   const std::size_t offset) {
     command.action = DashboardAction::refresh_incidents;

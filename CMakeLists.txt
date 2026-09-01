@@ -47,14 +47,16 @@ if(BLACKBOX_SOURCE_REVISION STREQUAL "auto")
     endif()
     if(GIT_EXECUTABLE AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
         execute_process(
-            COMMAND "${GIT_EXECUTABLE}" -C "${PROJECT_SOURCE_DIR}"
+            COMMAND "${GIT_EXECUTABLE}" -c "safe.directory=${PROJECT_SOURCE_DIR}"
+                -C "${PROJECT_SOURCE_DIR}"
                 rev-parse --verify HEAD
             RESULT_VARIABLE blackbox_git_head_result
             OUTPUT_VARIABLE blackbox_git_head
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_QUIET)
         execute_process(
-            COMMAND "${GIT_EXECUTABLE}" -C "${PROJECT_SOURCE_DIR}"
+            COMMAND "${GIT_EXECUTABLE}" -c "safe.directory=${PROJECT_SOURCE_DIR}"
+                -C "${PROJECT_SOURCE_DIR}"
                 status --porcelain=v1 --untracked-files=all --ignored=no
             RESULT_VARIABLE blackbox_git_status_result
             OUTPUT_VARIABLE blackbox_git_status

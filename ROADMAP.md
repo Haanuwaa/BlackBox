@@ -2437,6 +2437,16 @@ visible, minimized, runtime-hidden, and start-hidden reports. Hidden/background 
 state, and all runs recorded zero failed, dropped, late, or deadline-missed samples. These short dirty-
 worktree measurements close the missing comparison but do not replace controlled 30-minute repeats.
 
+The first V0.23 hosted attempt on revision `5da73ebe70e59121aa9aa9a9cc03d36fb89605e6`
+failed closed and receives no qualification credit. AppleClang and GCC found three orphaned internal
+helpers left behind by the dashboard split, and the portal-message fuzzer constructed D-Bus messages
+without declaring the D-Bus development interface it compiles against. The unused helpers were
+removed, the fuzzer now owns that explicit dependency, and the quality-gate contract rejects losing
+it. A local clean configure also exposed Git's cross-account ownership protection: automatic source
+identity now applies a command-scoped trust exception to this repository only, so a clean build does
+not silently degrade to `local-uncommitted` without changing global Git configuration. Replacement
+evidence must come from the repaired clean revision.
+
 The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
 complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
 hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,

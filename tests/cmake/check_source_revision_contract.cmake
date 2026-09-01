@@ -27,6 +27,12 @@ if(NOT presets MATCHES "\"BLACKBOX_SOURCE_REVISION\"[ \t]*:[ \t]*\"auto\"")
         "Configure presets must reset cached source identity to auto unless explicitly overridden")
 endif()
 
+file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_cmake)
+if(NOT root_cmake MATCHES "safe\\.directory=\\$\\{PROJECT_SOURCE_DIR\\}")
+    message(FATAL_ERROR
+        "Automatic source identity must use a command-scoped repository trust boundary")
+endif()
+
 blackbox_is_commit_revision(
     "0123456789abcdef0123456789abcdef01234567" valid_commit)
 if(NOT valid_commit)

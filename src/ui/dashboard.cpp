@@ -128,12 +128,6 @@ void render_metric_unavailable(const MetricDisplayStatus status) {
     ImGui::TextDisabled("%s", status_text(status));
 }
 
-void render_disabled_wrapped(const char* const text) {
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-    ImGui::TextWrapped("%s", text);
-    ImGui::PopStyleColor();
-}
-
 void render_rate_row(const char* label, const MetricDisplayStatus status, const double value) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
@@ -145,15 +139,6 @@ void render_rate_row(const char* label, const MetricDisplayStatus status, const 
         render_metric_unavailable(status);
     }
 }
-
-void render_compact_decimal(const double value, const char* ordinary_format) {
-    if (std::abs(value) >= 100'000.0) {
-        ImGui::Text("%.3g", value);
-    } else {
-        ImGui::Text(ordinary_format, value);
-    }
-}
-
 
 } // namespace
 

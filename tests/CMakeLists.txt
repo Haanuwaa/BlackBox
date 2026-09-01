@@ -92,7 +92,8 @@ if(BLACKBOX_BUILD_FUZZERS)
         target_compile_options(blackbox_linux_portal_message_fuzzer PRIVATE -fsanitize=fuzzer)
         target_link_options(blackbox_linux_portal_message_fuzzer PRIVATE -fsanitize=fuzzer)
         target_link_libraries(blackbox_linux_portal_message_fuzzer PRIVATE
-            BlackBox::LinuxPortalMessageParser)
+            BlackBox::LinuxPortalMessageParser
+            PkgConfig::BLACKBOX_DBUS)
         blackbox_set_project_warnings(blackbox_linux_portal_message_fuzzer)
     endif()
 

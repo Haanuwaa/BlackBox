@@ -47,6 +47,8 @@ Require-Text $tests 'settings_native_fuzz_smoke' 'native fuzz smoke registration
 Require-Text $tests 'native_parser_fuzz_smoke' 'native parser fuzz smoke registration'
 Require-Text $tests 'direct_v1_archive_fuzz_smoke' 'direct-v1 archive fuzz smoke registration'
 Require-Text $tests 'linux_portal_message_fuzz_smoke' 'portal-message fuzz smoke registration'
+Require-Text $tests 'blackbox_linux_portal_message_fuzzer PRIVATE[\s\S]+PkgConfig::BLACKBOX_DBUS' `
+    'portal-message fuzzer D-Bus development dependency'
 Require-Text $tests 'strict_v1_input_property_tests\.cpp' 'strict-v1 mutation property test'
 Require-Text $tests 'corrupt_archive_property_tests\.cpp' 'corrupt archive property test'
 
