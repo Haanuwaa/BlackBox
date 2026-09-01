@@ -45,6 +45,10 @@ Windows 2025 runner kernels. The release checklist still requires an extracted-p
 on clean Windows 10 22H2 and current Windows 11 x64 hosts before publishing an official build; CI
 server kernels supplement rather than replace those client tests.
 
+The V0.23 engineering implementation at `8a35fc5dd7b00788086b0cb789af4d6129a56db1` passed the
+exact-revision Windows, Linux, macOS, and quality/security hosted workflows. This closes internal
+audit qualification, not the physical-client, long-run, signing, corpus, or V1 release gates below.
+
 Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,

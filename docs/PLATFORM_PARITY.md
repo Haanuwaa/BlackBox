@@ -31,11 +31,17 @@ qualified.
 | DPI and display membership | Per-monitor SDL/PerMonitorV2 | SDL Wayland display-scale/pixel-size/membership events; canonical font/style rebuild | SDL native high-density display-scale/pixel-size/membership events |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
-| Hosted native compiler/provider/package checks | V0.22 Windows matrix passed on `2d7ac36` | V0.22 Ubuntu, Debian, Fedora, package lifecycle, Weston/Mutter/KWin/Sway, PSI, TSan, fuzz, and coverage passed on `2d7ac36` | V0.22 Apple Silicon and Intel telemetry/package matrix passed on `2d7ac36` |
+| Hosted native compiler/provider/package checks | V0.23 Windows matrix passed on `8a35fc5` | V0.23 Ubuntu, Debian, Fedora, package lifecycle, Weston/Mutter/KWin/Sway, PSI, TSan, fuzz, and coverage passed on `8a35fc5` | V0.23 Apple Silicon and Intel telemetry/package matrix passed on `8a35fc5` |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
 
-The V0.22 row is bound to exact revision `2d7ac36b49a76011309b10b74ba9ca70bba39333`:
+The V0.23 row is bound to exact revision `8a35fc5dd7b00788086b0cb789af4d6129a56db1`:
+[Windows run 33474907149](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907149),
+[Linux run 33474907204](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907204),
+[macOS run 33474907299](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907299), and
+[quality/security run 33474907227](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907227).
+The previous V0.22 evidence remains bound to revision
+`2d7ac36b49a76011309b10b74ba9ca70bba39333`:
 [Windows run 33465385573](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385573),
 [Linux run 33465385795](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385795),
 [macOS run 33465385552](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385552), and

@@ -2243,7 +2243,7 @@ preserving the collector boundary and the unreleased direct-V1 contract.
   quality job without combining or weakening sanitizer/analyzer graphs.
 - [x] Refresh parity, telemetry, performance, build, quality, release, and architecture documentation
   and advance the pre-release engineering version to `0.23.0`.
-- [ ] Obtain Windows, Linux, macOS, and quality/security hosted evidence for the clean V0.23
+- [x] Obtain Windows, Linux, macOS, and quality/security hosted evidence for the clean V0.23
   implementation revision.
 - [ ] Complete the resource-dependent physical desktop, pressure/GPU hardware, signing/notarization,
   replacement 72-hour campaign, consented corpus, and held-out ML gates before any support or V1 claim.
@@ -2478,10 +2478,22 @@ bounded callback without allocating, opening another file, accepting partial evi
 the 15-second crash-path limit. The failed candidate remains diagnostic and receives no hosted
 qualification credit.
 
-The exact next engineering gate is to freeze the clean V0.23 implementation revision, repeat the
-complete Release graph from that source identity, and obtain Windows, Linux, macOS, and quality/security
-hosted evidence. Resource-dependent work remains separate: physically validate Linux/macOS pressure,
-GPU, portal, package, DPI, and accessibility behavior; restart the operator-assisted 72-hour Windows
-campaign only when the PC can remain available for the full run; then complete signing/notarization,
-physical client qualification, the consented diagnostic corpus, and the one-shot held-out ML decision.
-Engineering breadth does not substitute for those V1 evidence gates.
+Replacement revision `8a35fc5dd7b00788086b0cb789af4d6129a56db1` passed the complete local
+Windows Release graph (367/367) and the exact-revision hosted Windows, Linux, macOS, and
+quality/security workflows. Windows passed Server 2022 Release, Debug, headless collection, and
+Server 2025 Release including package extraction, executable identity, and the repaired crash probe.
+Linux passed Ubuntu, Debian, Fedora, DEB/RPM lifecycle, provider overhead, and Weston/Mutter/KWin/Sway
+sessions. macOS passed native Apple Silicon and Intel telemetry plus unsigned DMG/PKG structure.
+Quality passed ASan, UBSan, TSan, all four bounded native fuzz campaigns, full-desktop coverage and
+app/UI floors, MSVC native analysis, dependency review/policy/SBOM, and CodeQL. The qualifying runs
+are [Windows 33474907149](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907149),
+[Linux 33474907204](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907204),
+[macOS 33474907299](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907299), and
+[quality/security 33474907227](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907227).
+
+V0.23 internal audit closure is complete. The exact next gates are resource-dependent: physically
+validate Linux/macOS pressure, GPU, portal, package, DPI, and accessibility behavior; restart the
+operator-assisted 72-hour Windows campaign only when the PC can remain available for the full run;
+then complete signing/notarization, physical client qualification, the consented diagnostic corpus,
+and the one-shot held-out ML decision. Engineering breadth does not substitute for those V1 evidence
+gates.
