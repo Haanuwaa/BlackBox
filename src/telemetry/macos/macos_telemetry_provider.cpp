@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <new>
@@ -149,10 +150,16 @@ struct MacosTelemetryProvider::NativeState {
         mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
         mach_port_t host = mach_host_self();
         vm_size_t page_size{};
+        // New SDKs may append fields to vm_statistics64_data_t before an older kernel starts
+        // returning them. Require only the stable prefix that BlackBox actually consumes.
+        constexpr auto required_count = static_cast<mach_msg_type_number_t>(
+            (offsetof(vm_statistics64_data_t, compressor_page_count) +
+             sizeof(statistics.compressor_page_count) + sizeof(integer_t) - 1U) /
+            sizeof(integer_t));
         if (host_page_size(host, &page_size) != KERN_SUCCESS ||
             host_statistics64(host, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&statistics),
                               &count) != KERN_SUCCESS ||
-            count < HOST_VM_INFO64_COUNT) {
+            count < required_count) {
             return false;
         }
         std::uint64_t available_pages{};

@@ -200,32 +200,33 @@ TEST_CASE("Windows provider samples internally consistent CPU and physical memor
     process_normalizer.normalize(raw, processes);
     CHECK(processes.size() == raw.processes.size());
 
-    const auto first = normalizer.normalize(raw);
-    CHECK(first.cpu_usage.status == telemetry::MetricStatus::temporarily_unavailable);
-    REQUIRE(first.memory_usage.has_value());
-    CHECK(first.disk_read_rate.status == telemetry::MetricStatus::temporarily_unavailable);
-    CHECK(first.network_receive_rate.status == telemetry::MetricStatus::temporarily_unavailable);
-    CHECK(first.memory_usage.value.value >= 0.0);
-    CHECK(first.memory_usage.value.value <= 1.0);
+    auto normalized = std::make_unique<telemetry::SystemSample>(normalizer.normalize(raw));
+    CHECK(normalized->cpu_usage.status == telemetry::MetricStatus::temporarily_unavailable);
+    REQUIRE(normalized->memory_usage.has_value());
+    CHECK(normalized->disk_read_rate.status == telemetry::MetricStatus::temporarily_unavailable);
+    CHECK(normalized->network_receive_rate.status ==
+          telemetry::MetricStatus::temporarily_unavailable);
+    CHECK(normalized->memory_usage.value.value >= 0.0);
+    CHECK(normalized->memory_usage.value.value <= 1.0);
 
     std::this_thread::sleep_for(50ms);
     const auto second_result = provider.sample({}, raw);
     CHECK(second_result.status == telemetry::ProviderSampleStatus::complete);
-    const auto second = normalizer.normalize(raw);
+    *normalized = normalizer.normalize(raw);
     process_normalizer.normalize(raw, processes);
-    if (second.cpu_usage.has_value()) {
-        CHECK(second.cpu_usage.value.value >= 0.0);
-        CHECK(second.cpu_usage.value.value <= 1.0);
+    if (normalized->cpu_usage.has_value()) {
+        CHECK(normalized->cpu_usage.value.value >= 0.0);
+        CHECK(normalized->cpu_usage.value.value <= 1.0);
     } else {
         // A zero native tick delta over a very short interval is valid warming behavior.
-        CHECK(second.cpu_usage.status == telemetry::MetricStatus::temporarily_unavailable);
+        CHECK(normalized->cpu_usage.status == telemetry::MetricStatus::temporarily_unavailable);
     }
-    REQUIRE(second.disk_read_rate.has_value());
-    REQUIRE(second.disk_write_rate.has_value());
-    REQUIRE(second.network_receive_rate.has_value());
-    REQUIRE(second.network_transmit_rate.has_value());
-    CHECK(second.disk_read_rate.value.value >= 0.0);
-    CHECK(second.network_receive_rate.value.value >= 0.0);
+    REQUIRE(normalized->disk_read_rate.has_value());
+    REQUIRE(normalized->disk_write_rate.has_value());
+    REQUIRE(normalized->network_receive_rate.has_value());
+    REQUIRE(normalized->network_transmit_rate.has_value());
+    CHECK(normalized->disk_read_rate.value.value >= 0.0);
+    CHECK(normalized->network_receive_rate.value.value >= 0.0);
     REQUIRE_FALSE(processes.empty());
     bool found_current_process = false;
     for (const auto& process : processes) {
