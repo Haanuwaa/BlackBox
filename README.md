@@ -6,7 +6,7 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.23.0** is the pre-1.0 audit-closure and quality-hardening engineering line. The product
+Version **0.24.0** is the pre-1.0 UI-efficiency and repository-hardening engineering line. The product
 has one bounded native recorder, direct-V1 archive, optional statistical-analysis
 pipeline, and evidence-first desktop workflow across its Windows product target and Linux/macOS
 engineering previews. Accepted incident-viewer mutations are now isolated from coalescible reads and
@@ -15,6 +15,10 @@ portable settings and event contracts use source-neutral terminology; and the da
 rebuilding large projections when the collector has not advanced. The V0.23 quality graph adds four
 native fuzz targets, randomized lifecycle models, full-desktop app/UI coverage floors, shared pinned
 dependency caches, and an exact-process visible/minimized/hidden/background measurement harness.
+V0.24 caps redundant visible presentation at 30 Hz while preserving event-driven input and immediate
+restore redraw; an isolated exact-executable comparison reduced visible average CPU by 79.1% without
+changing recorder results or materially increasing memory. The measurement harness now validates
+private direct-V1 settings so live user configuration cannot contaminate performance evidence.
 
 Windows remains the intended first product target, but no platform has a public support claim before
 the remaining physical, signing, long-run, and diagnostic-quality gates pass. Linux implements native

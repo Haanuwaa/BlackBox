@@ -1184,3 +1184,18 @@ Windows crash capture remains below the application boundary. Its preallocated e
 handed to a dedicated bounded dump thread, and the DbgHelp callback excludes that writer from its own
 thread walk. The damaged thread performs no dump traversal; failed or unpublished writes remain
 visibly partial and never masquerade as completed evidence.
+
+## V0.24 visible UI efficiency implementation note
+
+Visible frame scheduling remains application-owned. The dashboard projection still updates at its
+bounded 4 Hz cadence and UI still observes only copied primitive state, but renderer presentation is
+capped by a small monotonic 33 ms scheduler instead of monitor VSync. SDL input wakes the wait and is
+processed immediately; presentation occurs at the next bounded deadline, missed deadlines advance
+without catch-up, and restoring a hidden/minimized window resets the scheduler for an immediate frame.
+No timer, renderer, SDL type, or frame-rate dependency enters core, telemetry, storage, or analysis.
+
+Performance evidence uses a development script, not a runtime service. The script supplies isolated
+validated direct-V1 settings to the exact child process, disables automatic captures and event sources,
+limits resource sampling to the requested interval, and records later shutdown time separately. This
+changes no persisted product format and prevents a user's live configuration from becoming an
+uncontrolled performance-test input.

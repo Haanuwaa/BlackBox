@@ -40,6 +40,13 @@ Every GitHub Action reference is an immutable 40-character commit. Dependabot ch
 pins weekly. The vcpkg registry baseline is an immutable commit, the direct dependency and ImGui
 feature sets are allowlisted, and the manifest version must match the CMake project version.
 
+Repository controls block force pushes and branch deletion on `main`, require linear history and
+resolved review conversations, and leave administrator enforcement disabled so the single-maintainer
+exact-revision workflow remains usable. Vulnerability alerts, automatic Dependabot security fixes,
+secret scanning, and secret push protection are enabled. A CodeQL alert may be dismissed only after
+review with a per-alert reason and bounded comment; a dismissed local-CLI dataflow is not silently
+suppressed from future query results.
+
 An authored workflow is not evidence that GitHub executed it. After all required jobs succeed on a
 push or manual run, each workflow's `hosted-evidence` job publishes a direct-v1 attestation binding
 the GitHub SHA, repository, workflow, run ID/attempt, ref, and exact writer script. Pull-request runs

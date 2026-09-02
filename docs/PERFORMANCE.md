@@ -73,6 +73,39 @@ three 30-minute clean-revision repetitions. Reproduce them with `scripts/measure
 `Visible`, `Minimized`, `Hidden`, and `Background` modes; the four outputs use an atomic `.partial`
 publication path and record OS, processor capacity, executable hash, duration, and memory samples.
 
+### V0.24 visible presentation optimization
+
+The V0.23 loop refreshed the bounded dashboard projection at 4 Hz but rebuilt and presented an
+identical ImGui command stream at monitor VSync between model changes. A 500-process CPU-side viewer
+benchmark averaged 0.030 ms per frame with 0.073 ms P99, locating the avoidable cost in redundant
+renderer presentation rather than recorder snapshots, dashboard projection, or view construction.
+
+V0.24 adds an application-owned 33 ms visible-frame scheduler. It renders immediately on first show
+or after restore, processes SDL events while waiting, bounds input-to-frame latency to one interval,
+and advances past stale deadlines without catch-up bursts. Hidden/minimized behavior remains on its
+existing 250 ms event wait and resets the visible deadline. The collector remains independent of UI
+lifetime and frame rate.
+
+The revised measurement harness stages and validates isolated direct-V1 product/recorder settings,
+disables automatic capture and event sources, samples only the requested window, and records process
+lifetime separately. This prevents user settings, incidental automatic triggers, and shutdown work
+from contaminating CPU samples. On the same Windows 10.0.26200, 12-logical-processor host, the exact
+V0.23 `8a35fc5` hosted package and the rebuilt V0.24 development executable each ran a 30-second
+visible measurement with a five-second warm-up:
+
+| Measure | V0.23 uncapped | V0.24 30 Hz | Change |
+|---|---:|---:|---:|
+| Average total-machine CPU | 1.667% | 0.349% | -79.1% |
+| Maximum total-machine CPU | 4.613% | 1.533% | -66.8% |
+| Maximum working set | 65.27 MiB | 66.00 MiB | +0.73 MiB |
+| Maximum private bytes | 126.38 MiB | 125.75 MiB | -0.63 MiB |
+
+Both runs completed 31 collections with zero partial, failed, dropped, late, deadline-missed, or
+worker-failed samples and zero automatic triggers/captures. The before/after artifacts are retained
+under `out/ui-performance-v024/`. The optimized executable was `local-uncommitted`; these results
+establish the engineering decision but do not replace three controlled 30-minute repetitions on a
+clean candidate revision.
+
 ### Process-scale matrix
 
 Measure at approximately 50, 200, 500, and the highest practical process count. Report full collection latency and per-process cost. Include protected/inaccessible processes to verify failures do not cause retry storms or repeated path resolution.

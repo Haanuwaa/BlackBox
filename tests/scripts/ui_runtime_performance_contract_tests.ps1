@@ -16,6 +16,13 @@ $required = @(
     'application_sha256=',
     'operating_system=',
     'logical_processors=',
+    'process_lifetime_seconds=',
+    'isolated_settings=1',
+    'automatic_detection=0',
+    'BLACKBOX_PRODUCT_SETTINGS_PATH',
+    'BLACKBOX_SETTINGS_PATH',
+    '--validate-settings-only',
+    '$elapsed.TotalSeconds -le $DurationSeconds',
     '.partial'
 )
 foreach ($literal in $required) {

@@ -21,6 +21,7 @@ add_executable(blackbox_tests
     telemetry/types_tests.cpp
     app/product_settings_tests.cpp
     app/dashboard_projection_tests.cpp
+    app/visible_frame_scheduler_tests.cpp
     app/recorder_settings_tests.cpp
     app/support_bundle_tests.cpp
     app/wall_clock_report_tests.cpp

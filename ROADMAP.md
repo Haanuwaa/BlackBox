@@ -2248,6 +2248,30 @@ preserving the collector boundary and the unreleased direct-V1 contract.
 - [ ] Complete the resource-dependent physical desktop, pressure/GPU hardware, signing/notarization,
   replacement 72-hour campaign, consented corpus, and held-out ML gates before any support or V1 claim.
 
+## V0.24 — Visible UI efficiency and repository hardening
+
+**Objective:** Remove redundant visible rendering cost and close repository-security hygiene without
+coupling the recorder to UI cadence or making the single-maintainer workflow unusable.
+
+- [x] Profile dashboard projection, ImGui command generation, full renderer presentation, and exact-
+  process CPU/memory behavior before selecting an optimization.
+- [x] Add a monotonic 30 Hz visible presentation ceiling with at most 33 ms input latency, immediate
+  restore redraw, no catch-up burst, and deterministic scheduler tests. Keep hidden/minimized behavior
+  and the collector/UI lifetime invariant unchanged.
+- [x] Make the four-state measurement harness validate isolated direct-V1 settings, disable incidental
+  capture/event work, sample only the requested window, and report shutdown lifetime separately.
+- [x] Compare the exact V0.23 hosted package with the rebuilt implementation on the same host. Visible
+  average total-machine CPU fell from 1.667% to 0.349% (-79.1%); maximum working set remained below
+  67 MiB and both runs completed 31 collections with zero failures, drops, late samples, or misses.
+- [x] Review and close the two remaining local-path CodeQL false positives with per-alert rationale;
+  enable automatic security fixes and protect `main` against force-push/deletion while requiring
+  linear history and resolved conversations. CodeQL, Dependabot, and secret-scanning open counts are zero.
+- [x] Advance the engineering version to `0.24.0` and pass the complete 370-test local Release graph.
+- [ ] Repeat the Windows, Linux, macOS, and quality/security hosted matrices on the clean V0.24
+  revision and retain their exact-revision attestations.
+- [ ] Run three controlled 30-minute visible/minimized/hidden/background repetitions on the frozen
+  candidate before treating the short characterization as release evidence.
+
 ## V2.0 — Optional advanced intelligence and additional platforms
 
 - [ ] Consider native ML only behind the V0.16 adoption gate
@@ -2497,3 +2521,18 @@ operator-assisted 72-hour Windows campaign only when the PC can remain available
 then complete signing/notarization, physical client qualification, the consented diagnostic corpus,
 and the one-shot held-out ML decision. Engineering breadth does not substitute for those V1 evidence
 gates.
+
+V0.24 now caps visible renderer presentation at 30 Hz without changing the 4 Hz dashboard projection
+or collector cadence. The isolated exact-executable comparison reduced visible average total-machine
+CPU from 1.667% to 0.349% while keeping maximum working set below 67 MiB and all recorder counters
+clean. The measurement harness no longer inherits live product settings or samples shutdown work.
+Three deterministic scheduler tests raise the local Release graph to 370 tests. Repository protection
+blocks force pushes/deletion and requires linear history/resolved conversations; automatic security
+updates are enabled and CodeQL, Dependabot, and secret-scanning open counts are zero after documented
+review of two local-CLI path-flow false positives.
+
+The exact next engineering gate is to freeze the V0.24 implementation, rebuild the complete Release
+graph from its clean revision, and obtain Windows, Linux, macOS, and quality/security hosted evidence.
+Then repeat the four desktop states three times for 30 minutes on that revision. Physical platform,
+signing/notarization, the replacement 72-hour campaign, consented corpus, and held-out ML decision
+remain separate resource-dependent V1 gates.

@@ -1,5 +1,6 @@
 #include "app/application.hpp"
 #include "app/dashboard_projection.hpp"
+#include "app/visible_frame_scheduler.hpp"
 
 #include "core/logger.hpp"
 #include "core/version.hpp"
@@ -479,6 +480,7 @@ ApplicationInitializationResult Application::initialize() {
 
 int Application::run() {
     bool running = true;
+    VisibleFrameScheduler visible_frames;
     const auto diagnostic_started_at = telemetry_clock_.now();
     diagnostic_started_ = diagnostic_options_.runtime > 0s;
     if (diagnostic_started_) {
@@ -556,6 +558,16 @@ int Application::run() {
             // copies, and rendering. The lightweight shell refresh remains
             // bounded at 4 Hz.
             if (SDL_WaitEventTimeout(&event, 250)) {
+                process_event(event);
+            }
+            visible_frames.reset();
+            continue;
+        }
+
+        const auto visible_now = telemetry_clock_.now();
+        if (!visible_frames.frame_due(visible_now)) {
+            const auto timeout = visible_frames.wait_timeout(visible_now);
+            if (SDL_WaitEventTimeout(&event, static_cast<int>(timeout.count()))) {
                 process_event(event);
             }
             continue;
