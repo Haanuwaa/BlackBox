@@ -19,6 +19,7 @@ enum class ProductPage : std::uint8_t { live, incidents, detail, patterns, setti
 struct ProductUiState {
     ProductPage page{ProductPage::live};
     bool onboarding_open{true};
+    bool keyboard_help_open{};
     bool settings_initialized{};
     std::uint32_t hotkey_key{12U};
     bool hotkey_control{true};
@@ -328,6 +329,7 @@ struct DashboardState {
     std::size_t disk_write_history_points{};
     std::size_t network_receive_history_points{};
     std::size_t network_transmit_history_points{};
+    double history_oldest_seconds{};
     double disk_history_max_mib_per_second{1.0};
     double network_history_max_mib_per_second{1.0};
     std::array<ProcessRow, dashboard_process_capacity> processes{};

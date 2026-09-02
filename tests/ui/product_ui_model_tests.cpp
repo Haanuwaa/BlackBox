@@ -179,6 +179,66 @@ TEST_CASE("rendered product navigation accepts the documented Ctrl digit shortcu
 #endif
 }
 
+TEST_CASE("focused window capture has a deterministic keyboard workflow",
+          "[ui][interaction][keyboard][capture][render]") {
+#if defined(__APPLE__)
+    SUCCEED("Synthetic ImGui modifier routing is not physical macOS shortcut qualification");
+#else
+    const ScopedImGuiContext context;
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.DisplaySize = ImVec2{1'100.0F, 700.0F};
+    io.DeltaTime = 1.0F / 60.0F;
+    io.Fonts->AddFontDefault();
+    unsigned char* font_pixels{};
+    int font_width{};
+    int font_height{};
+    io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+    REQUIRE(font_pixels != nullptr);
+
+    auto dashboard = std::make_unique<ui::DashboardState>();
+    dashboard->incident_capture_enabled = true;
+    auto viewer = std::make_unique<ui::IncidentViewerState>();
+    auto product = std::make_unique<ui::ProductUiState>();
+    product->onboarding_open = false;
+    io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    io.AddKeyEvent(ImGuiKey_Enter, true);
+
+    ImGui::NewFrame();
+    const auto command = ui::render_dashboard(*dashboard, *viewer, *product);
+    CHECK(command.action == ui::DashboardAction::capture_incident);
+    ImGui::Render();
+#endif
+}
+
+TEST_CASE("F1 opens the visible keyboard workflow guide",
+          "[ui][interaction][keyboard][help][render]") {
+    const ScopedImGuiContext context;
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.DisplaySize = ImVec2{1'100.0F, 700.0F};
+    io.DeltaTime = 1.0F / 60.0F;
+    io.Fonts->AddFontDefault();
+    unsigned char* font_pixels{};
+    int font_width{};
+    int font_height{};
+    io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+    REQUIRE(font_pixels != nullptr);
+
+    auto dashboard = std::make_unique<ui::DashboardState>();
+    auto viewer = std::make_unique<ui::IncidentViewerState>();
+    auto product = std::make_unique<ui::ProductUiState>();
+    product->onboarding_open = false;
+    io.AddKeyEvent(ImGuiKey_F1, true);
+
+    ImGui::NewFrame();
+    static_cast<void>(ui::render_dashboard(*dashboard, *viewer, *product));
+    CHECK(product->keyboard_help_open);
+    CHECK(ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId));
+    ImGui::Render();
+}
+
 TEST_CASE("DPI metrics remain bounded and proportional", "[ui][dpi][layout]") {
     CHECK(ui::scale_for_dpi(96.0F) == 1.0F);
     CHECK(ui::scale_for_dpi(192.0F) == 2.0F);

@@ -51,9 +51,9 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
         ImGui::SetWindowFontScale(1.0F);
         ImGui::SameLine();
         ImGui::TextDisabled("Computer Flight Recorder");
-        ImGui::TextDisabled("Local evidence. Honest uncertainty. Recording stays independent.");
+        ImGui::TextDisabled("Private system history that helps explain slowdowns.  |  F1 shortcuts");
 
-        constexpr const char* page_names[]{"Live",     "Incidents", "Detail",
+        constexpr const char* page_names[]{"Live",     "Incidents", "Explain",
                                            "Patterns", "Settings",  "Diagnostics"};
         constexpr ImGuiKey page_keys[]{ImGuiKey_1, ImGuiKey_2, ImGuiKey_3,
                                        ImGuiKey_4, ImGuiKey_5, ImGuiKey_6};
@@ -175,6 +175,57 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         render_product_header(state, product);
         ImGui::Spacing();
 
+        const auto& io = ImGui::GetIO();
+        const auto control_down = io.KeyCtrl || ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ||
+                                  ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+        if (!product.onboarding_open && ImGui::IsKeyPressed(ImGuiKey_F1)) {
+            product.keyboard_help_open = true;
+        }
+        if (!product.onboarding_open && control_down && ImGui::IsKeyPressed(ImGuiKey_Enter) &&
+            state.incident_capture_enabled) {
+            command.action = DashboardAction::capture_incident;
+        }
+        if (!product.onboarding_open && control_down && ImGui::IsKeyPressed(ImGuiKey_R) &&
+            product.page == ProductPage::incidents) {
+            command.action = DashboardAction::refresh_incidents;
+            command.incident_offset = 0U;
+            command.incident_order = incident_viewer.order;
+            command.search = incident_viewer.search.data();
+        }
+
+        if (product.keyboard_help_open) ImGui::OpenPopup("Keyboard shortcuts");
+        ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Appearing,
+                                ImVec2{0.5F, 0.5F});
+        if (ImGui::BeginPopupModal("Keyboard shortcuts", &product.keyboard_help_open,
+                                   ImGuiWindowFlags_AlwaysAutoResize |
+                                       ImGuiWindowFlags_NoSavedSettings)) {
+            ImGui::TextWrapped("Every primary workflow is available without a mouse.");
+            if (ImGui::BeginTable("Keyboard shortcut list", 2,
+                                  ImGuiTableFlags_BordersInnerH |
+                                      ImGuiTableFlags_SizingStretchProp)) {
+                const auto shortcut = [](const char* keys, const char* action) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(keys);
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted(action);
+                };
+                shortcut("Tab / Shift+Tab", "Move between controls");
+                shortcut("Enter / Space", "Activate the focused control");
+                shortcut("Ctrl+1 ... Ctrl+6", "Open a primary page");
+                shortcut("Ctrl+Enter", "Capture what just happened");
+                shortcut("Ctrl+R", "Refresh the incident archive");
+                shortcut("F1", "Show this shortcut guide");
+                shortcut("Escape", "Close this guide");
+                ImGui::EndTable();
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::Button("Close")) {
+                product.keyboard_help_open = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
         if (product.onboarding_open) ImGui::OpenPopup("Welcome to BlackBox");
         const auto onboarding = onboarding_layout(viewport->WorkSize.x, viewport->WorkSize.y);
         ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Appearing, ImVec2{0.5F, 0.5F});
@@ -191,16 +242,12 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             if (ImGui::BeginChild("Onboarding steps", ImVec2{0.0F, -footer_height},
                                   ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
                 ImGui::SeparatorText("1  Keep a rolling history");
-                ImGui::TextWrapped("BlackBox records a short, bounded resource "
-                                   "history. Collection "
-                                   "stays independent from this window and "
-                                   "from later analysis.");
+                ImGui::TextWrapped("BlackBox quietly keeps a short resource history in memory. "
+                                   "Recording continues when this window is minimized or hidden.");
                 ImGui::SeparatorText("2  Capture the moment");
-                ImGui::TextWrapped("When something feels wrong, use Capture "
-                                   "incident to preserve the "
-                                   "moments before and after it. Configure the "
-                                   "global shortcut in "
-                                   "Settings when the platform supports one.");
+                ImGui::TextWrapped("When something feels wrong, select Capture what just "
+                                   "happened or press Ctrl+Enter. A global shortcut can also be "
+                                   "configured in Settings.");
                 ImGui::SeparatorText("3  Review local evidence");
                 ImGui::TextWrapped("Saved incidents stay on this computer unless you "
                                    "explicitly "
@@ -238,10 +285,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                        "states explicit instead of "
                                        "silently treating them as zero.");
                 }
-                ImGui::TextDisabled("Keyboard: Tab and Shift+Tab move focus; "
-                                    "Enter or Space activates "
-                                    "a control. After setup, Ctrl+1 through "
-                                    "Ctrl+6 changes pages.");
+                ImGui::TextDisabled("Keyboard: Tab moves focus, Ctrl+Enter captures, Ctrl+1 "
+                                    "through Ctrl+6 changes pages, and F1 shows all shortcuts.");
             }
             ImGui::EndChild();
             ImGui::Separator();
@@ -257,32 +302,34 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             const auto visual = product_visual_style(state.accessibility_high_contrast);
             const bool recording = state.recorder_status == "Recording";
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
-            if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 164.0F},
+            if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 184.0F},
                                   ImGuiChildFlags_Borders)) {
-                ImGui::TextDisabled("RECORDER STATUS");
+                ImGui::TextDisabled("YOUR RECORDER");
                 if (recording && state.incident_capture_enabled) {
                     ImGui::TextColored(ui_color(visual.success),
-                                       "Recording and ready to capture what just happened");
+                                       "Ready - quietly recording recent activity");
                 } else if (recording) {
                     ImGui::TextColored(ui_color(visual.warning), "Recording; incident capture is "
                                                                  "temporarily unavailable");
                 } else {
                     ImGui::TextColored(ui_color(visual.warning), "Recorder is stopped");
                 }
-                ImGui::TextDisabled("Hotkey %s  |  Archive %s", state.hotkey_status.c_str(),
-                                    state.storage_status.c_str());
-                ImGui::TextDisabled("Background %s", state.background_status.c_str());
+                ImGui::TextDisabled("Global shortcut: %s", state.hotkey_status.c_str());
+                ImGui::TextDisabled("Background: %s", state.background_status.c_str());
+                ImGui::TextDisabled("When the tray is active, closing this window hides it; "
+                                    "recording continues.");
                 if (!state.incident_capture_enabled) ImGui::BeginDisabled();
                 ImGui::PushStyleColor(ImGuiCol_Button, ui_color(visual.accent));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui_color(visual.accent_hovered));
-                if (ImGui::Button("Capture what just happened", ImVec2{250.0F, 34.0F})) {
+                if (ImGui::Button("Capture what just happened   Ctrl+Enter",
+                                  ImVec2{340.0F, 34.0F})) {
                     command.action = DashboardAction::capture_incident;
                 }
                 ImGui::PopStyleColor(2);
                 if (!state.incident_capture_enabled) ImGui::EndDisabled();
                 ImGui::SameLine();
                 ImGui::TextUnformatted(state.incident_capture_status.c_str());
-                ImGui::TextDisabled("%llu saved incident%s",
+                ImGui::TextDisabled("Saved locally: %llu incident%s",
                                     static_cast<unsigned long long>(state.stored_incident_count),
                                     state.stored_incident_count == 1U ? "" : "s");
             }
@@ -398,7 +445,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
 
         if (product.page == ProductPage::live) {
             ImGui::Spacing();
-            ImGui::SeparatorText("Live system telemetry");
+            ImGui::SeparatorText("What your computer is doing now");
+            ImGui::TextDisabled("A quick local view of current resource activity. Missing values "
+                                "stay marked instead of being shown as zero.");
             char cpu_overlay[32]{"Unavailable"};
             if (state.cpu_status == MetricDisplayStatus::available) {
                 std::snprintf(cpu_overlay, sizeof(cpu_overlay), "%.1f%%", state.cpu_usage * 100.0);
@@ -415,10 +464,10 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             if (ImGui::BeginTable("Primary telemetry cards", 2,
                                   ImGuiTableFlags_SizingStretchSame)) {
                 ImGui::TableNextColumn();
-                render_metric_card("CPU card", "TOTAL CPU", state.cpu_status, state.cpu_usage,
+                render_metric_card("CPU card", "PROCESSOR", state.cpu_status, state.cpu_usage,
                                    cpu_overlay);
                 ImGui::TableNextColumn();
-                render_metric_card("Memory card", "PHYSICAL MEMORY", state.memory_status,
+                render_metric_card("Memory card", "MEMORY", state.memory_status,
                                    state.memory_usage, memory_overlay);
                 ImGui::EndTable();
             }
@@ -427,17 +476,17 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                       ImGuiTableFlags_SizingStretchProp)) {
                 ImGui::TableSetupColumn("Metric", ImGuiTableColumnFlags_WidthFixed, 180.0F);
                 ImGui::TableSetupColumn("Rate");
-                render_rate_row("Disk read", state.disk_read_status,
+                render_rate_row("Storage read", state.disk_read_status,
                                 state.disk_read_mib_per_second);
-                render_rate_row("Disk write", state.disk_write_status,
+                render_rate_row("Storage write", state.disk_write_status,
                                 state.disk_write_mib_per_second);
-                render_rate_row("Network receive", state.network_receive_status,
+                render_rate_row("Download", state.network_receive_status,
                                 state.network_receive_mib_per_second);
-                render_rate_row("Network transmit", state.network_transmit_status,
+                render_rate_row("Upload", state.network_transmit_status,
                                 state.network_transmit_mib_per_second);
                 ImGui::EndTable();
             }
-            if (ImGui::CollapsingHeader("Forensic telemetry details")) {
+            if (ImGui::CollapsingHeader("More system details")) {
                 ImGui::TextWrapped("Physical storage quality is separate from process I/O. "
                                    "Network "
                                    "quality is passive host-wide transport/connectivity "
@@ -547,17 +596,15 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
 
         if (product.page == ProductPage::live) {
             ImGui::Spacing();
-            if (ImGui::CollapsingHeader("Rolling history")) {
+            if (ImGui::CollapsingHeader("Recent activity", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::TextDisabled("The newest sample is at 0 seconds. Hover a graph to inspect "
+                                    "values; gaps mean the metric was unavailable.");
                 if (state.history_size == 0U) {
                     ImGui::TextDisabled("Waiting for recorder samples");
-                } else if (ImPlot::BeginPlot("##system-history", ImVec2{-1.0F, 220.0F},
-                                             ImPlotFlags_NoMouseText)) {
-                    ImPlot::SetupAxes("Oldest to newest sample", "Utilization (%)",
-                                      ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_None);
-                    const auto newest_sample = state.history_size > 1U
-                                                   ? static_cast<double>(state.history_size - 1U)
-                                                   : 1.0;
-                    ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, newest_sample, ImGuiCond_Always);
+                } else if (ImPlot::BeginPlot("##system-history", ImVec2{-1.0F, 220.0F})) {
+                    ImPlot::SetupAxes("Seconds from now", "Utilization (%)");
+                    const auto oldest_sample = std::min(-1.0, state.history_oldest_seconds);
+                    ImPlot::SetupAxisLimits(ImAxis_X1, oldest_sample, 0.0, ImGuiCond_Always);
                     ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 100.0, ImGuiCond_Always);
                     ImPlotSpec cpu_style{};
                     cpu_style.LineColor = ImVec4{0.20F, 0.80F, 1.00F, 1.00F};
@@ -582,14 +629,11 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     ImPlot::EndPlot();
                 }
 
-                const auto newest_sample =
-                    state.history_size > 1U ? static_cast<double>(state.history_size - 1U) : 1.0;
+                const auto oldest_sample = std::min(-1.0, state.history_oldest_seconds);
                 if (state.disk_read_history_points != 0U || state.disk_write_history_points != 0U) {
-                    if (ImPlot::BeginPlot("Disk throughput", ImVec2{-1.0F, 180.0F},
-                                          ImPlotFlags_NoMouseText)) {
-                        ImPlot::SetupAxes("Oldest to newest sample", "MiB/s",
-                                          ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_None);
-                        ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, newest_sample, ImGuiCond_Always);
+                    if (ImPlot::BeginPlot("Storage activity", ImVec2{-1.0F, 180.0F})) {
+                        ImPlot::SetupAxes("Seconds from now", "MiB/s");
+                        ImPlot::SetupAxisLimits(ImAxis_X1, oldest_sample, 0.0, ImGuiCond_Always);
                         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0,
                                                 state.disk_history_max_mib_per_second * 1.1,
                                                 ImGuiCond_Always);
@@ -607,11 +651,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
 
                 if (state.network_receive_history_points != 0U ||
                     state.network_transmit_history_points != 0U) {
-                    if (ImPlot::BeginPlot("Network throughput", ImVec2{-1.0F, 180.0F},
-                                          ImPlotFlags_NoMouseText)) {
-                        ImPlot::SetupAxes("Oldest to newest sample", "MiB/s",
-                                          ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_None);
-                        ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, newest_sample, ImGuiCond_Always);
+                    if (ImPlot::BeginPlot("Network activity", ImVec2{-1.0F, 180.0F})) {
+                        ImPlot::SetupAxes("Seconds from now", "MiB/s");
+                        ImPlot::SetupAxisLimits(ImAxis_X1, oldest_sample, 0.0, ImGuiCond_Always);
                         ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0,
                                                 state.network_history_max_mib_per_second * 1.1,
                                                 ImGuiCond_Always);
@@ -629,7 +671,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             }
 
             ImGui::Spacing();
-            if (ImGui::CollapsingHeader("Active processes (highest CPU first)")) {
+            if (ImGui::CollapsingHeader("Apps using resources (highest CPU first)")) {
                 if (state.process_count == 0U) {
                     ImGui::TextDisabled("Process telemetry is warming up");
                 } else if (ImGui::BeginTable("Active processes", 6,

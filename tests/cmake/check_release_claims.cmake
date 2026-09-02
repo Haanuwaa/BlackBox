@@ -44,7 +44,7 @@ reject_literal("docs/TELEMETRY.md"
     "Post-V0.1 research"
     "pre-V0.14 GPU status")
 
-require_literal("docs/V0151_QUALIFICATION_STATUS.md"
+require_literal("docs/DOGFOOD_PROTOCOL.md"
     "multi-machine evidence collection and one-shot held-out result are not"
     "incomplete real diagnostic evidence disclosure")
 require_literal("docs/QUALITY_GATES.md"
@@ -65,7 +65,7 @@ require_literal("docs/PRIVACY_THREAT_MODEL.md"
 require_literal("docs/V1_RELEASE_EVIDENCE.md"
     "Neither chain can substitute for the other."
     "independent V1 evidence-chain composition")
-require_literal("docs/V0151_COLLECTION_CAMPAIGN.md"
+require_literal("docs/DOGFOOD_PROTOCOL.md"
     "interruption, application crash, application hang"
     "complete nine-class diagnostic acquisition matrix")
 require_literal("docs/CLIENT_QUALIFICATION.md"
@@ -112,6 +112,12 @@ reject_literal("docs/V017_RELEASE_EVIDENCE.md"
     "current engineering package in final V0.17 evidence instructions")
 reject_literal("docs/V1_RELEASE_EVIDENCE.md"
     "BlackBox-0.24.0-windows-x64.zip"
+    "current engineering package in final V1 evidence instructions")
+reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+    "BlackBox-0.25.0-windows-x64.zip"
+    "current engineering package in final V0.17 evidence instructions")
+reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+    "BlackBox-0.25.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
 require_literal("docs/V1_RELEASE_EVIDENCE.md"
     "rejects reuse of one directory"

@@ -112,6 +112,15 @@ maximum working set. It completed 31 collections with every failure/drop/deadlin
 This confirms the short characterization on the hosted-qualified binary but remains too short to
 close the controlled-repetition gate.
 
+V0.25 retains the measured 33 ms idle ceiling and adds a 16 ms presentation interval for 300 ms
+after direct mouse, touch, text, or keyboard input. Repeated interaction extends that bounded window
+but never renders more than once per interval. This addresses the visible tradeoff in the fixed cap:
+30 Hz was adequate for clicks and static telemetry, but continuous scrolling, dragging, and graph
+hover could feel less fluid than a 60 Hz desktop. Collection and dashboard projection rates are
+unchanged, hidden/minimized behavior remains event-driven, and deterministic tests cover idle,
+interaction, expiry, reset, and stale-deadline behavior. The controlled clean-revision runtime
+comparison remains open until V0.25 is frozen.
+
 ### Process-scale matrix
 
 Measure at approximately 50, 200, 500, and the highest practical process count. Report full collection latency and per-process cost. Include protected/inaccessible processes to verify failures do not cause retry storms or repeated path resolution.

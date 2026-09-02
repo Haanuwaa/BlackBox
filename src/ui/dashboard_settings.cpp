@@ -9,13 +9,12 @@ namespace blackbox::ui::detail {
 
 void render_product_settings(const DashboardState& state, ProductUiState& product,
                              DashboardCommand& command) {
-    ImGui::SeparatorText("Capture and privacy settings");
-    ImGui::BeginChild("Capture preferences", ImVec2{-1.0F, 610.0F}, ImGuiChildFlags_Borders);
-    ImGui::TextUnformatted("Capture behavior and privacy");
-    ImGui::TextWrapped("Settings are validated before they cross into the recorder. Changing "
-                       "archive path or capacity is saved for the next launch; existing "
-                       "incidents are never moved or deleted automatically.");
+    ImGui::SeparatorText("Capture and privacy");
+    ImGui::BeginChild("Capture preferences", ImVec2{-1.0F, 650.0F}, ImGuiChildFlags_Borders);
+    ImGui::TextWrapped("Choose how BlackBox captures a problem and which optional context may be "
+                       "saved with future incidents. Existing incidents never change here.");
 
+    ImGui::SeparatorText("Capture shortcut and time window");
     constexpr const char* keys[]{"F1", "F2", "F3", "F4",  "F5",  "F6",
                                  "F7", "F8", "F9", "F10", "F11", "F12"};
     auto key_index = static_cast<int>(std::clamp<std::uint32_t>(product.hotkey_key, 1U, 12U) - 1U);
@@ -35,6 +34,10 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
                        &product.incident_pre_window_seconds);
     ImGui::InputScalar("Seconds after incident", ImGuiDataType_U64,
                        &product.incident_post_window_seconds);
+
+    ImGui::SeparatorText("Automatic capture");
+    ImGui::TextDisabled("BlackBox can preserve unusual resource activity even when you do not "
+                        "press the shortcut.");
     ImGui::Checkbox("Automatic incident detection", &product.automatic_detection);
     constexpr const char* sensitivity[]{"Conservative", "Balanced", "Sensitive"};
     ImGui::Combo("Detector sensitivity", &product.detector_sensitivity, sensitivity, 3);
@@ -47,7 +50,8 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
     ImGui::Checkbox("Network", &product.detect_network);
     ImGui::InputScalar("Detector cooldown (seconds)", ImGuiDataType_U64,
                        &product.detector_cooldown_seconds);
-    ImGui::Checkbox("Desktop notifications", &product.notifications);
+    ImGui::SeparatorText("Notifications and optional context");
+    ImGui::Checkbox("Show quiet desktop notifications", &product.notifications);
     ImGui::Checkbox("Record executable paths in future samples", &product.collect_process_paths);
     if (!state.foreground_identity_supported) ImGui::BeginDisabled();
     ImGui::Checkbox("Record foreground application identity",
@@ -60,20 +64,24 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
     ImGui::Checkbox("Record audio endpoint transition events", &product.record_audio_device_events);
     ImGui::Checkbox("Record selected privacy-bounded system events",
                     &product.record_system_event_evidence);
-    ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextDisabled("Process lifecycle evidence stores a durable PID/creation identity in "
-                        "the local archive when explicitly enabled; exported evaluation "
-                        "datasets "
-                        "redact it. Other event evidence stores only source, event ID, level, "
-                        "and action. Window titles, Event Log messages, device/endpoint IDs, "
-                        "storage addresses, and payloads are never retained. Existing "
-                        "immutable "
-                        "incidents are unchanged until explicitly purged.");
-    ImGui::PopTextWrapPos();
-    ImGui::InputText("Archive path (restart required)", product.archive_path.data(),
-                     product.archive_path.size());
-    ImGui::InputScalar("Archive capacity (MiB, restart required)", ImGuiDataType_U64,
-                       &product.archive_maximum_mib);
+    if (ImGui::CollapsingHeader("What these privacy options retain")) {
+        ImGui::PushTextWrapPos(0.0F);
+        ImGui::TextDisabled("Process lifecycle evidence stores a durable PID/creation identity in "
+                            "the local archive when explicitly enabled; exported evaluation "
+                            "datasets redact it. Other event evidence stores only source, event "
+                            "ID, level, and action. Window titles, Event Log messages, "
+                            "device/endpoint IDs, storage addresses, and payloads are never "
+                            "retained.");
+        ImGui::PopTextWrapPos();
+    }
+    if (ImGui::CollapsingHeader("Advanced archive location")) {
+        ImGui::TextDisabled("Location and capacity changes take effect after restart and never "
+                            "move existing incidents automatically.");
+        ImGui::InputText("Archive path", product.archive_path.data(),
+                         product.archive_path.size());
+        ImGui::InputScalar("Archive capacity (MiB)", ImGuiDataType_U64,
+                           &product.archive_maximum_mib);
+    }
     if (ImGui::Button("Validate, apply, and save settings")) {
         command.action = DashboardAction::apply_product_settings;
         command.hotkey_key = product.hotkey_key;

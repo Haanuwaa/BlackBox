@@ -6,19 +6,18 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.24.0** is the pre-1.0 UI-efficiency and repository-hardening engineering line. The product
-has one bounded native recorder, direct-V1 archive, optional statistical-analysis
-pipeline, and evidence-first desktop workflow across its Windows product target and Linux/macOS
-engineering previews. Accepted incident-viewer mutations are now isolated from coalescible reads and
-drained on shutdown, with persistence failure counted separately while later FIFO work continues;
-portable settings and event contracts use source-neutral terminology; and the dashboard avoids
-rebuilding large projections when the collector has not advanced. The V0.23 quality graph adds four
-native fuzz targets, randomized lifecycle models, full-desktop app/UI coverage floors, shared pinned
-dependency caches, and an exact-process visible/minimized/hidden/background measurement harness.
-V0.24 caps redundant visible presentation at 30 Hz while preserving event-driven input and immediate
-restore redraw; an isolated exact-executable comparison reduced visible average CPU by 79.1% without
-changing recorder results or materially increasing memory. The measurement harness now validates
-private direct-V1 settings so live user configuration cannot contaminate performance evidence.
+Version **0.25.0** is the pre-1.0 consumer-workflow engineering line. The product has one bounded
+native recorder, direct-V1 archive, optional local statistical analysis, and an evidence-first
+desktop workflow across its Windows product target and Linux/macOS engineering previews. The default
+UI now leads with recorder readiness, capture, current activity, saved incidents, and plain-language
+explanations; technical details remain available on demand. Recent-activity graphs use human time,
+capture and archive workflows are keyboard accessible, and tray behavior is explained in context.
+
+Visible rendering remains capped at 30 Hz while idle, but recent mouse, touch, or keyboard activity
+temporarily raises presentation to 60 Hz for smooth scrolling and hover inspection. This changes only
+presentation: collection, capture, persistence, and analysis remain independent of window lifetime
+and frame cadence. V0.24's isolated comparison reduced visible average CPU by 79.1% without changing
+recorder results or materially increasing memory; the adaptive path retains that idle policy.
 
 Windows remains the intended first product target, but no platform has a public support claim before
 the remaining physical, signing, long-run, and diagnostic-quality gates pass. Linux implements native
@@ -109,49 +108,7 @@ tools            development, profiling, maintenance, and benchmark utilities
 docs             telemetry and performance specifications
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for dependency rules, [ROADMAP.md](ROADMAP.md) for tracked
-milestones, [docs/USER_GUIDE.md](docs/USER_GUIDE.md) to operate the recorder,
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md) for validated settings, and
-[docs/ANALYSIS.md](docs/ANALYSIS.md) for scoring semantics. The frozen diagnostic evaluation,
-required multi-hardware follow-up, and limits are documented in
-[docs/DOGFOOD_PROTOCOL.md](docs/DOGFOOD_PROTOCOL.md),
-[docs/V0151_COLLECTION_CAMPAIGN.md](docs/V0151_COLLECTION_CAMPAIGN.md), and
-[docs/V015_DOGFOOD_RESULTS.md](docs/V015_DOGFOOD_RESULTS.md). See
-[docs/WINDOWS_FORENSICS.md](docs/WINDOWS_FORENSICS.md),
-[docs/PERSONALIZATION.md](docs/PERSONALIZATION.md),
-[docs/CONTRIBUTOR_RANKING.md](docs/CONTRIBUTOR_RANKING.md), and
-[docs/RECURRING_INCIDENTS.md](docs/RECURRING_INCIDENTS.md) for analysis evidence boundaries. Build,
-fixture, capture, persistence, inspection, signal, and overhead contracts are in
-[docs/BUILD_AND_RELEASE.md](docs/BUILD_AND_RELEASE.md), [docs/FIXTURES.md](docs/FIXTURES.md),
-[docs/INCIDENTS.md](docs/INCIDENTS.md), [docs/STORAGE.md](docs/STORAGE.md),
-[docs/VIEWER.md](docs/VIEWER.md), [docs/TELEMETRY.md](docs/TELEMETRY.md), and
-[docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-
-The sanitizer, static-analysis, dependency/SBOM, fuzz/property, and coverage contracts are in
-[docs/QUALITY_GATES.md](docs/QUALITY_GATES.md).
-
-V0.14 source semantics, bounds, privacy controls, and researched non-adoptions are documented in
-[docs/WINDOWS_EVENT_EVIDENCE.md](docs/WINDOWS_EVENT_EVIDENCE.md).
-Crash/support behavior, the privacy boundary, and evidence-preserving recovery procedures are
-documented in [docs/SUPPORTABILITY.md](docs/SUPPORTABILITY.md),
-[docs/PRIVACY_THREAT_MODEL.md](docs/PRIVACY_THREAT_MODEL.md), and
-[docs/RECOVERY_RUNBOOKS.md](docs/RECOVERY_RUNBOOKS.md). Real elapsed-time release campaigns and
-their evidence contract are in [docs/WALL_CLOCK_SOAKS.md](docs/WALL_CLOCK_SOAKS.md). Deterministic
-native UI raster evidence and the separate physical Windows accessibility/DPI/multi-monitor matrix
-are defined in [docs/UI_QUALIFICATION.md](docs/UI_QUALIFICATION.md). Portable-package smoke,
-single-host profiles, independent bundle verification, and aggregate clean-client coverage are in
-[docs/CLIENT_QUALIFICATION.md](docs/CLIENT_QUALIFICATION.md).
-The development Linux system/process boundary is described in
-[docs/TELEMETRY.md](docs/TELEMETRY.md), and the label-free feature export plus verified baseline
-comparison workflow is documented in [docs/OFFLINE_ML.md](docs/OFFLINE_ML.md).
-The current outcome-by-outcome Windows/Linux/macOS gap map and ordered native work are maintained in
-[docs/PLATFORM_PARITY.md](docs/PLATFORM_PARITY.md).
-The bounded component record format and replaceable-sink rules are documented in
-[docs/LOGGING.md](docs/LOGGING.md).
-The same-revision hosted/UI/client/soak/signing composition contract is documented in
-[docs/V017_RELEASE_EVIDENCE.md](docs/V017_RELEASE_EVIDENCE.md); it cannot replace the separate
-diagnostic-quality gate.
-
-The dated [project audit](docs/PROJECT_AUDIT_2026-08-22.md) summarizes current product maturity,
-resource-blocked release gates, UI/maintenance priorities, and safe parallel paths for Linux and
-offline ML research.
+Start with the [documentation map](docs/README.md). It separates user guidance, contributor
+contracts, platform/reference material, and release qualification so the repository root stays
+approachable. [ARCHITECTURE.md](ARCHITECTURE.md) remains the authoritative dependency contract and
+[ROADMAP.md](ROADMAP.md) tracks only current status, completed milestone outcomes, and open gates.

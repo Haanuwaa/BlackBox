@@ -21,6 +21,19 @@ Uncertain evidence is retained and published as coverage, never silently convert
 incorrect truth. Controlled and natural results must be reported separately before they are
 combined.
 
+## Current qualification state
+
+The acquisition, validation, freeze, calibration, and one-shot evaluation machinery is implemented.
+The qualifying multi-machine evidence collection and one-shot held-out result are not complete.
+Runtime inference therefore remains the local statistical baseline; native ML has not been adopted.
+
+The qualifying corpus must cover all nine current symptom classes: CPU starvation, disk stall,
+network interruption, application crash, application hang, game stutter, audio interruption,
+quiet, and ambiguous evidence. At least three coarse hardware profiles must each contribute natural,
+quiet, and scorable evidence to both frozen splits. Two independent non-operator ballots support
+each truth row, and total quiet exposure must reach ten hours. These live requirements replace dated
+pre-release campaign/status snapshots; Git history retains those implementation-era reports.
+
 ## Directory contract
 
 `blackbox_dogfood_tool init <new-directory> <corpus-id>` creates exactly five UTF-8 files. The
@@ -358,12 +371,9 @@ analysis. Use `blackbox_dogfood_tool heldout-status <corpus>` to inspect the sta
 procedural guard, not tamper-proof security; published work retains the frozen corpus, calibration
 artifact, report, binary version, and hashes together.
 
-## Current local corpus status
+## Development corpus boundary
 
-The workspace corpus under `out/dogfood-v015/` is frozen evidence and is intentionally not part of
-source or a release package. It contains 32 sessions/incidents across development, calibration, and
-one-shot held-out splits. The checked-in aggregate results, hardware distribution, negative
-findings, and limitations are in [`V015_DOGFOOD_RESULTS.md`](V015_DOGFOOD_RESULTS.md). The local
-archive/corpus/results plus their matching historical evaluator remain required to reproduce that
-exact report. The current prerelease evaluator intentionally rejects its older session header
-because it lacks mandatory consent attestation; no compatibility reader or conversion is shipped.
+Workspace corpora under `out/` are local engineering evidence and are intentionally excluded from
+source and release packages. Earlier development corpora do not satisfy the current direct-V1
+consent, independent-annotation, analyzer-fingerprint, or hardware-distribution gates. No legacy
+reader or conversion path is shipped; qualifying evidence must be collected in the current format.

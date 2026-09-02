@@ -104,6 +104,25 @@ command_bit(const platform::BackgroundShellCommand command) noexcept {
     return 1U << static_cast<std::uint32_t>(command);
 }
 
+[[nodiscard]] constexpr bool is_direct_ui_interaction(const std::uint32_t event_type) noexcept {
+    switch (event_type) {
+    case SDL_EVENT_MOUSE_MOTION:
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_WHEEL:
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+    case SDL_EVENT_TEXT_EDITING:
+    case SDL_EVENT_TEXT_INPUT:
+    case SDL_EVENT_FINGER_DOWN:
+    case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_MOTION:
+        return true;
+    default:
+        return false;
+    }
+}
+
 } // namespace
 
 Application::Application(const bool start_hidden,
@@ -494,8 +513,11 @@ int Application::run() {
         diagnostic_started_ && diagnostic_options_.capture_interval > 0s
             ? diagnostic_started_at + diagnostic_options_.capture_interval
             : core::MonotonicTimePoint::max();
-    const auto process_event = [this, &running](SDL_Event& event) {
+    const auto process_event = [this, &running, &visible_frames](SDL_Event& event) {
         ImGui_ImplSDL3_ProcessEvent(&event);
+        if (is_direct_ui_interaction(event.type)) {
+            visible_frames.note_interaction(telemetry_clock_.now());
+        }
         if (event.type == SDL_EVENT_QUIT) {
             running = false;
             return;

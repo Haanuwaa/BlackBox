@@ -170,5 +170,5 @@ binary cannot establish V1 diagnostic accuracy. Real game, audio, WAN/VPN, varie
 natural ambiguous incidents remain required even when controlled mechanics are perfect. Native ML
 remains outside the runtime until a separately frozen comparison proves material held-out benefit.
 
-The first frozen V0.15 run and its deliberately narrow conclusions are published in
-[`V015_DOGFOOD_RESULTS.md`](V015_DOGFOOD_RESULTS.md).
+Earlier development runs were deliberately narrow and do not qualify the current analyzer. Their
+reports remain in Git history rather than in the living product documentation.

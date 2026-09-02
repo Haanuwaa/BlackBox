@@ -1185,13 +1185,15 @@ handed to a dedicated bounded dump thread, and the DbgHelp callback excludes tha
 thread walk. The damaged thread performs no dump traversal; failed or unpublished writes remain
 visibly partial and never masquerade as completed evidence.
 
-## V0.24 visible UI efficiency implementation note
+## V0.24-V0.25 visible UI scheduling implementation note
 
 Visible frame scheduling remains application-owned. The dashboard projection still updates at its
-bounded 4 Hz cadence and UI still observes only copied primitive state, but renderer presentation is
-capped by a small monotonic 33 ms scheduler instead of monitor VSync. SDL input wakes the wait and is
-processed immediately; presentation occurs at the next bounded deadline, missed deadlines advance
-without catch-up, and restoring a hidden/minimized window resets the scheduler for an immediate frame.
+bounded 4 Hz cadence and UI still observes only copied primitive state. Renderer presentation is
+capped by a small monotonic scheduler instead of monitor VSync: 33 ms while idle and 16 ms for a
+bounded 300 ms window after direct mouse, touch, text, or keyboard interaction. SDL input wakes the
+wait and is processed immediately; interaction can shorten but never bypass the next deadline,
+missed deadlines advance without catch-up, and restoring a hidden/minimized window resets the
+scheduler for an immediate frame.
 No timer, renderer, SDL type, or frame-rate dependency enters core, telemetry, storage, or analysis.
 
 Performance evidence uses a development script, not a runtime service. The script supplies isolated

@@ -127,20 +127,22 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                             ProductUiState& product) {
     synchronize_incident_editor(state);
     ImGui::Spacing();
-    ImGui::SeparatorText("Incident archive viewer");
     if (!state.content) {
         ImGui::TextDisabled("Viewer unavailable");
         return;
     }
     const auto& content = *state.content;
     if (product.page == ProductPage::incidents) {
-        ImGui::BeginChild("Incident archive surface", ImVec2{-1.0F, 282.0F},
+        ImGui::SeparatorText("Saved incidents");
+        ImGui::TextDisabled("Each capture preserves the activity around a moment you want to "
+                            "understand. Select one to see the explanation.");
+        ImGui::BeginChild("Incident archive surface", ImVec2{-1.0F, 304.0F},
                           ImGuiChildFlags_Borders);
         ImGui::SetNextItemWidth(260.0F);
         ImGui::InputTextWithHint("##incident-search", "Search labels and notes",
                                  state.search.data(), state.search.size());
         ImGui::SameLine();
-        if (ImGui::Button("Search / refresh")) request_page(command, state, 0U);
+        if (ImGui::Button("Search")) request_page(command, state, 0U);
         ImGui::SameLine();
         constexpr const char* order_names[]{"Newest",   "Oldest",    "Longest",
                                             "Shortest", "Label A-Z", "Label Z-A"};
@@ -151,10 +153,12 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
             state.order = static_cast<IncidentListOrder>(order_index);
             request_page(command, state, 0U);
         }
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s | query %.2f ms | view build %.2f ms | analysis %.2f ms",
-                            content.status.c_str(), content.last_query_milliseconds,
-                            content.last_build_milliseconds, content.last_analysis_milliseconds);
+        ImGui::TextDisabled("%s  |  Ctrl+R refreshes", content.status.c_str());
+        if (ImGui::CollapsingHeader("Archive query details")) {
+            ImGui::TextDisabled("Query %.2f ms | view %.2f ms | analysis %.2f ms",
+                                content.last_query_milliseconds, content.last_build_milliseconds,
+                                content.last_analysis_milliseconds);
+        }
 
         const auto presentation = incident_archive_presentation(
             content.state, content.total_matching, state.search.front() != '\0');
@@ -334,19 +338,19 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         return;
     }
     const auto& detail = *content.detail;
-    ImGui::SeparatorText("Incident detail");
-    if (ImGui::TreeNodeEx("How to read this result", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::SeparatorText("What happened");
+    if (ImGui::TreeNodeEx("How BlackBox explains an incident", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (ImGui::BeginTable("Evidence reading guide", 3,
                               ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("OBSERVATION");
-            ImGui::TextWrapped("Recorded measurements and exact event timing.");
+            ImGui::TextUnformatted("What was recorded");
+            ImGui::TextWrapped("Measurements and event timing saved by the recorder.");
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("INFERENCE");
-            ImGui::TextWrapped("A statistical explanation that fits those observations.");
+            ImGui::TextUnformatted("What may explain it");
+            ImGui::TextWrapped("A local statistical explanation that fits the evidence.");
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("UNCERTAINTY");
-            ImGui::TextWrapped("Missing evidence and plausible alternatives remain visible.");
+            ImGui::TextUnformatted("What remains uncertain");
+            ImGui::TextWrapped("Missing evidence and plausible alternatives stay visible.");
             ImGui::EndTable();
         }
         ImGui::TreePop();
@@ -355,26 +359,25 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     const auto& headline_analysis = detail.analysis;
     if (headline_analysis.pressure.available) {
         ImGui::TextWrapped(
-            "OBSERVED PRESSURE: %s via %s (%.0f%%)", headline_analysis.pressure.resource.c_str(),
+            "Observed pressure: %s via %s (%.0f%%)", headline_analysis.pressure.resource.c_str(),
             headline_analysis.pressure.metric.c_str(), headline_analysis.pressure.score * 100.0);
     } else {
-        ImGui::TextWrapped("OBSERVED PRESSURE: No resource cleared the "
+        ImGui::TextWrapped("Observed pressure: No resource cleared the "
                            "practical-effect floor");
     }
     if (headline_analysis.diagnosis.available) {
-        ImGui::TextWrapped("SYMPTOM EXPLANATION: %s",
+        ImGui::TextWrapped("Likely symptom: %s",
                            headline_analysis.diagnosis.incident_type.c_str());
-        ImGui::TextWrapped("LIKELY CONTRIBUTOR: %s",
+        ImGui::TextWrapped("Possible contributor: %s",
                            headline_analysis.diagnosis.primary_contributor.empty()
                                ? "No process cleared the evidence threshold"
                                : headline_analysis.diagnosis.primary_contributor.c_str());
-        ImGui::Text("UNCERTAINTY: %s (%.0f%% calibrated confidence; %.0f%% "
-                    "evidence coverage)",
+        ImGui::Text("Confidence: %s (%.0f%% calibrated; %.0f%% evidence coverage)",
                     headline_analysis.diagnosis.confidence.c_str(),
                     headline_analysis.diagnosis.calibrated_confidence * 100.0,
                     headline_analysis.diagnosis.evidence_coverage * 100.0);
         if (!headline_analysis.diagnosis.evidence.empty()) {
-            ImGui::TextWrapped("PLAIN EVIDENCE: %s",
+            ImGui::TextWrapped("Key evidence: %s",
                                headline_analysis.diagnosis.evidence.front().c_str());
         }
         ImGui::TextDisabled("Basis: %s. Pressure and contributors remain "
@@ -382,12 +385,12 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                             headline_analysis.diagnosis.basis.c_str());
     } else {
         ImGui::TextWrapped(headline_analysis.diagnosis.suppressed_by_feedback
-                               ? "SYMPTOM EXPLANATION: Unknown - repeated matching triggers "
+                               ? "Likely symptom: Unknown - repeated matching triggers "
                                  "were "
                                  "not noticed"
-                               : "SYMPTOM EXPLANATION: Unknown - no independent alignment");
-        ImGui::TextWrapped("LIKELY CONTRIBUTOR: Not enough evidence to rank reliably");
-        ImGui::TextWrapped("UNCERTAINTY: High - inspect the timelines and "
+                               : "Likely symptom: Unknown - no independent alignment");
+        ImGui::TextWrapped("Possible contributor: Not enough evidence to rank reliably");
+        ImGui::TextWrapped("Confidence: Low - inspect the timelines and "
                            "availability notes below");
     }
     if (!headline_analysis.contributors.empty()) {

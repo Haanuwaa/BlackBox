@@ -412,26 +412,37 @@ void Application::refresh_dashboard_if_due() {
     dashboard_state_.disk_write_history_points = 0U;
     dashboard_state_.network_receive_history_points = 0U;
     dashboard_state_.network_transmit_history_points = 0U;
+    dashboard_state_.history_oldest_seconds = 0.0;
     dashboard_state_.disk_history_max_mib_per_second = 1.0;
     dashboard_state_.network_history_max_mib_per_second = 1.0;
+    const auto newest_observation =
+        snapshot.empty() ? core::MonotonicTimePoint{} : snapshot.samples().back().observed_at;
+    if (!snapshot.empty()) {
+        dashboard_state_.history_oldest_seconds =
+            std::chrono::duration<double>(snapshot.samples().front().observed_at -
+                                          newest_observation)
+                .count();
+    }
     for (std::size_t index = 0U; index < snapshot.size(); ++index) {
         const auto& sample = snapshot.samples()[index];
+        const auto seconds_from_latest = static_cast<float>(
+            std::chrono::duration<double>(sample.observed_at - newest_observation).count());
         if (sample.cpu_usage.has_value()) {
             const auto point = dashboard_state_.cpu_history_points++;
-            dashboard_state_.cpu_history_x[point] = static_cast<float>(index);
+            dashboard_state_.cpu_history_x[point] = seconds_from_latest;
             dashboard_state_.cpu_history[point] =
                 static_cast<float>(sample.cpu_usage.value.value * 100.0);
         }
         if (sample.memory_usage.has_value()) {
             const auto point = dashboard_state_.memory_history_points++;
-            dashboard_state_.memory_history_x[point] = static_cast<float>(index);
+            dashboard_state_.memory_history_x[point] = seconds_from_latest;
             dashboard_state_.memory_history[point] =
                 static_cast<float>(sample.memory_usage.value.value * 100.0);
         }
         if (sample.disk_read_rate.has_value()) {
             const auto point = dashboard_state_.disk_read_history_points++;
             const auto value = mebibytes_per_second(sample.disk_read_rate.value);
-            dashboard_state_.disk_read_history_x[point] = static_cast<float>(index);
+            dashboard_state_.disk_read_history_x[point] = seconds_from_latest;
             dashboard_state_.disk_read_history[point] = static_cast<float>(value);
             dashboard_state_.disk_history_max_mib_per_second =
                 std::max(dashboard_state_.disk_history_max_mib_per_second, value);
@@ -439,7 +450,7 @@ void Application::refresh_dashboard_if_due() {
         if (sample.disk_write_rate.has_value()) {
             const auto point = dashboard_state_.disk_write_history_points++;
             const auto value = mebibytes_per_second(sample.disk_write_rate.value);
-            dashboard_state_.disk_write_history_x[point] = static_cast<float>(index);
+            dashboard_state_.disk_write_history_x[point] = seconds_from_latest;
             dashboard_state_.disk_write_history[point] = static_cast<float>(value);
             dashboard_state_.disk_history_max_mib_per_second =
                 std::max(dashboard_state_.disk_history_max_mib_per_second, value);
@@ -447,7 +458,7 @@ void Application::refresh_dashboard_if_due() {
         if (sample.network_receive_rate.has_value()) {
             const auto point = dashboard_state_.network_receive_history_points++;
             const auto value = mebibytes_per_second(sample.network_receive_rate.value);
-            dashboard_state_.network_receive_history_x[point] = static_cast<float>(index);
+            dashboard_state_.network_receive_history_x[point] = seconds_from_latest;
             dashboard_state_.network_receive_history[point] = static_cast<float>(value);
             dashboard_state_.network_history_max_mib_per_second =
                 std::max(dashboard_state_.network_history_max_mib_per_second, value);
@@ -455,7 +466,7 @@ void Application::refresh_dashboard_if_due() {
         if (sample.network_transmit_rate.has_value()) {
             const auto point = dashboard_state_.network_transmit_history_points++;
             const auto value = mebibytes_per_second(sample.network_transmit_rate.value);
-            dashboard_state_.network_transmit_history_x[point] = static_cast<float>(index);
+            dashboard_state_.network_transmit_history_x[point] = seconds_from_latest;
             dashboard_state_.network_transmit_history[point] = static_cast<float>(value);
             dashboard_state_.network_history_max_mib_per_second =
                 std::max(dashboard_state_.network_history_max_mib_per_second, value);

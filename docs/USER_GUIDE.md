@@ -24,8 +24,8 @@ shortcut is implemented; signing/notarization and physical-client qualification 
    First-run onboarding follows three steps: keep a short bounded history in RAM, capture after a
    slowdown, then review the saved local evidence. It also makes clear that correlation is not proof.
 2. Leave BlackBox running while reproducing or waiting for a short performance problem.
-3. At the problem, press the configured hotkey (**Ctrl+Shift+F12** by default) or select
-   **Capture incident** in Live.
+3. At the problem, press the configured global hotkey (**Ctrl+Shift+F12** by default), press
+   **Ctrl+Enter** while the window is open, or select **Capture what just happened** in Live.
 4. Keep BlackBox open during the 30-second post-window. Live shows capture and writer state.
 5. Open Incidents, select the saved item, and inspect system graphs and process peaks. Labels and
    notes are editable and survive restart. Choose Unknown, System freeze, Game stutter,
@@ -57,13 +57,14 @@ coalesce to the newest lifecycle state instead of stacking stale or empty balloo
 
 ## Product pages
 
-- **Live** leads with recorder readiness, the configured hotkey, one **Capture what just happened**
-  action, saved-incident count, and archive state. Current CPU/memory/throughput remains visible;
-  platform/capture internals, forensic signals, rolling histories, and active processes remain
-  available through named disclosure controls.
+- **Live** leads with recorder readiness, the configured shortcut, one **Capture what just happened**
+  action, local saved-incident count, and tray/background guidance. Current processor, memory,
+  storage, and network activity remains visible. Recent graphs use seconds from now, allow hover
+  inspection, and explain missing values; platform/capture internals and detailed signals remain
+  behind named disclosure controls.
 - **Incidents** searches, sorts, and pages immutable saved captures. Loading, a genuinely empty
   archive, no search matches, and archive failure are separate states with direct next actions.
-- **Detail** leads with symptom, likely contributor, uncertainty, plain-language evidence, and the
+- **Explain** leads with symptom, possible contributor, confidence, plain-language evidence, and the
   correlation caveat plus at most three standout contributors before deeper evidence is expanded.
   GPU and responsiveness/power plots, foreground
   transitions, and privacy-normalized Windows events share the incident-relative timeline. Pan or
@@ -73,7 +74,15 @@ coalesce to the newest lifecycle state instead of stacking stale or empty balloo
 - **Patterns** shows bounded recurring-evidence groups and explicit noise/unique captures.
 - **Settings** owns validated recorder/product controls and guided archive recovery.
 - **Diagnostics** shows provider, ring, timing, writer, accessibility, DPI, unavailable-state,
-  crash-evidence, and local support-bundle detail. Use **Ctrl+1** through **Ctrl+6** to switch pages.
+  crash-evidence, and local support-bundle detail.
+
+## Keyboard workflows
+
+Press **F1** from the main window for the complete shortcut guide. Use **Tab** and **Shift+Tab** to
+move focus, **Enter** or **Space** to activate the focused control, **Ctrl+1** through **Ctrl+6** to
+switch pages, **Ctrl+Enter** to capture what just happened, and **Ctrl+R** to refresh Saved incidents.
+Press **Escape** to close the shortcut guide. The configured global shortcut works when the window is
+hidden; in-window shortcuts apply only while BlackBox has keyboard focus.
 
 ## Automatic capture
 
