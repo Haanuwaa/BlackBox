@@ -49,6 +49,12 @@ The V0.23 engineering implementation at `8a35fc5dd7b00788086b0cb789af4d6129a56db
 exact-revision Windows, Linux, macOS, and quality/security hosted workflows. This closes internal
 audit qualification, not the physical-client, long-run, signing, corpus, or V1 release gates below.
 
+The V0.24 UI-efficiency and repository-hardening implementation at
+`85044988da5817fa4e759b6c57d014731ce7a528` passed the complete 370-test local Release graph and
+exact-revision Windows, Linux, macOS, and quality/security hosted workflows. This closes the short
+visible-rendering characterization and hosted engineering gates, not the controlled 30-minute
+repetitions or any physical-client, long-run, signing, corpus, or V1 release gate below.
+
 Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,

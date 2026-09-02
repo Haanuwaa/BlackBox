@@ -2269,7 +2269,7 @@ coupling the recorder to UI cadence or making the single-maintainer workflow unu
 - [x] Advance the engineering version to `0.24.0` and pass the complete 370-test local Release graph.
 - [x] Remove the hosted collector-test publication race exposed when incident completion became
   visible immediately before the same collection's diagnostic counter; stress the repaired wait.
-- [ ] Repeat the Windows, Linux, macOS, and quality/security hosted matrices on the clean V0.24
+- [x] Repeat the Windows, Linux, macOS, and quality/security hosted matrices on the clean V0.24
   revision and retain their exact-revision attestations.
 - [ ] Run three controlled 30-minute visible/minimized/hidden/background repetitions on the frozen
   candidate before treating the short characterization as release evidence.
@@ -2533,8 +2533,18 @@ blocks force pushes/deletion and requires linear history/resolved conversations;
 updates are enabled and CodeQL, Dependabot, and secret-scanning open counts are zero after documented
 review of two local-CLI path-flow false positives.
 
-The exact next engineering gate is to freeze the V0.24 implementation, rebuild the complete Release
-graph from its clean revision, and obtain Windows, Linux, macOS, and quality/security hosted evidence.
-Then repeat the four desktop states three times for 30 minutes on that revision. Physical platform,
-signing/notarization, the replacement 72-hour campaign, consented corpus, and held-out ML decision
-remain separate resource-dependent V1 gates.
+The first V0.24 hosted attempt on `47101e2520d34af921fc3dbe89679f09a6c3ca24` exposed one
+test-only publication race: incident completion became visible immediately before the same
+collection's diagnostics counter. The recorder completed the capture correctly. The repaired test
+waits for both publications and passed 200 consecutive local stress repetitions plus the complete
+370-test Release graph.
+
+Replacement exact code revision `85044988da5817fa4e759b6c57d014731ce7a528` passed Windows,
+Linux, macOS, and quality/security hosted qualification. The qualifying runs are
+[Windows 33576815333](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815333),
+[Linux 33576815324](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815324),
+[macOS 33576815260](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815260), and
+[quality/security 33576815239](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815239).
+The exact next V0.24 gate is to repeat the four desktop states three times for 30 minutes on that
+revision. Physical platform, signing/notarization, the replacement 72-hour campaign, consented
+corpus, and held-out ML decision remain separate resource-dependent V1 gates.

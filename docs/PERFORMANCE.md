@@ -106,6 +106,12 @@ under `out/ui-performance-v024/`. The optimized executable was `local-uncommitte
 establish the engineering decision but do not replace three controlled 30-minute repetitions on a
 clean candidate revision.
 
+After freezing, exact clean revision `85044988da5817fa4e759b6c57d014731ce7a528` repeated the same
+30-second visible check at 0.395% average and 1.532% maximum total-machine CPU with a 66.52 MiB
+maximum working set. It completed 31 collections with every failure/drop/deadline counter at zero.
+This confirms the short characterization on the hosted-qualified binary but remains too short to
+close the controlled-repetition gate.
+
 ### Process-scale matrix
 
 Measure at approximately 50, 200, 500, and the highest practical process count. Report full collection latency and per-process cost. Include protected/inaccessible processes to verify failures do not cause retry storms or repeated path resolution.
