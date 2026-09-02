@@ -2267,6 +2267,8 @@ coupling the recorder to UI cadence or making the single-maintainer workflow unu
   enable automatic security fixes and protect `main` against force-push/deletion while requiring
   linear history and resolved conversations. CodeQL, Dependabot, and secret-scanning open counts are zero.
 - [x] Advance the engineering version to `0.24.0` and pass the complete 370-test local Release graph.
+- [x] Remove the hosted collector-test publication race exposed when incident completion became
+  visible immediately before the same collection's diagnostic counter; stress the repaired wait.
 - [ ] Repeat the Windows, Linux, macOS, and quality/security hosted matrices on the clean V0.24
   revision and retain their exact-revision attestations.
 - [ ] Run three controlled 30-minute visible/minimized/hidden/background repetitions on the frozen

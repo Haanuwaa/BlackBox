@@ -562,6 +562,12 @@ TEST_CASE("collector completes capture after post-window without pausing samplin
     REQUIRE(wait_until([&] {
         return collector.incident_capture_status().incidents_completed == 1U;
     }));
+    // Incident completion is published while the collection is still being
+    // finalized; the collection counter is updated immediately afterward.
+    // Wait for that publication instead of racing the two diagnostics locks.
+    REQUIRE(wait_until([&] {
+        return collector.diagnostics().collection_count > before_capture;
+    }));
     const auto after_capture = collector.diagnostics().collection_count;
     collector.stop();
 
