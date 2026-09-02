@@ -444,6 +444,7 @@ ProviderSampleResult LinuxTelemetryProvider::sample(const SamplingRequest reques
     destination.system.disk_quality.write_latency = temporary<Seconds>();
     destination.system.disk_quality.service_time = temporary<Seconds>();
     destination.system.disk_quality.queue_depth = temporary<double>();
+    destination.system.disk_quality.service_concurrency = temporary<double>();
     destination.system.disk_quality.worst_device_id = temporary<std::uint64_t>();
     destination.system.network_receive_bytes = temporary<ByteCount>();
     destination.system.network_transmit_bytes = temporary<ByteCount>();
@@ -636,6 +637,7 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
     result.disk_latency = true;
     result.disk_queue_depth = true;
     result.disk_service_time = true;
+    result.disk_service_concurrency = true;
     result.network_usage = true;
     result.network_connectivity = true;
     result.network_transport_quality = true;

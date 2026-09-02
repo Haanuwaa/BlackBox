@@ -2,6 +2,7 @@
 
 #include "app/product_settings.hpp"
 #include "app/recorder_settings.hpp"
+#include "app/renderer_health.hpp"
 #include "app/support_bundle.hpp"
 #include "app/wall_clock_report.hpp"
 #include "core/clock.hpp"
@@ -37,6 +38,9 @@ struct SDL_Window;
 namespace blackbox::platform::linux {
 class LinuxAccessibilityMonitor;
 }
+#endif
+#if defined(__APPLE__)
+#include "platform/macos/macos_app_performance_monitor.hpp"
 #endif
 
 namespace blackbox::app {
@@ -107,7 +111,12 @@ private:
 #if defined(__linux__)
     std::unique_ptr<platform::linux::LinuxAccessibilityMonitor> linux_accessibility_monitor_{};
 #endif
+#if defined(__APPLE__)
+    std::unique_ptr<platform::macos::MacosAppPerformanceMonitor>
+        macos_app_performance_monitor_{};
+#endif
     SupportBundleService support_bundle_service_{};
+    RendererHealthTracker renderer_health_{};
     std::atomic<std::uint32_t> pending_background_commands_{};
     ui::DashboardState dashboard_state_{};
     ui::IncidentViewerState incident_viewer_state_{};

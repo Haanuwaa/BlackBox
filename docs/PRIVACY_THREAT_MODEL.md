@@ -49,6 +49,12 @@ Network evidence is passive and aggregate: BlackBox records no payload, packet c
 DNS name, or browsing destination. Incident retention and purge require explicit user action;
 automatic deletion remains prohibited.
 
+On macOS, MetricKit ingestion retains only aggregate payload counts, BlackBox cumulative CPU/GPU
+duration, and hang count/duration delivered during the current run. Diagnostic call stacks, source
+frames, metadata, and payload objects are discarded. Renderer health observes only BlackBox's own
+frame construction/present durations. Neither path uploads data or becomes foreground/whole-system
+GPU evidence.
+
 The opaque Wayland application token is keyed by fresh in-memory randomness for each BlackBox run.
 It supports transitions within that run and any locally captured incident, but cannot be joined across
 runs or to a native PID. Offline dataset and truth-review exports omit it.

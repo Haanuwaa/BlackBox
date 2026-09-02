@@ -373,7 +373,8 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                       "disk_read_latency_status\tdisk_read_latency_seconds\t"
                       "disk_write_latency_status\tdisk_write_latency_seconds\t"
                       "disk_service_status\tdisk_service_seconds\tdisk_queue_"
-                      "status\tdisk_queue\t"
+                      "status\tdisk_queue\tdisk_service_concurrency_status\t"
+                      "disk_service_concurrency\t"
                       "network_receive_status\tnetwork_receive_bps\tnetwork_"
                       "transmit_"
                       "status\t"
@@ -397,7 +398,14 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                       "io_some_pressure_status\tio_some_pressure_fraction\t"
                       "io_full_pressure_status\tio_full_pressure_fraction\t"
                       "thermal_pressure_status\tthermal_pressure_state\t"
-                      "memory_pressure_status\tmemory_pressure_state\n";
+                      "memory_pressure_status\tmemory_pressure_state\t"
+                      "compressed_memory_status\tcompressed_memory_bytes\t"
+                      "page_out_status\tpage_out_bps\tswap_in_status\tswap_in_bps\t"
+                      "swap_out_status\tswap_out_bps\tcompression_status\tcompression_bps\t"
+                      "decompression_status\tdecompression_bps\tscheduler_delay_status\t"
+                      "scheduler_delay_seconds\tlogical_processors_status\tlogical_processors\t"
+                      "physical_processors_status\tphysical_processors\tactive_processors_status\t"
+                      "active_processors\n";
             for (const auto& sample : systems) {
                 output << relative_seconds(sample.observed_at, event_time) << '\t';
                 write_recorded(output, sample.cpu_fraction);
@@ -415,6 +423,8 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                 write_recorded(output, sample.disk_service_time_seconds);
                 output << '\t';
                 write_recorded(output, sample.disk_queue_depth);
+                output << '\t';
+                write_recorded(output, sample.disk_service_concurrency);
                 output << '\t';
                 write_recorded(output, sample.network_receive_bytes_per_second);
                 output << '\t';
@@ -453,6 +463,26 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                 write_recorded(output, sample.thermal_pressure_state);
                 output << '\t';
                 write_recorded(output, sample.memory_pressure_state);
+                output << '\t';
+                write_recorded(output, sample.compressed_memory_bytes);
+                output << '\t';
+                write_recorded(output, sample.memory_page_out_bytes_per_second);
+                output << '\t';
+                write_recorded(output, sample.memory_swap_in_bytes_per_second);
+                output << '\t';
+                write_recorded(output, sample.memory_swap_out_bytes_per_second);
+                output << '\t';
+                write_recorded(output, sample.memory_compression_bytes_per_second);
+                output << '\t';
+                write_recorded(output, sample.memory_decompression_bytes_per_second);
+                output << '\t';
+                write_recorded(output, sample.scheduler_delay_seconds);
+                output << '\t';
+                write_recorded(output, sample.logical_processor_count);
+                output << '\t';
+                write_recorded(output, sample.physical_processor_count);
+                output << '\t';
+                write_recorded(output, sample.active_processor_count);
                 output << '\n';
             }
             if (!stream_ok(output)) {
@@ -666,6 +696,10 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                 write_json_value(output, sample.disk_read_latency_seconds, 1'000.0);
                 output << ",diskQueue:";
                 write_json_value(output, sample.disk_queue_depth);
+                output << ",diskServiceConcurrency:";
+                write_json_value(output, sample.disk_service_concurrency);
+                output << ",schedulerDelay:";
+                write_json_value(output, sample.scheduler_delay_seconds, 1'000.0);
                 output << ",retransmit:";
                 write_json_value(output, sample.network_tcp_retransmit_fraction, 100.0);
                 output << ",gpu:";

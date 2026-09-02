@@ -324,6 +324,7 @@ struct IncidentDetailView {
     IncidentPlotSeries disk_write_latency_milliseconds{};
     IncidentPlotSeries disk_service_time_milliseconds{};
     IncidentPlotSeries disk_queue_depth{};
+    IncidentPlotSeries disk_service_concurrency{};
     IncidentPlotSeries network_connectivity_level{};
     IncidentPlotSeries network_interface_changes{};
     IncidentPlotSeries network_tcp_retransmit_percent{};
@@ -347,6 +348,13 @@ struct IncidentDetailView {
     IncidentPlotSeries io_full_pressure_percent{};
     IncidentPlotSeries thermal_pressure_state{};
     IncidentPlotSeries memory_pressure_state{};
+    IncidentPlotSeries compressed_memory_mib{};
+    IncidentPlotSeries memory_page_out_mib_per_second{};
+    IncidentPlotSeries memory_swap_in_mib_per_second{};
+    IncidentPlotSeries memory_swap_out_mib_per_second{};
+    IncidentPlotSeries memory_compression_mib_per_second{};
+    IncidentPlotSeries memory_decompression_mib_per_second{};
+    IncidentPlotSeries scheduler_delay_milliseconds{};
     std::vector<ForegroundApplicationRow> foreground_applications{};
     std::vector<SystemEventRow> system_events{};
     std::vector<IncidentProcessRow> processes{};

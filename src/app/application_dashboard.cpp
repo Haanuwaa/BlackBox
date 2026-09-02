@@ -95,6 +95,42 @@ void Application::refresh_dashboard_if_due() {
     } while (next_dashboard_refresh_at_ <= now);
 
     refresh_accessibility_if_due();
+    const auto renderer = renderer_health_.snapshot();
+    dashboard_state_.renderer_frames = renderer.frames;
+    dashboard_state_.renderer_hitches = renderer.hitches;
+    dashboard_state_.renderer_present_failures = renderer.present_failures;
+    dashboard_state_.renderer_build_p95_milliseconds = renderer.build_p95_milliseconds;
+    dashboard_state_.renderer_present_p95_milliseconds = renderer.present_p95_milliseconds;
+    dashboard_state_.renderer_frame_p95_milliseconds = renderer.frame_p95_milliseconds;
+    dashboard_state_.renderer_frame_maximum_milliseconds = renderer.frame_maximum_milliseconds;
+#if defined(__APPLE__)
+    if (macos_app_performance_monitor_ != nullptr) {
+        const auto performance = macos_app_performance_monitor_->snapshot();
+        using Status = platform::macos::AppPerformanceReportStatus;
+        switch (performance.status) {
+        case Status::unsupported:
+            dashboard_state_.app_performance_report_status = "Unsupported by this macOS version";
+            break;
+        case Status::awaiting_report:
+            dashboard_state_.app_performance_report_status =
+                "Awaiting delayed app-scoped MetricKit delivery";
+            break;
+        case Status::available:
+            dashboard_state_.app_performance_report_status =
+                "Delayed app-scoped MetricKit report received";
+            break;
+        case Status::failed:
+            dashboard_state_.app_performance_report_status = "MetricKit subscriber failed";
+            break;
+        }
+        dashboard_state_.app_metric_payloads = performance.metric_payloads;
+        dashboard_state_.app_diagnostic_payloads = performance.diagnostic_payloads;
+        dashboard_state_.app_cumulative_cpu_seconds = performance.cumulative_cpu_seconds;
+        dashboard_state_.app_cumulative_gpu_seconds = performance.cumulative_gpu_seconds;
+        dashboard_state_.app_hang_diagnostics = performance.hang_diagnostics;
+        dashboard_state_.app_hang_duration_seconds = performance.hang_duration_seconds;
+    }
+#endif
     const auto diagnostics = collector_->diagnostics();
     constexpr std::uint64_t gpu_inventory_refresh_samples = 30U;
     if (dashboard_gpu_inventory_collection_count_ == std::numeric_limits<std::uint64_t>::max() ||
@@ -494,6 +530,8 @@ void Application::refresh_dashboard_if_due() {
             display_status(latest.network_transmit_rate.status);
         dashboard_state_.disk_latency_status = display_status(latest.disk_service_time.status);
         dashboard_state_.disk_queue_status = display_status(latest.disk_queue_depth.status);
+        dashboard_state_.disk_service_concurrency_status =
+            display_status(latest.disk_service_concurrency.status);
         dashboard_state_.network_connectivity_status =
             display_status(latest.network_connectivity.status);
         dashboard_state_.network_transport_quality_status =
@@ -520,6 +558,11 @@ void Application::refresh_dashboard_if_due() {
             display_status(latest.thermal_pressure_state.status);
         dashboard_state_.memory_pressure_status =
             display_status(latest.memory_pressure_state.status);
+        dashboard_state_.memory_activity_status =
+            display_status(latest.compressed_memory.status);
+        dashboard_state_.scheduler_delay_status = display_status(latest.scheduler_delay.status);
+        dashboard_state_.cpu_topology_status =
+            display_status(latest.physical_processor_count.status);
         if (latest.disk_read_rate.has_value()) {
             dashboard_state_.disk_read_mib_per_second =
                 mebibytes_per_second(latest.disk_read_rate.value);
@@ -550,6 +593,9 @@ void Application::refresh_dashboard_if_due() {
         }
         if (latest.disk_queue_depth.has_value()) {
             dashboard_state_.disk_queue_depth = latest.disk_queue_depth.value;
+        }
+        if (latest.disk_service_concurrency.has_value()) {
+            dashboard_state_.disk_service_concurrency = latest.disk_service_concurrency.value;
         }
         if (latest.disk_worst_device_id.has_value()) {
             dashboard_state_.disk_worst_device_id = latest.disk_worst_device_id.value;
@@ -650,6 +696,42 @@ void Application::refresh_dashboard_if_due() {
         if (latest.memory_pressure_state.has_value()) {
             dashboard_state_.memory_pressure_state =
                 static_cast<std::uint8_t>(latest.memory_pressure_state.value);
+        }
+        if (latest.compressed_memory.has_value()) {
+            dashboard_state_.compressed_memory_bytes = latest.compressed_memory.value.value;
+        }
+        if (latest.memory_page_out_rate.has_value()) {
+            dashboard_state_.memory_page_out_mib_per_second =
+                mebibytes_per_second(latest.memory_page_out_rate.value);
+        }
+        if (latest.memory_swap_in_rate.has_value()) {
+            dashboard_state_.memory_swap_in_mib_per_second =
+                mebibytes_per_second(latest.memory_swap_in_rate.value);
+        }
+        if (latest.memory_swap_out_rate.has_value()) {
+            dashboard_state_.memory_swap_out_mib_per_second =
+                mebibytes_per_second(latest.memory_swap_out_rate.value);
+        }
+        if (latest.memory_compression_rate.has_value()) {
+            dashboard_state_.memory_compression_mib_per_second =
+                mebibytes_per_second(latest.memory_compression_rate.value);
+        }
+        if (latest.memory_decompression_rate.has_value()) {
+            dashboard_state_.memory_decompression_mib_per_second =
+                mebibytes_per_second(latest.memory_decompression_rate.value);
+        }
+        if (latest.scheduler_delay.has_value()) {
+            dashboard_state_.scheduler_delay_milliseconds =
+                latest.scheduler_delay.value.value * 1'000.0;
+        }
+        if (latest.logical_processor_count.has_value()) {
+            dashboard_state_.logical_processor_count = latest.logical_processor_count.value;
+        }
+        if (latest.physical_processor_count.has_value()) {
+            dashboard_state_.physical_processor_count = latest.physical_processor_count.value;
+        }
+        if (latest.active_processor_count.has_value()) {
+            dashboard_state_.active_processor_count = latest.active_processor_count.value;
         }
     }
 }

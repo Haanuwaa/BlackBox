@@ -70,8 +70,22 @@ recorded_identity(const OpaqueApplicationIdentity identity) noexcept {
         sample.disk_service_time, [](const Seconds value) { return value.value; });
     result.disk_queue_depth = recorded_value<core::RecordedValue<double>>(sample.disk_queue_depth,
                                                                           identity_value<double>);
+    result.disk_service_concurrency = recorded_value<core::RecordedValue<double>>(
+        sample.disk_service_concurrency, identity_value<double>);
     result.disk_worst_device_id = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.disk_worst_device_id, identity_value<std::uint64_t>);
+    result.compressed_memory_bytes = recorded_value<core::RecordedValue<std::uint64_t>>(
+        sample.compressed_memory, [](const ByteCount value) { return value.value; });
+    result.memory_page_out_bytes_per_second = recorded_value<core::RecordedValue<double>>(
+        sample.memory_page_out_rate, [](const BytesPerSecond value) { return value.value; });
+    result.memory_swap_in_bytes_per_second = recorded_value<core::RecordedValue<double>>(
+        sample.memory_swap_in_rate, [](const BytesPerSecond value) { return value.value; });
+    result.memory_swap_out_bytes_per_second = recorded_value<core::RecordedValue<double>>(
+        sample.memory_swap_out_rate, [](const BytesPerSecond value) { return value.value; });
+    result.memory_compression_bytes_per_second = recorded_value<core::RecordedValue<double>>(
+        sample.memory_compression_rate, [](const BytesPerSecond value) { return value.value; });
+    result.memory_decompression_bytes_per_second = recorded_value<core::RecordedValue<double>>(
+        sample.memory_decompression_rate, [](const BytesPerSecond value) { return value.value; });
     result.network_connectivity_level = recorded_value<core::RecordedValue<std::uint8_t>>(
         sample.network_connectivity,
         [](const NetworkConnectivityLevel value) { return static_cast<std::uint8_t>(value); });
@@ -139,6 +153,14 @@ recorded_identity(const OpaqueApplicationIdentity identity) noexcept {
     result.memory_pressure_state = recorded_value<core::RecordedValue<std::uint8_t>>(
         sample.memory_pressure_state,
         [](const MemoryPressureState value) { return static_cast<std::uint8_t>(value); });
+    result.scheduler_delay_seconds = recorded_value<core::RecordedValue<double>>(
+        sample.scheduler_delay, [](const Seconds value) { return value.value; });
+    result.logical_processor_count = recorded_value<core::RecordedValue<std::uint32_t>>(
+        sample.logical_processor_count, identity_value<std::uint32_t>);
+    result.physical_processor_count = recorded_value<core::RecordedValue<std::uint32_t>>(
+        sample.physical_processor_count, identity_value<std::uint32_t>);
+    result.active_processor_count = recorded_value<core::RecordedValue<std::uint32_t>>(
+        sample.active_processor_count, identity_value<std::uint32_t>);
     return result;
 }
 

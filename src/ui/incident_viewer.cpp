@@ -303,6 +303,9 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                       [](const double value) { return value * 1'000.0; });
         append_metric(result.disk_queue_depth, sample, sample.disk_queue_depth, event,
                       [](const double value) { return value; });
+        append_metric(result.disk_service_concurrency, sample,
+                      sample.disk_service_concurrency, event,
+                      [](const double value) { return value; });
         append_metric(result.network_connectivity_level, sample, sample.network_connectivity_level,
                       event, [](const std::uint8_t value) { return static_cast<double>(value); });
         append_metric(result.network_interface_changes, sample, sample.network_interface_changes,
@@ -357,6 +360,28 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                       [](const std::uint8_t value) { return static_cast<double>(value); });
         append_metric(result.memory_pressure_state, sample, sample.memory_pressure_state, event,
                       [](const std::uint8_t value) { return static_cast<double>(value); });
+        append_metric(result.compressed_memory_mib, sample, sample.compressed_memory_bytes, event,
+                      [](const std::uint64_t value) {
+                          return static_cast<double>(value) / bytes_per_mebibyte;
+                      });
+        append_metric(result.memory_page_out_mib_per_second, sample,
+                      sample.memory_page_out_bytes_per_second, event,
+                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.memory_swap_in_mib_per_second, sample,
+                      sample.memory_swap_in_bytes_per_second, event,
+                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.memory_swap_out_mib_per_second, sample,
+                      sample.memory_swap_out_bytes_per_second, event,
+                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.memory_compression_mib_per_second, sample,
+                      sample.memory_compression_bytes_per_second, event,
+                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.memory_decompression_mib_per_second, sample,
+                      sample.memory_decompression_bytes_per_second, event,
+                      [](const double value) { return value / bytes_per_mebibyte; });
+        append_metric(result.scheduler_delay_milliseconds, sample,
+                      sample.scheduler_delay_seconds, event,
+                      [](const double value) { return value * 1'000.0; });
     }
 
     std::unordered_map<core::IncidentProcessIdentity, std::size_t, IdentityHash> row_by_id;
@@ -478,6 +503,7 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                          &result.disk_write_latency_milliseconds,
                          &result.disk_service_time_milliseconds,
                          &result.disk_queue_depth,
+                         &result.disk_service_concurrency,
                          &result.network_connectivity_level,
                          &result.network_interface_changes,
                          &result.network_tcp_retransmit_percent,
@@ -501,6 +527,13 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                          &result.io_full_pressure_percent,
                          &result.thermal_pressure_state,
                          &result.memory_pressure_state,
+                         &result.compressed_memory_mib,
+                         &result.memory_page_out_mib_per_second,
+                         &result.memory_swap_in_mib_per_second,
+                         &result.memory_swap_out_mib_per_second,
+                         &result.memory_compression_mib_per_second,
+                         &result.memory_decompression_mib_per_second,
+                         &result.scheduler_delay_milliseconds,
                          &result.selected_process_cpu_percent,
                          &result.selected_process_working_set_mib,
                          &result.selected_process_disk_read_mib_per_second,

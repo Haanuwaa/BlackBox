@@ -20,8 +20,8 @@ path. Earlier development data must be recollected or expressed in the current f
 
 ## Current status
 
-- Engineering version: `0.26.0`; the first public release is reserved for exactly `1.0.0`.
-- Current completed test graph: 378 Release tests.
+- Engineering version: `0.27.0`; the first public release is reserved for exactly `1.0.0`.
+- Current completed Windows test graph: 381 Release tests.
 - V0.24 implementation revision `85044988da5817fa4e759b6c57d014731ce7a528` passed Windows,
   Linux, macOS, and quality/security hosted matrices. Documentation was recorded at `ba4c9c8`.
 - Windows is the most qualified implementation. Linux and macOS have broad engineering parity but
@@ -50,6 +50,8 @@ path. Earlier development data must be recollected or expressed in the current f
 | V0.23 | Audit closure: fuzz/model coverage, app/UI coverage floors, visible performance evidence, decomposition, and documentation correction. |
 | V0.24 | 30 Hz idle visible rendering, four-state profiling, repository protection, zero open security alerts, and exact-revision hosted evidence. |
 | V0.25 | Consumer workflow, clearer evidence language, graph legibility, keyboard workflows, interaction-aware 60 Hz presentation, and documentation consolidation. |
+| V0.26 | Coarse macOS memory pressure, owned-service state, and privacy-reduced compositor-specific Wayland foreground evidence. |
+| V0.27 | macOS VM/scheduler/topology evidence, derived disk service concurrency, app-scoped renderer timing, and delayed MetricKit diagnostics. |
 
 Detailed contracts and evidence procedures are indexed in [docs/README.md](docs/README.md).
 
@@ -88,6 +90,25 @@ cross-platform equivalence or weakening the privacy boundary.
   local viewing, and truth review while excluding both identity forms from offline dataset export.
 - [x] Add bounded tracker, privacy, capability-contract, normalization, direct-V1 round-trip, and
   owned-service diagnostics tests; pass the complete 378-test Windows Release graph.
+
+## V0.27 - macOS resource context and app-performance evidence
+
+**Objective:** Improve useful macOS diagnosis and BlackBox's own rendering evidence through public,
+bounded APIs without claiming unavailable whole-system GPU, queue-depth, frequency, or PSI data.
+
+- [x] Derive interval-average disk I/O service concurrency from public cumulative service duration;
+  keep it explicitly distinct from exact instantaneous or waiting queue depth.
+- [x] Record compressed-memory gauge plus pageout, swap, compression, and decompression interval
+  rates from the full native VM statistics contract; never relabel them as PSI stall fractions.
+- [x] Add a low-frequency Dispatch scheduler wake-delay observer that ignores timer leeway, re-warms
+  after suspend-sized gaps, and does not run on the recorder thread.
+- [x] Add physical/logical/active processor topology alongside existing Low Power Mode and coarse
+  thermal/memory pressure; retain current CPU frequency as unsupported on macOS.
+- [x] Add allocation-free BlackBox renderer build/present timing and hitch evidence, plus delayed
+  app-scoped MetricKit CPU/GPU/hang ingestion with explicit scope and delivery-state wording.
+- [x] Carry periodic evidence through normalization, immutable incidents, direct schema V1, dataset
+  and truth-review exports, live/incident UI, provider validation, and focused tests.
+- [x] Build the Windows desktop target and pass the complete 381-test Windows Release graph.
 
 ## Release qualification gates
 
@@ -145,8 +166,9 @@ These are evidence-execution tasks, not missing schema or architecture work.
 
 ## Exact next milestone
 
-V0.26 platform evidence expansion is complete locally and the full 378-test Windows Release graph is
-green. The next gate is to freeze one clean revision and repeat Windows/Linux/macOS/quality hosted
-matrices, with special attention to the native Dispatch/ServiceManagement compile and the optional
-Wayland protocol build. Then run the controlled visible-runtime comparison. Resource-dependent
-physical, signing, 72-hour, and corpus gates remain open and must not be replaced by local simulation.
+V0.27 macOS resource-context and app-performance evidence is complete locally and the full 381-test
+Windows Release graph is green. The next gate is to freeze one clean revision and repeat the
+Windows/Linux/macOS/quality hosted matrices, with special attention to the full VM-statistics,
+Dispatch timer, MetricKit subscriber, and app-bundle compile paths. Then run the controlled visible
+runtime comparison using the new renderer health counters. Resource-dependent physical, signing,
+72-hour, and corpus gates remain open and must not be replaced by local simulation.

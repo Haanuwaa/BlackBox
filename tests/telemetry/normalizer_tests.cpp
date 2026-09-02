@@ -79,6 +79,56 @@ TEST_CASE("opaque foreground identity and coarse pressure pass through normaliza
     CHECK(result.memory_pressure_state.value == telemetry::MemoryPressureState::critical);
 }
 
+TEST_CASE("memory activity normalizes independently and topology passes through",
+          "[telemetry][normalizer][macos][memory]") {
+    telemetry::SystemTelemetryNormalizer normalizer;
+    auto first = snapshot(std::chrono::steady_clock::time_point{10s}, 100U, 1'000U, 8'000U,
+                          4'000U, 100U, 100U, 100U, 100U);
+    first.system.memory_activity.compressed_memory =
+        telemetry::MetricValue<telemetry::ByteCount>::available({1'000U});
+    first.system.memory_activity.page_out_bytes =
+        telemetry::MetricValue<telemetry::ByteCount>::available({10'000U});
+    first.system.memory_activity.swap_in_bytes =
+        telemetry::MetricValue<telemetry::ByteCount>::available({20'000U});
+    first.system.memory_activity.swap_out_bytes =
+        telemetry::MetricValue<telemetry::ByteCount>::available({30'000U});
+    first.system.memory_activity.compressed_bytes =
+        telemetry::MetricValue<telemetry::ByteCount>::available({40'000U});
+    first.system.memory_activity.decompressed_bytes =
+        telemetry::MetricValue<telemetry::ByteCount>::available({50'000U});
+    first.system.scheduler_delay = telemetry::MetricValue<telemetry::Seconds>::available({0.004});
+    first.system.logical_processor_count =
+        telemetry::MetricValue<std::uint32_t>::available(10U);
+    first.system.physical_processor_count =
+        telemetry::MetricValue<std::uint32_t>::available(8U);
+    first.system.active_processor_count =
+        telemetry::MetricValue<std::uint32_t>::available(6U);
+
+    const auto warm = normalizer.normalize(first);
+    CHECK(warm.memory_page_out_rate.status == telemetry::MetricStatus::temporarily_unavailable);
+    REQUIRE(warm.compressed_memory.has_value());
+    CHECK(warm.compressed_memory.value.value == 1'000U);
+    REQUIRE(warm.scheduler_delay.has_value());
+    CHECK(warm.scheduler_delay.value.value == Approx(0.004));
+    CHECK(warm.logical_processor_count.value == 10U);
+    CHECK(warm.physical_processor_count.value == 8U);
+    CHECK(warm.active_processor_count.value == 6U);
+
+    auto second = first;
+    second.observed_at += 2s;
+    second.system.memory_activity.page_out_bytes.value.value += 2'000U;
+    second.system.memory_activity.swap_in_bytes.value.value += 4'000U;
+    second.system.memory_activity.swap_out_bytes.value.value += 6'000U;
+    second.system.memory_activity.compressed_bytes.value.value += 8'000U;
+    second.system.memory_activity.decompressed_bytes.value.value += 10'000U;
+    const auto result = normalizer.normalize(second);
+    CHECK(result.memory_page_out_rate.value.value == Approx(1'000.0));
+    CHECK(result.memory_swap_in_rate.value.value == Approx(2'000.0));
+    CHECK(result.memory_swap_out_rate.value.value == Approx(3'000.0));
+    CHECK(result.memory_compression_rate.value.value == Approx(4'000.0));
+    CHECK(result.memory_decompression_rate.value.value == Approx(5'000.0));
+}
+
 TEST_CASE("cumulative counters normalize using measured elapsed time", "[telemetry][normalizer]") {
     telemetry::SystemTelemetryNormalizer normalizer;
     const auto first = snapshot(std::chrono::steady_clock::time_point{10s}, 100U, 1000U, 1000U,
@@ -243,6 +293,7 @@ TEST_CASE("quality gauges and cumulative events normalize with explicit status",
     first.system.disk_quality.service_time =
         telemetry::MetricValue<telemetry::Seconds>::available({0.125});
     first.system.disk_quality.queue_depth = telemetry::MetricValue<double>::available(9.0);
+    first.system.disk_quality.service_concurrency = telemetry::MetricValue<double>::available(1.5);
     first.system.network_quality.connectivity =
         telemetry::MetricValue<telemetry::NetworkConnectivityLevel>::available(
             telemetry::NetworkConnectivityLevel::internet);
@@ -264,6 +315,8 @@ TEST_CASE("quality gauges and cumulative events normalize with explicit status",
     CHECK(warmed.disk_service_time.value.value == Approx(0.125));
     REQUIRE(warmed.disk_queue_depth.has_value());
     CHECK(warmed.disk_queue_depth.value == Approx(9.0));
+    REQUIRE(warmed.disk_service_concurrency.has_value());
+    CHECK(warmed.disk_service_concurrency.value == Approx(1.5));
     CHECK(warmed.network_interface_changes.status ==
           telemetry::MetricStatus::temporarily_unavailable);
 

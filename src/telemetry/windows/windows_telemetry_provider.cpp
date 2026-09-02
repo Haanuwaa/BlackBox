@@ -1118,6 +1118,8 @@ ProviderSampleResult WindowsTelemetryProvider::sample(
     destination.system.disk_quality.write_latency = temporary<Seconds>();
     destination.system.disk_quality.service_time = temporary<Seconds>();
     destination.system.disk_quality.queue_depth = temporary<double>();
+    destination.system.disk_quality.service_concurrency =
+        MetricValue<double>::unavailable(MetricStatus::unsupported);
     destination.system.disk_quality.worst_device_id = temporary<std::uint64_t>();
     destination.system.network_quality.connectivity =
         temporary<NetworkConnectivityLevel>();

@@ -178,7 +178,9 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.disk_write_latency = raw.system.disk_quality.write_latency;
     result.disk_service_time = raw.system.disk_quality.service_time;
     result.disk_queue_depth = raw.system.disk_quality.queue_depth;
+    result.disk_service_concurrency = raw.system.disk_quality.service_concurrency;
     result.disk_worst_device_id = raw.system.disk_quality.worst_device_id;
+    result.compressed_memory = raw.system.memory_activity.compressed_memory;
     result.network_connectivity = raw.system.network_quality.connectivity;
     result.network_active_interfaces = raw.system.network_quality.active_interfaces;
     result.gpu_usage = raw.system.gpu_usage;
@@ -200,6 +202,10 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.system_uptime = raw.system.system_uptime;
     result.thermal_pressure_state = raw.system.thermal_pressure_state;
     result.memory_pressure_state = raw.system.memory_pressure_state;
+    result.scheduler_delay = raw.system.scheduler_delay;
+    result.logical_processor_count = raw.system.logical_processor_count;
+    result.physical_processor_count = raw.system.physical_processor_count;
+    result.active_processor_count = raw.system.active_processor_count;
 
     if (!previous_) {
         result.cpu_usage = initial_cumulative_status<CpuTimeCounters, Ratio>(raw.system.cpu_time);
@@ -225,6 +231,16 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
                 raw.system.network_quality.tcp_failed_connections);
         result.network_tcp_resets = initial_cumulative_status<std::uint64_t, std::uint64_t>(
             raw.system.network_quality.tcp_established_resets);
+        result.memory_page_out_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
+            raw.system.memory_activity.page_out_bytes);
+        result.memory_swap_in_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
+            raw.system.memory_activity.swap_in_bytes);
+        result.memory_swap_out_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
+            raw.system.memory_activity.swap_out_bytes);
+        result.memory_compression_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
+            raw.system.memory_activity.compressed_bytes);
+        result.memory_decompression_rate = initial_cumulative_status<ByteCount, BytesPerSecond>(
+            raw.system.memory_activity.decompressed_bytes);
         result.cpu_some_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
             raw.system.pressure.cpu_some_microseconds);
         result.memory_some_pressure = initial_cumulative_status<std::uint64_t, Ratio>(
@@ -264,6 +280,21 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.network_tcp_resets =
         normalize_counter_delta(previous_->system.network_quality.tcp_established_resets,
                                 raw.system.network_quality.tcp_established_resets);
+    result.memory_page_out_rate = normalize_byte_rate(
+        previous_->system.memory_activity.page_out_bytes,
+        raw.system.memory_activity.page_out_bytes, elapsed);
+    result.memory_swap_in_rate = normalize_byte_rate(
+        previous_->system.memory_activity.swap_in_bytes,
+        raw.system.memory_activity.swap_in_bytes, elapsed);
+    result.memory_swap_out_rate = normalize_byte_rate(
+        previous_->system.memory_activity.swap_out_bytes,
+        raw.system.memory_activity.swap_out_bytes, elapsed);
+    result.memory_compression_rate = normalize_byte_rate(
+        previous_->system.memory_activity.compressed_bytes,
+        raw.system.memory_activity.compressed_bytes, elapsed);
+    result.memory_decompression_rate = normalize_byte_rate(
+        previous_->system.memory_activity.decompressed_bytes,
+        raw.system.memory_activity.decompressed_bytes, elapsed);
     result.cpu_some_pressure =
         normalize_stall_fraction(previous_->system.pressure.cpu_some_microseconds,
                                  raw.system.pressure.cpu_some_microseconds, elapsed);

@@ -26,6 +26,12 @@ void Application::shutdown() noexcept {
     }
     shutdown_started_ = true;
     support_bundle_service_.stop();
+#if defined(__APPLE__)
+    if (macos_app_performance_monitor_ != nullptr) {
+        macos_app_performance_monitor_->stop();
+        macos_app_performance_monitor_.reset();
+    }
+#endif
 #if defined(__linux__)
     if (linux_accessibility_monitor_ != nullptr) {
         linux_accessibility_monitor_->stop();

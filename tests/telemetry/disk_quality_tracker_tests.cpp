@@ -31,10 +31,12 @@ TEST_CASE("Disk quality tracker derives exact interval means and average queue",
     REQUIRE(result.write_latency.has_value());
     REQUIRE(result.service_time.has_value());
     REQUIRE(result.queue_depth.has_value());
+    REQUIRE(result.service_concurrency.has_value());
     CHECK(result.read_latency.value.value == Catch::Approx{0.020});
     CHECK(result.write_latency.value.value == Catch::Approx{0.060});
     CHECK(result.service_time.value.value == Catch::Approx{0.1 / 3.0});
     CHECK(result.queue_depth.value == Catch::Approx{0.75});
+    CHECK(result.service_concurrency.value == Catch::Approx{0.1});
     REQUIRE(result.worst_device_id.has_value());
     CHECK(result.worst_device_id.value == 7U);
 }
@@ -73,6 +75,8 @@ TEST_CASE("Disk quality tracker preserves unsupported queue and selects worst de
 
     const auto result = tracker.update(start + 1s, counters);
     CHECK(result.queue_depth.status == telemetry::MetricStatus::unsupported);
+    REQUIRE(result.service_concurrency.has_value());
+    CHECK(result.service_concurrency.value == Catch::Approx{0.08});
     REQUIRE(result.worst_device_id.has_value());
     CHECK(result.worst_device_id.value == 2U);
     CHECK(result.read_latency.value.value == Catch::Approx{0.080});

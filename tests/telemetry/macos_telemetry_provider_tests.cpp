@@ -30,6 +30,14 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     REQUIRE(snapshot.system.memory_available.has_value());
     CHECK(snapshot.system.memory_total.value.value >=
           snapshot.system.memory_available.value.value);
+    CHECK(snapshot.system.memory_activity.compressed_memory.has_value());
+    CHECK(snapshot.system.memory_activity.page_out_bytes.has_value());
+    CHECK(snapshot.system.physical_processor_count.has_value());
+    CHECK(snapshot.system.active_processor_count.has_value());
+    CHECK(snapshot.system.physical_processor_count.value <=
+          snapshot.system.logical_processor_count.value);
+    CHECK(snapshot.system.active_processor_count.value <=
+          snapshot.system.logical_processor_count.value);
     CHECK(snapshot.system.network_receive_bytes.has_value());
     CHECK(snapshot.system.network_transmit_bytes.has_value());
     CHECK(snapshot.system.disk_read_bytes.has_value());
@@ -52,6 +60,7 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(provider.capabilities().disk_throughput);
     CHECK(provider.capabilities().disk_latency);
     CHECK(provider.capabilities().disk_service_time);
+    CHECK(provider.capabilities().disk_service_concurrency);
     CHECK_FALSE(provider.capabilities().disk_queue_depth);
     CHECK(provider.capabilities().network_connectivity);
     CHECK(provider.capabilities().network_transport_quality);
@@ -61,12 +70,16 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(provider.capabilities().foreground_process_identity);
     CHECK_FALSE(provider.capabilities().foreground_application_identity);
     CHECK(provider.capabilities().memory_pressure_state);
+    CHECK(provider.capabilities().memory_activity);
+    CHECK(provider.capabilities().scheduler_responsiveness);
+    CHECK(provider.capabilities().cpu_topology);
     CHECK_FALSE(provider.capabilities().gpu_usage);
     CHECK_FALSE(provider.capabilities().dpc_isr);
     CHECK(snapshot.system.foreground_process.status !=
           telemetry::MetricStatus::unsupported);
     CHECK(snapshot.system.memory_pressure_state.status !=
           telemetry::MetricStatus::unsupported);
+    CHECK(snapshot.system.scheduler_delay.status != telemetry::MetricStatus::unsupported);
     CHECK(snapshot.system.foreground_gpu_usage.status ==
           telemetry::MetricStatus::unsupported);
     CHECK(provider.capabilities().system_uptime);

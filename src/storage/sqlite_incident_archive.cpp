@@ -597,6 +597,28 @@ read_byte_value(sqlite3_stmt* statement, const int status_column, const int valu
     return result;
 }
 
+[[nodiscard]] std::expected<core::RecordedValue<std::uint32_t>, StorageError>
+read_uint32_value(sqlite3_stmt* statement, const int status_column, const int value_column,
+                  const std::string_view field) {
+    auto status = read_status(statement, status_column);
+    if (!status) return std::unexpected{status.error()};
+    core::RecordedValue<std::uint32_t> result{};
+    result.status = *status;
+    if (*status == core::RecordedValueStatus::available) {
+        if (sqlite3_column_type(statement, value_column) == SQLITE_NULL) {
+            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                "available integer is NULL")};
+        }
+        const auto value = sqlite3_column_int64(statement, value_column);
+        if (value <= 0 || static_cast<std::uint64_t>(value) > UINT32_MAX) {
+            return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+                                                std::string{field} + " is out of range")};
+        }
+        result.value = static_cast<std::uint32_t>(value);
+    }
+    return result;
+}
+
 } // namespace detail
 
 using namespace detail;
@@ -827,7 +849,7 @@ INSERT INTO system_samples VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         }
         auto quality_insert = prepare(database, R"sql(
 INSERT INTO system_quality_samples VALUES(
- ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 )sql",
                                       "prepare system quality sample insert");
         if (!quality_insert) {
@@ -841,7 +863,7 @@ INSERT INTO system_extended_samples VALUES(
         if (!extended_insert) return std::unexpected{extended_insert.error()};
         auto pressure_insert = prepare(database, R"sql(
 INSERT INTO system_pressure_samples VALUES(
- ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 )sql",
                                        "prepare system pressure sample insert");
         if (!pressure_insert) return std::unexpected{pressure_insert.error()};
@@ -872,13 +894,14 @@ INSERT INTO system_pressure_samples VALUES(
             bind_double_value(statement, 5, 6, sample.disk_write_latency_seconds);
             bind_double_value(statement, 7, 8, sample.disk_service_time_seconds);
             bind_double_value(statement, 9, 10, sample.disk_queue_depth);
-            bind_unsigned_value(statement, 11, 12, sample.disk_worst_device_id);
-            bind_byte_value(statement, 13, 14, sample.network_connectivity_level);
-            bind_unsigned_value(statement, 15, 16, sample.network_active_interfaces);
-            bind_unsigned_value(statement, 17, 18, sample.network_interface_changes);
-            bind_double_value(statement, 19, 20, sample.network_tcp_retransmit_fraction);
-            bind_unsigned_value(statement, 21, 22, sample.network_tcp_failed_connections);
-            bind_unsigned_value(statement, 23, 24, sample.network_tcp_resets);
+            bind_double_value(statement, 11, 12, sample.disk_service_concurrency);
+            bind_unsigned_value(statement, 13, 14, sample.disk_worst_device_id);
+            bind_byte_value(statement, 15, 16, sample.network_connectivity_level);
+            bind_unsigned_value(statement, 17, 18, sample.network_active_interfaces);
+            bind_unsigned_value(statement, 19, 20, sample.network_interface_changes);
+            bind_double_value(statement, 21, 22, sample.network_tcp_retransmit_fraction);
+            bind_unsigned_value(statement, 23, 24, sample.network_tcp_failed_connections);
+            bind_unsigned_value(statement, 25, 26, sample.network_tcp_resets);
             if (auto inserted = expect_done(database, statement, "insert system quality sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
@@ -941,6 +964,16 @@ INSERT INTO system_pressure_samples VALUES(
             bind_double_value(statement, 11, 12, sample.io_full_pressure_fraction);
             bind_byte_value(statement, 13, 14, sample.thermal_pressure_state);
             bind_byte_value(statement, 15, 16, sample.memory_pressure_state);
+            bind_unsigned_value(statement, 17, 18, sample.compressed_memory_bytes);
+            bind_double_value(statement, 19, 20, sample.memory_page_out_bytes_per_second);
+            bind_double_value(statement, 21, 22, sample.memory_swap_in_bytes_per_second);
+            bind_double_value(statement, 23, 24, sample.memory_swap_out_bytes_per_second);
+            bind_double_value(statement, 25, 26, sample.memory_compression_bytes_per_second);
+            bind_double_value(statement, 27, 28, sample.memory_decompression_bytes_per_second);
+            bind_double_value(statement, 29, 30, sample.scheduler_delay_seconds);
+            bind_pid_value(statement, 31, 32, sample.logical_processor_count);
+            bind_pid_value(statement, 33, 34, sample.physical_processor_count);
+            bind_pid_value(statement, 35, 36, sample.active_processor_count);
             if (auto inserted = expect_done(database, statement, "insert system pressure sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
@@ -1370,6 +1403,7 @@ SELECT sample_index,
  disk_write_latency_status, disk_write_latency_seconds,
  disk_service_time_status, disk_service_time_seconds,
  disk_queue_depth_status, disk_queue_depth,
+ disk_service_concurrency_status, disk_service_concurrency,
  disk_device_status, disk_device_id,
  network_connectivity_status, network_connectivity_level,
  network_interfaces_status, network_active_interfaces,
@@ -1407,20 +1441,22 @@ FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
             auto write_latency = read_double_value(quality_query->get(), 3, 4);
             auto service_time = read_double_value(quality_query->get(), 5, 6);
             auto queue_depth = read_double_value(quality_query->get(), 7, 8);
-            auto device = read_unsigned_value(quality_query->get(), 9, 10, "disk_device_id");
-            auto connectivity = read_byte_value(quality_query->get(), 11, 12, 4U);
+            auto concurrency = read_double_value(quality_query->get(), 9, 10);
+            auto device = read_unsigned_value(quality_query->get(), 11, 12, "disk_device_id");
+            auto connectivity = read_byte_value(quality_query->get(), 13, 14, 4U);
             auto interfaces =
-                read_unsigned_value(quality_query->get(), 13, 14, "network_active_interfaces");
+                read_unsigned_value(quality_query->get(), 15, 16, "network_active_interfaces");
             auto changes =
-                read_unsigned_value(quality_query->get(), 15, 16, "network_interface_changes");
-            auto retransmit = read_double_value(quality_query->get(), 17, 18);
+                read_unsigned_value(quality_query->get(), 17, 18, "network_interface_changes");
+            auto retransmit = read_double_value(quality_query->get(), 19, 20);
             auto failures =
-                read_unsigned_value(quality_query->get(), 19, 20, "tcp_failed_connections");
-            auto resets = read_unsigned_value(quality_query->get(), 21, 22, "tcp_resets");
+                read_unsigned_value(quality_query->get(), 21, 22, "tcp_failed_connections");
+            auto resets = read_unsigned_value(quality_query->get(), 23, 24, "tcp_resets");
             if (!read_latency) return std::unexpected{read_latency.error()};
             if (!write_latency) return std::unexpected{write_latency.error()};
             if (!service_time) return std::unexpected{service_time.error()};
             if (!queue_depth) return std::unexpected{queue_depth.error()};
+            if (!concurrency) return std::unexpected{concurrency.error()};
             if (!device) return std::unexpected{device.error()};
             if (!connectivity) return std::unexpected{connectivity.error()};
             if (!interfaces) return std::unexpected{interfaces.error()};
@@ -1434,6 +1470,7 @@ FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
             sample.disk_write_latency_seconds = *write_latency;
             sample.disk_service_time_seconds = *service_time;
             sample.disk_queue_depth = *queue_depth;
+            sample.disk_service_concurrency = *concurrency;
             sample.disk_worst_device_id = *device;
             sample.network_connectivity_level = *connectivity;
             sample.network_active_interfaces = *interfaces;
@@ -1574,7 +1611,15 @@ SELECT sample_index,
  io_some_status, io_some_fraction,
  io_full_status, io_full_fraction,
  thermal_pressure_status, thermal_pressure_state,
- memory_pressure_status, memory_pressure_state
+ memory_pressure_status, memory_pressure_state,
+ compressed_memory_status, compressed_memory_bytes,
+ page_out_status, page_out_bps, swap_in_status, swap_in_bps,
+ swap_out_status, swap_out_bps, compression_status, compression_bps,
+ decompression_status, decompression_bps,
+ scheduler_delay_status, scheduler_delay_seconds,
+ logical_processors_status, logical_processors,
+ physical_processors_status, physical_processors,
+ active_processors_status, active_processors
 FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
 )sql",
                                       "prepare system pressure sample load");
@@ -1608,6 +1653,20 @@ FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
             auto io_full = read_double_value(pressure_query->get(), 9, 10);
             auto thermal = read_byte_value(pressure_query->get(), 11, 12, 4U);
             auto memory_pressure = read_byte_value(pressure_query->get(), 13, 14, 3U);
+            auto compressed =
+                read_unsigned_value(pressure_query->get(), 15, 16, "compressed_memory_bytes");
+            auto page_out = read_double_value(pressure_query->get(), 17, 18);
+            auto swap_in = read_double_value(pressure_query->get(), 19, 20);
+            auto swap_out = read_double_value(pressure_query->get(), 21, 22);
+            auto compression = read_double_value(pressure_query->get(), 23, 24);
+            auto decompression = read_double_value(pressure_query->get(), 25, 26);
+            auto scheduler_delay = read_double_value(pressure_query->get(), 27, 28);
+            auto logical = read_uint32_value(pressure_query->get(), 29, 30,
+                                             "logical_processors");
+            auto physical = read_uint32_value(pressure_query->get(), 31, 32,
+                                              "physical_processors");
+            auto active = read_uint32_value(pressure_query->get(), 33, 34,
+                                            "active_processors");
             if (!cpu_some) return std::unexpected{cpu_some.error()};
             if (!memory_some) return std::unexpected{memory_some.error()};
             if (!memory_full) return std::unexpected{memory_full.error()};
@@ -1615,6 +1674,16 @@ FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
             if (!io_full) return std::unexpected{io_full.error()};
             if (!thermal) return std::unexpected{thermal.error()};
             if (!memory_pressure) return std::unexpected{memory_pressure.error()};
+            if (!compressed) return std::unexpected{compressed.error()};
+            if (!page_out) return std::unexpected{page_out.error()};
+            if (!swap_in) return std::unexpected{swap_in.error()};
+            if (!swap_out) return std::unexpected{swap_out.error()};
+            if (!compression) return std::unexpected{compression.error()};
+            if (!decompression) return std::unexpected{decompression.error()};
+            if (!scheduler_delay) return std::unexpected{scheduler_delay.error()};
+            if (!logical) return std::unexpected{logical.error()};
+            if (!physical) return std::unexpected{physical.error()};
+            if (!active) return std::unexpected{active.error()};
             auto& sample = systems[index];
             sample.cpu_some_pressure_fraction = *cpu_some;
             sample.memory_some_pressure_fraction = *memory_some;
@@ -1623,6 +1692,16 @@ FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
             sample.io_full_pressure_fraction = *io_full;
             sample.thermal_pressure_state = *thermal;
             sample.memory_pressure_state = *memory_pressure;
+            sample.compressed_memory_bytes = *compressed;
+            sample.memory_page_out_bytes_per_second = *page_out;
+            sample.memory_swap_in_bytes_per_second = *swap_in;
+            sample.memory_swap_out_bytes_per_second = *swap_out;
+            sample.memory_compression_bytes_per_second = *compression;
+            sample.memory_decompression_bytes_per_second = *decompression;
+            sample.scheduler_delay_seconds = *scheduler_delay;
+            sample.logical_processor_count = *logical;
+            sample.physical_processor_count = *physical;
+            sample.active_processor_count = *active;
         }
 
         std::vector<core::SystemEvent> events;

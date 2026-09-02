@@ -15,12 +15,12 @@ qualified.
 | System CPU and memory | Native | Native `/proc` | Native Mach/sysctl |
 | Process identity, CPU, RSS, and disk I/O | Native | Native `/proc` | Native libproc |
 | System disk/network throughput | Native | Native `/proc` and `/sys` | Native BSD interfaces and IOKit block-driver statistics |
-| Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
+| Disk latency/queue/service evidence | Native | Native read/write/combined service, interval-average queue, and derived service concurrency | Native read/write/combined service plus derived interval-average I/O in service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
 | Foreground-application evidence | Native, capability-gated process identity | Privacy-bounded X11 process identity; on wlroots only, an opaque session application key with no PID/GPU correlation; generic Wayland, GNOME, and KDE unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
-| GPU and responsiveness evidence | Native counters plus non-software DXGI inventory with adapter type explicitly unknown | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity; inventory type explicitly unknown | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
-| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal unavailable | Native power/battery/uptime, Low Power Mode, and public coarse thermal-pressure state; CPU frequency unavailable |
-| Resource-pressure evidence | Windows responsiveness evidence stays separate; cumulative-stall channels unsupported | Exact per-interval CPU/memory/I/O PSI `some`/`full` fractions from cumulative totals | Exact cumulative-stall channels unsupported; separate coarse thermal and event-driven memory-pressure states |
+| GPU and responsiveness evidence | Native counters plus non-software DXGI inventory with adapter type explicitly unknown | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity; inventory type explicitly unknown | Public non-identifying Metal inventory, BlackBox renderer timing/hitches, scheduler wake delay, and delayed app-scoped MetricKit CPU/GPU/hangs; passive whole-system and foreground GPU utilization unsupported |
+| Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal unavailable | Native power/battery/uptime, Low Power Mode, coarse thermal pressure, and physical/logical/active topology; current CPU frequency unavailable |
+| Resource-pressure evidence | Windows responsiveness evidence stays separate; cumulative-stall channels unsupported | Exact per-interval CPU/memory/I/O PSI `some`/`full` fractions from cumulative totals | Exact cumulative-stall channels unsupported; separate coarse pressure states plus compressed-memory/pageout/swap/compression activity that is not PSI |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free device/audio/storage/display/network uevents, logind power, systemd job result class, and coredump crash marker | Identifier-free application lifecycle, audio/default, storage, display, network, and power context; general service events unsupported |
 | Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX plus coalesced XDG Background portal status; exact XDG autostart remains authoritative | Native SDL/POSIX plus explicit BlackBox-owned `SMAppService` disabled/enabled/approval/unavailable state |
@@ -63,7 +63,8 @@ The previous V0.22 evidence remains bound to revision
    key behavior, and app restart. The AppKit monitor is intentionally labeled passive because it cannot
    detect conflicts or reserve the combination like Windows/XDG registration.
 3. Physically validate Linux CPU-frequency/profile coverage across governors and hardware, macOS Low
-   Power Mode and memory-pressure transitions, and privacy-bounded foreground identity on macOS and
+   Power Mode, VM activity, scheduler delay, topology, pressure transitions, and delayed MetricKit
+   delivery, and privacy-bounded foreground identity on macOS and
    X11. Exercise the opaque application-key reader on Sway and other advertising wlroots compositors,
    including ambiguity, reconnect, and protocol loss. Generic Wayland process identity remains
    unsupported because its public portal API has no standardized active-window interface.
@@ -98,6 +99,7 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple `getifaddrs` interface statistics](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html)
 - [Apple `IOBlockStorageDriver` statistics](https://developer.apple.com/documentation/kernel/ioblockstoragedriver)
 - [Apple Dispatch memory-pressure source](https://developer.apple.com/documentation/dispatch/dispatchsourcememorypressure)
+- [Apple MetricKit](https://developer.apple.com/documentation/metrickit)
 - [Linux block-device I/O statistics](https://docs.kernel.org/admin-guide/iostats.html)
 - [Linux kernel uevent environment](https://docs.kernel.org/driver-api/driver-model/uevent.html)
 - [wlroots foreign-toplevel-management protocol](https://gitlab.freedesktop.org/wlroots/wlr-protocols/-/blob/master/unstable/wlr-foreign-toplevel-management-unstable-v1.xml)

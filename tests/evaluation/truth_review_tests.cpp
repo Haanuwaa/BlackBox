@@ -55,6 +55,9 @@ public:
     before.memory_fraction = {0.50, core::RecordedValueStatus::available};
     before.disk_read_latency_seconds = {0.125, core::RecordedValueStatus::available};
     before.disk_queue_depth = {4.0, core::RecordedValueStatus::available};
+    before.disk_service_concurrency = {1.25, core::RecordedValueStatus::available};
+    before.compressed_memory_bytes = {512U, core::RecordedValueStatus::available};
+    before.scheduler_delay_seconds = {0.015, core::RecordedValueStatus::available};
     before.network_tcp_retransmit_fraction.status =
         core::RecordedValueStatus::temporarily_unavailable;
     before.foreground_application = {{918'273U, 192'837U},
@@ -136,6 +139,10 @@ TEST_CASE("truth review publishes exact prediction-free ordinal evidence atomica
     CHECK(manifest.find("prediction_free=1\n") != std::string::npos);
     CHECK(manifest.find("local_process_identities=0\n") != std::string::npos);
     CHECK(systems.find("memory_pressure_status\tmemory_pressure_state") !=
+          std::string::npos);
+    CHECK(systems.find("disk_service_concurrency_status\tdisk_service_concurrency") !=
+          std::string::npos);
+    CHECK(systems.find("scheduler_delay_status\tscheduler_delay_seconds") !=
           std::string::npos);
     CHECK(systems.find("918273") == std::string::npos);
     CHECK(systems.find("192837") == std::string::npos);

@@ -119,7 +119,14 @@ but never renders more than once per interval. This addresses the visible tradeo
 hover could feel less fluid than a 60 Hz desktop. Collection and dashboard projection rates are
 unchanged, hidden/minimized behavior remains event-driven, and deterministic tests cover idle,
 interaction, expiry, reset, and stale-deadline behavior. The controlled clean-revision runtime
-comparison remains open until the current V0.26 candidate is frozen.
+comparison remains open until the current V0.27 candidate is frozen.
+
+V0.27 adds allocation-free instrumentation for BlackBox's own visible frames. A fixed 256-frame
+window reports build, present, total-frame P95, maximum frame time, present failures, and a hitch
+count using `max(50 ms, 2 x target interval)`. Hidden/minimized operation still renders nothing, and
+the tracker does not sample another process or claim passive GPU utilization. These counters are the
+measurement source for the next controlled visible-runtime comparison; delayed MetricKit reports are
+kept separate because their aggregation and delivery cadence cannot characterize a live frame.
 
 ### Process-scale matrix
 

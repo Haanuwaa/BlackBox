@@ -53,6 +53,11 @@ public:
         return std::clamp(timeout, std::chrono::milliseconds{1}, frame_interval(now));
     }
 
+    [[nodiscard]] std::chrono::milliseconds
+    target_interval(const core::MonotonicTimePoint now) const noexcept {
+        return frame_interval(now);
+    }
+
     void reset() noexcept {
         initialized_ = false;
         interactive_until_ = {};

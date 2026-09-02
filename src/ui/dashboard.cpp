@@ -512,6 +512,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                               "%.2f ms", state.disk_service_time_milliseconds);
                     value_row("Worst physical-disk queue", state.disk_queue_status, "%.2f requests",
                               state.disk_queue_depth);
+                    value_row("Average physical-disk I/O in service",
+                              state.disk_service_concurrency_status, "%.2f requests",
+                              state.disk_service_concurrency);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("Connectivity");
@@ -553,6 +556,32 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                     state.renderer_active ? "active" : "inactive",
                                     state.renderer_backend.c_str());
                     }
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("BlackBox renderer health");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%llu frames | %llu hitches | %.2f ms p95 | %.2f ms max | "
+                                "%llu present failures",
+                                static_cast<unsigned long long>(state.renderer_frames),
+                                static_cast<unsigned long long>(state.renderer_hitches),
+                                state.renderer_frame_p95_milliseconds,
+                                state.renderer_frame_maximum_milliseconds,
+                                static_cast<unsigned long long>(state.renderer_present_failures));
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted("Delayed app diagnostics");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextWrapped("%s | %llu metric / %llu diagnostic payloads | "
+                                       "%.1f s app CPU | %.1f s app GPU | %llu hangs (%.1f s)",
+                                       state.app_performance_report_status.c_str(),
+                                       static_cast<unsigned long long>(state.app_metric_payloads),
+                                       static_cast<unsigned long long>(
+                                           state.app_diagnostic_payloads),
+                                       state.app_cumulative_cpu_seconds,
+                                       state.app_cumulative_gpu_seconds,
+                                       static_cast<unsigned long long>(
+                                           state.app_hang_diagnostics),
+                                       state.app_hang_duration_seconds);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
                     ImGui::TextUnformatted("GPU capability boundary");

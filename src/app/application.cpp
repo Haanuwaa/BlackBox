@@ -383,6 +383,11 @@ ApplicationInitializationResult Application::initialize() {
         return ApplicationInitializationResult::failed;
     }
     imgui_renderer_backend_initialized_ = true;
+#if defined(__APPLE__)
+    macos_app_performance_monitor_ =
+        std::make_unique<platform::macos::MacosAppPerformanceMonitor>();
+    macos_app_performance_monitor_->start();
+#endif
     support_bundle_service_.start();
 
     dashboard_state_.platform_name = BLACKBOX_PLATFORM_NAME;
@@ -598,6 +603,8 @@ int Application::run() {
             continue;
         }
 
+        const auto frame_started_at = telemetry_clock_.now();
+        const auto target_frame_interval = visible_frames.target_interval(visible_now);
         refresh_dashboard_if_due();
 
         ImGui_ImplSDLRenderer3_NewFrame();
@@ -740,7 +747,12 @@ int Application::run() {
         SDL_SetRenderDrawColor(renderer_, 18, 20, 24, 255);
         SDL_RenderClear(renderer_);
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer_);
-        SDL_RenderPresent(renderer_);
+        const auto build_finished_at = telemetry_clock_.now();
+        const bool present_succeeded = SDL_RenderPresent(renderer_);
+        const auto present_finished_at = telemetry_clock_.now();
+        renderer_health_.observe(
+            {build_finished_at - frame_started_at, present_finished_at - build_finished_at,
+             target_frame_interval, present_succeeded});
     }
 
     shutdown();
@@ -842,6 +854,18 @@ void Application::request_support_bundle(const ui::DashboardCommand& command) no
         value.storage_write_failures = dashboard_state_.storage_write_failures;
         value.recoverable_incident_available = dashboard_state_.archive_recoverable_incident;
         value.previous_crash_evidence = dashboard_state_.previous_crash_evidence;
+        value.renderer_frames = dashboard_state_.renderer_frames;
+        value.renderer_hitches = dashboard_state_.renderer_hitches;
+        value.renderer_present_failures = dashboard_state_.renderer_present_failures;
+        value.renderer_frame_p95_milliseconds = dashboard_state_.renderer_frame_p95_milliseconds;
+        value.renderer_frame_maximum_milliseconds =
+            dashboard_state_.renderer_frame_maximum_milliseconds;
+        value.app_metric_payloads = dashboard_state_.app_metric_payloads;
+        value.app_diagnostic_payloads = dashboard_state_.app_diagnostic_payloads;
+        value.app_cumulative_cpu_seconds = dashboard_state_.app_cumulative_cpu_seconds;
+        value.app_cumulative_gpu_seconds = dashboard_state_.app_cumulative_gpu_seconds;
+        value.app_hang_diagnostics = dashboard_state_.app_hang_diagnostics;
+        value.app_hang_duration_seconds = dashboard_state_.app_hang_duration_seconds;
         if (command.include_latest_crash_evidence && crash_diagnostics_ != nullptr) {
             const auto crash = crash_diagnostics_->snapshot();
             if (!crash.latest_evidence.empty()) {

@@ -110,8 +110,26 @@ struct RawDiskQuality {
     MetricValue<Seconds> write_latency{};
     MetricValue<Seconds> service_time{};
     MetricValue<double> queue_depth{};
+    // Sum of per-operation service durations divided by the observation
+    // interval. This is an average number of requests being serviced, not an
+    // instantaneous or waiting-queue depth.
+    MetricValue<double> service_concurrency{};
     MetricValue<std::uint64_t> worst_device_id{};
     friend constexpr bool operator==(const RawDiskQuality&, const RawDiskQuality&) = default;
+};
+
+// Passive machine-wide VM activity. Byte counters are cumulative so the
+// normalizer can use the actual observation interval. Compressed memory is a
+// current gauge. None of these values carries Linux PSI stall semantics.
+struct RawMemoryActivity {
+    MetricValue<ByteCount> compressed_memory{};
+    MetricValue<ByteCount> page_out_bytes{};
+    MetricValue<ByteCount> swap_in_bytes{};
+    MetricValue<ByteCount> swap_out_bytes{};
+    MetricValue<ByteCount> compressed_bytes{};
+    MetricValue<ByteCount> decompressed_bytes{};
+    friend constexpr bool operator==(const RawMemoryActivity&,
+                                     const RawMemoryActivity&) = default;
 };
 
 // These host-wide TCP counters are passive transport evidence. Retransmission
@@ -220,6 +238,7 @@ struct RawSystemCounters {
     MetricValue<ByteCount> network_receive_bytes{};
     MetricValue<ByteCount> network_transmit_bytes{};
     RawDiskQuality disk_quality{};
+    RawMemoryActivity memory_activity{};
     RawNetworkQuality network_quality{};
     MetricValue<Ratio> gpu_usage{};
     MetricValue<ByteCount> gpu_dedicated_memory{};
@@ -241,7 +260,10 @@ struct RawSystemCounters {
     RawPressureCounters pressure{};
     MetricValue<ThermalPressureState> thermal_pressure_state{};
     MetricValue<MemoryPressureState> memory_pressure_state{};
+    MetricValue<Seconds> scheduler_delay{};
     MetricValue<std::uint32_t> logical_processor_count{};
+    MetricValue<std::uint32_t> physical_processor_count{};
+    MetricValue<std::uint32_t> active_processor_count{};
     friend constexpr bool operator==(const RawSystemCounters&, const RawSystemCounters&) = default;
 };
 
@@ -259,7 +281,14 @@ struct SystemSample {
     MetricValue<Seconds> disk_write_latency{};
     MetricValue<Seconds> disk_service_time{};
     MetricValue<double> disk_queue_depth{};
+    MetricValue<double> disk_service_concurrency{};
     MetricValue<std::uint64_t> disk_worst_device_id{};
+    MetricValue<ByteCount> compressed_memory{};
+    MetricValue<BytesPerSecond> memory_page_out_rate{};
+    MetricValue<BytesPerSecond> memory_swap_in_rate{};
+    MetricValue<BytesPerSecond> memory_swap_out_rate{};
+    MetricValue<BytesPerSecond> memory_compression_rate{};
+    MetricValue<BytesPerSecond> memory_decompression_rate{};
     MetricValue<NetworkConnectivityLevel> network_connectivity{};
     MetricValue<std::uint64_t> network_active_interfaces{};
     MetricValue<std::uint64_t> network_interface_changes{};
@@ -290,6 +319,10 @@ struct SystemSample {
     MetricValue<Ratio> io_full_pressure{};
     MetricValue<ThermalPressureState> thermal_pressure_state{};
     MetricValue<MemoryPressureState> memory_pressure_state{};
+    MetricValue<Seconds> scheduler_delay{};
+    MetricValue<std::uint32_t> logical_processor_count{};
+    MetricValue<std::uint32_t> physical_processor_count{};
+    MetricValue<std::uint32_t> active_processor_count{};
     friend constexpr bool operator==(const SystemSample&, const SystemSample&) = default;
 };
 

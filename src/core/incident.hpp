@@ -62,7 +62,14 @@ struct IncidentSystemSample {
     RecordedValue<double> disk_write_latency_seconds{};
     RecordedValue<double> disk_service_time_seconds{};
     RecordedValue<double> disk_queue_depth{};
+    RecordedValue<double> disk_service_concurrency{};
     RecordedValue<std::uint64_t> disk_worst_device_id{};
+    RecordedValue<std::uint64_t> compressed_memory_bytes{};
+    RecordedValue<double> memory_page_out_bytes_per_second{};
+    RecordedValue<double> memory_swap_in_bytes_per_second{};
+    RecordedValue<double> memory_swap_out_bytes_per_second{};
+    RecordedValue<double> memory_compression_bytes_per_second{};
+    RecordedValue<double> memory_decompression_bytes_per_second{};
     RecordedValue<std::uint8_t> network_connectivity_level{};
     RecordedValue<std::uint64_t> network_active_interfaces{};
     RecordedValue<std::uint64_t> network_interface_changes{};
@@ -93,6 +100,10 @@ struct IncidentSystemSample {
     RecordedValue<double> io_full_pressure_fraction{};
     RecordedValue<std::uint8_t> thermal_pressure_state{};
     RecordedValue<std::uint8_t> memory_pressure_state{};
+    RecordedValue<double> scheduler_delay_seconds{};
+    RecordedValue<std::uint32_t> logical_processor_count{};
+    RecordedValue<std::uint32_t> physical_processor_count{};
+    RecordedValue<std::uint32_t> active_processor_count{};
     friend bool operator==(const IncidentSystemSample&, const IncidentSystemSample&) = default;
 };
 

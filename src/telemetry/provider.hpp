@@ -16,6 +16,7 @@ struct PlatformCapabilities {
     bool disk_latency{};
     bool disk_queue_depth{};
     bool disk_service_time{};
+    bool disk_service_concurrency{};
     bool network_usage{};
     bool network_connectivity{};
     bool network_transport_quality{};
@@ -41,6 +42,9 @@ struct PlatformCapabilities {
     bool io_full_pressure{};
     bool thermal_pressure_state{};
     bool memory_pressure_state{};
+    bool memory_activity{};
+    bool scheduler_responsiveness{};
+    bool cpu_topology{};
     friend constexpr bool operator==(const PlatformCapabilities&,
                                      const PlatformCapabilities&) = default;
 };

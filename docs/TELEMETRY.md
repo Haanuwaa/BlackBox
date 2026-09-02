@@ -153,17 +153,21 @@ Linux product qualification.
 ## macOS system/process engineering provider
 
 The macOS-only `MacosTelemetryProvider` uses the same caller-owned snapshot and capability contract.
-Mach host CPU ticks provide cumulative busy/total counters; `host_statistics64` plus
-`sysctlbyname("hw.memsize")` provide physical-memory gauges; and `hw.logicalcpu` reports capacity.
+Mach host CPU ticks provide cumulative busy/total counters; the full `host_statistics64` contract
+plus `sysctlbyname("hw.memsize")` provide physical-memory gauges, compressed-memory state, and
+cumulative pageout/swap/compression/decompression activity; and `hw.logicalcpu`, `hw.physicalcpu`,
+and `hw.activecpu` provide explicit processor topology rather than frequency.
 The fast tier also reads active non-loopback BSD interface byte counters and feeds their stable
 interface indexes through the fixed-capacity lifecycle tracker, so interface arrival/removal cannot
 become a false throughput spike. A separate fixed-capacity membership tracker records active-link
 transitions and emits only disconnected/local state; it makes no Internet-reachability claim. IOKit
 `IOBlockStorageDriver` Statistics dictionaries provide cumulative read/write bytes, completed
 operations, and total completion times keyed by stable registry-entry identity. The shared disk
-quality tracker derives read/write mean completion time and combined service time from interval
-deltas. IOKit does not expose the exact interval queue counter used by the portable queue metric, so
-macOS reports that channel as unsupported rather than estimating it. `net.inet.tcp.stats` provides
+quality tracker derives read/write mean completion time, combined service time, and interval-average
+I/O service concurrency from interval deltas. Service concurrency is summed service duration divided
+by observation duration; it is neither instantaneous queue depth nor waiting work. IOKit does not
+expose the exact interval queue counter used by the portable queue metric, so macOS reports that
+channel as unsupported rather than estimating it. `net.inet.tcp.stats` provides
 outgoing original segments, retransmissions,
 and connection/drop failures. Apple exposes no exact equivalent of the shared established-reset
 field, which therefore remains explicitly unsupported. Sleep-inclusive monotonic uptime comes from
@@ -171,8 +175,10 @@ the native continuous clock. The normal tier reads IOKit's current power-source 
 battery fraction when the host reports a valid capacity. `NSProcessInfo` supplies Low Power Mode and
 the separate coarse nominal/fair/serious/critical thermal-pressure state. A Dispatch memory-pressure
 source publishes only normal/warning/critical transitions and remains temporarily unavailable until
-its first event. Neither coarse state is converted into CPU frequency, utilization, or Linux PSI
-semantics; older or unavailable sources remain explicit.
+its first event. A separate one-second utility Dispatch timer records only wake-up delay beyond its
+declared leeway and re-warms after suspend-sized gaps. VM counter deltas become byte rates using the
+measured sample interval. Neither the scheduler observer, VM activity, nor either coarse state is
+converted into CPU frequency, utilization, or Linux PSI semantics; unavailable sources remain explicit.
 The independent macOS event provider consumes IOKit `IOMedia` first-match and termination
 notifications. It drains the initial inventory without emitting events and publishes only broad
 storage-media added/removed context; BSD names, registry paths, UUIDs, serials, properties, and
@@ -187,10 +193,13 @@ gaps instead of failing the provider. When foreground collection is opted in,
 `NSWorkspace.frontmostApplication` contributes only a PID, which must match a process identity from
 the same bounded sample before the PID-plus-creation-token identity crosses the portable boundary.
 Names, titles, bundle identifiers, and native application objects do not cross. Public Metal device
-inventory and BlackBox renderer health remain distinct from passive whole-system utilization. GPU
-utilization, Windows-style DPC/ISR responsiveness, CPU frequency, and exact cumulative-stall pressure
-are explicitly unsupported; coarse thermal and memory-pressure states are available under separate
-semantics.
+inventory and BlackBox renderer health remain distinct from passive whole-system utilization. The
+application records allocation-free frame-build, present, P95, maximum, failure, and hitch aggregates
+for its own SDL renderer. MetricKit asynchronously contributes only delayed BlackBox cumulative
+CPU/GPU duration and hang count/duration; payload call stacks and other diagnostic content are
+discarded. Passive whole-system GPU utilization, Windows-style DPC/ISR responsiveness, current CPU
+frequency, exact disk queue depth, and exact cumulative-stall pressure are explicitly unsupported;
+VM activity and coarse pressure states remain available under separate semantics.
 
 `blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry,
 libproc, and IOKit. Hosted Apple Silicon and Intel jobs build/test the complete desktop

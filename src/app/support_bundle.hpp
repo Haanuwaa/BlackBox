@@ -58,6 +58,17 @@ struct SupportDiagnostics {
     std::uint64_t storage_write_failures{};
     bool recoverable_incident_available{};
     std::uint64_t previous_crash_evidence{};
+    std::uint64_t renderer_frames{};
+    std::uint64_t renderer_hitches{};
+    std::uint64_t renderer_present_failures{};
+    double renderer_frame_p95_milliseconds{};
+    double renderer_frame_maximum_milliseconds{};
+    std::uint64_t app_metric_payloads{};
+    std::uint64_t app_diagnostic_payloads{};
+    double app_cumulative_cpu_seconds{};
+    double app_cumulative_gpu_seconds{};
+    std::uint64_t app_hang_diagnostics{};
+    double app_hang_duration_seconds{};
 };
 
 struct SupportBundleRequest {

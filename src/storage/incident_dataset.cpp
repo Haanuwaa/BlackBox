@@ -185,7 +185,7 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                  << BLACKBOX_VERSION << R"json(",
   "time":{"created_utc_ms":"milliseconds since Unix epoch","offset_ns":"nanoseconds relative to incident event"},
   "recorded_value_status":{"0":"available","1":"warming_up","2":"unsupported","3":"temporarily_unavailable"},
-  "units":{"cpu_fraction":"ratio 0..1","gpu_fraction":"ratio 0..1","memory_bytes":"bytes","memory_fraction":"ratio 0..1","io_rate":"bytes/second","disk_latency":"seconds","disk_queue_depth":"requests","frequency":"MHz","battery_fraction":"ratio 0..1","uptime":"seconds","tcp_retransmit_fraction":"ratio 0..1","event_count":"count per sample interval"},
+  "units":{"cpu_fraction":"ratio 0..1","gpu_fraction":"ratio 0..1","memory_bytes":"bytes","memory_fraction":"ratio 0..1","io_rate":"bytes/second","disk_latency":"seconds","disk_queue_depth":"requests","disk_service_concurrency":"average requests in service","scheduler_delay":"seconds","processor_count":"count","frequency":"MHz","battery_fraction":"ratio 0..1","uptime":"seconds","tcp_retransmit_fraction":"ratio 0..1","event_count":"count per sample interval"},
   "privacy":{"pseudonymous_incident_keys":true,"normalized_system_events":true,"excluded":["archive paths","executable paths","process names","process identifiers","foreground process identity","foreground application identity","creation tokens","Event Log messages","device identifiers","audio endpoint identifiers","window titles","free-form labels","free-form notes"]}
 }
 )json";
@@ -209,7 +209,8 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                    "seconds\t"
                    "disk_write_latency_status\tdisk_write_latency_seconds\t"
                    "disk_service_time_status\tdisk_service_time_seconds\t"
-                   "disk_queue_depth_status\tdisk_queue_depth\tdisk_device_"
+                   "disk_queue_depth_status\tdisk_queue_depth\tdisk_service_concurrency_"
+                   "status\tdisk_service_concurrency\tdisk_device_"
                    "status\tdisk_device_id\t"
                    "network_connectivity_status\tnetwork_connectivity_level\t"
                    "network_interfaces_status\tnetwork_active_interfaces\t"
@@ -239,7 +240,14 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                    "io_some_pressure_status\tio_some_pressure_fraction\t"
                    "io_full_pressure_status\tio_full_pressure_fraction\t"
                    "thermal_pressure_status\tthermal_pressure_state\t"
-                   "memory_pressure_status\tmemory_pressure_state\n";
+                   "memory_pressure_status\tmemory_pressure_state\t"
+                   "compressed_memory_status\tcompressed_memory_bytes\t"
+                   "page_out_status\tpage_out_bps\tswap_in_status\tswap_in_bps\t"
+                   "swap_out_status\tswap_out_bps\tcompression_status\tcompression_bps\t"
+                   "decompression_status\tdecompression_bps\tscheduler_delay_status\t"
+                   "scheduler_delay_seconds\tlogical_processors_status\tlogical_processors\t"
+                   "physical_processors_status\tphysical_processors\tactive_processors_status\t"
+                   "active_processors\n";
         processes << "incident_key\tsample_index\toffset_ns\tprocess_ordinal\t"
                      "cpu_status\tcpu_fraction\tworking_set_status\tworking_set_"
                      "bytes\t"
@@ -312,6 +320,8 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                     systems << '\t';
                     write_recorded(systems, sample.disk_queue_depth);
                     systems << '\t';
+                    write_recorded(systems, sample.disk_service_concurrency);
+                    systems << '\t';
                     write_recorded(systems, sample.disk_worst_device_id);
                     systems << '\t';
                     write_recorded_byte(systems, sample.network_connectivity_level);
@@ -369,6 +379,26 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                     write_recorded_byte(systems, sample.thermal_pressure_state);
                     systems << '\t';
                     write_recorded_byte(systems, sample.memory_pressure_state);
+                    systems << '\t';
+                    write_recorded(systems, sample.compressed_memory_bytes);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_page_out_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_swap_in_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_swap_out_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_compression_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.memory_decompression_bytes_per_second);
+                    systems << '\t';
+                    write_recorded(systems, sample.scheduler_delay_seconds);
+                    systems << '\t';
+                    write_recorded(systems, sample.logical_processor_count);
+                    systems << '\t';
+                    write_recorded(systems, sample.physical_processor_count);
+                    systems << '\t';
+                    write_recorded(systems, sample.active_processor_count);
                     systems << '\n';
                     ++statistics.system_samples;
                 }

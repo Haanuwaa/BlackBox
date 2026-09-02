@@ -50,6 +50,7 @@ representative_incident(const std::size_t large_text_bytes = 0U) {
     first.disk_write_latency_seconds.status = core::RecordedValueStatus::temporarily_unavailable;
     first.disk_service_time_seconds = {0.018, core::RecordedValueStatus::available};
     first.disk_queue_depth = {3.5, core::RecordedValueStatus::available};
+    first.disk_service_concurrency = {1.75, core::RecordedValueStatus::available};
     first.disk_worst_device_id = {7U, core::RecordedValueStatus::available};
     first.network_connectivity_level = {2U, core::RecordedValueStatus::available};
     first.network_active_interfaces = {1U, core::RecordedValueStatus::available};
@@ -82,6 +83,21 @@ representative_incident(const std::size_t large_text_bytes = 0U) {
     first.io_full_pressure_fraction.status = core::RecordedValueStatus::inaccessible;
     first.thermal_pressure_state = {2U, core::RecordedValueStatus::available};
     first.memory_pressure_state = {1U, core::RecordedValueStatus::available};
+    first.compressed_memory_bytes = {768ULL << 20U, core::RecordedValueStatus::available};
+    first.memory_page_out_bytes_per_second = {4'096.5,
+                                               core::RecordedValueStatus::available};
+    first.memory_swap_in_bytes_per_second.status =
+        core::RecordedValueStatus::temporarily_unavailable;
+    first.memory_swap_out_bytes_per_second = {8'192.25,
+                                               core::RecordedValueStatus::available};
+    first.memory_compression_bytes_per_second = {16'384.0,
+                                                  core::RecordedValueStatus::available};
+    first.memory_decompression_bytes_per_second.status =
+        core::RecordedValueStatus::inaccessible;
+    first.scheduler_delay_seconds = {0.014, core::RecordedValueStatus::available};
+    first.logical_processor_count = {12U, core::RecordedValueStatus::available};
+    first.physical_processor_count = {6U, core::RecordedValueStatus::available};
+    first.active_processor_count = {10U, core::RecordedValueStatus::available};
     auto second = first;
     second.observed_at = core::MonotonicTimePoint{130s};
     second.cpu_fraction.value = 0.25;

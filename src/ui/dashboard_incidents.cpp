@@ -828,11 +828,14 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         render_series("Write latency ms", detail.disk_write_latency_milliseconds);
         render_series("Service time ms", detail.disk_service_time_milliseconds);
         render_series("Queue depth", detail.disk_queue_depth);
+        render_series("Average I/O in service", detail.disk_service_concurrency);
         render_timeline_references(product, x_min, x_max);
         ImPlot::EndPlot();
     }
     render_missing_summary("Physical-disk latency", detail.disk_service_time_milliseconds);
     render_missing_summary("Physical-disk queue", detail.disk_queue_depth);
+    render_missing_summary("Physical-disk service concurrency",
+                           detail.disk_service_concurrency);
 
     ImGui::TextWrapped("Network quality is passive, host-wide evidence. Connectivity state, "
                        "interface transitions, TCP retransmissions, failed opens, and resets "
@@ -919,6 +922,27 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("I/O stall pressure", detail.io_some_pressure_percent);
     render_missing_summary("Thermal pressure state", detail.thermal_pressure_state);
     render_missing_summary("Memory pressure state", detail.memory_pressure_state);
+
+    ImGui::TextWrapped("Virtual-memory activity is a gauge plus interval rates from kernel VM "
+                       "counters. It is useful paging/compression context, but it is not a "
+                       "PSI-style stall fraction. Scheduler delay measures BlackBox's own "
+                       "utility-timer wake-up delay and is likewise context, not system-wide "
+                       "blocked time.");
+    if (ImPlot::BeginPlot("Virtual memory and scheduler context", ImVec2{-1.0F, 210.0F})) {
+        ImPlot::SetupAxes("Seconds from event", "MiB / MiB/s / milliseconds");
+        ImPlot::SetupAxisLinks(ImAxis_X1, &product.timeline_min, &product.timeline_max);
+        render_series("Compressed memory MiB", detail.compressed_memory_mib);
+        render_series("Pageout MiB/s", detail.memory_page_out_mib_per_second);
+        render_series("Swap in MiB/s", detail.memory_swap_in_mib_per_second);
+        render_series("Swap out MiB/s", detail.memory_swap_out_mib_per_second);
+        render_series("Compression MiB/s", detail.memory_compression_mib_per_second);
+        render_series("Decompression MiB/s", detail.memory_decompression_mib_per_second);
+        render_series("Scheduler wake delay ms", detail.scheduler_delay_milliseconds);
+        render_timeline_references(product, x_min, x_max);
+        ImPlot::EndPlot();
+    }
+    render_missing_summary("Virtual-memory activity", detail.compressed_memory_mib);
+    render_missing_summary("Scheduler wake delay", detail.scheduler_delay_milliseconds);
 
     ImGui::SeparatorText("Foreground and system-event evidence");
     ImGui::TextDisabled("The recorder never stores window titles, Event Log messages/payloads, "

@@ -27,4 +27,22 @@ private:
     void* source_{};
 };
 
+// Measures excess wake-up delay for a low-frequency utility timer. This is an
+// observer of scheduler responsiveness, not a whole-system stall percentage.
+class MacosSchedulerLatencyMonitor final {
+public:
+    MacosSchedulerLatencyMonitor() noexcept;
+    ~MacosSchedulerLatencyMonitor();
+
+    MacosSchedulerLatencyMonitor(const MacosSchedulerLatencyMonitor&) = delete;
+    MacosSchedulerLatencyMonitor& operator=(const MacosSchedulerLatencyMonitor&) = delete;
+
+    [[nodiscard]] MetricValue<Seconds> state() const noexcept;
+
+private:
+    struct State;
+    std::shared_ptr<State> state_{};
+    void* source_{};
+};
+
 } // namespace blackbox::telemetry::macos

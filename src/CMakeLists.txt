@@ -258,10 +258,12 @@ if(APPLE AND BLACKBOX_BUILD_APP)
     find_library(BLACKBOX_APPKIT_FRAMEWORK AppKit REQUIRED)
     find_library(BLACKBOX_CORE_GRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
     find_library(BLACKBOX_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    find_library(BLACKBOX_METRICKIT_FRAMEWORK MetricKit REQUIRED)
     find_library(BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK ServiceManagement REQUIRED)
     find_library(BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK UserNotifications REQUIRED)
     add_library(blackbox_platform_macos STATIC
         platform/macos/macos_accessibility.mm
+        platform/macos/macos_app_performance_monitor.mm
         platform/macos/macos_background_shell.mm
         platform/macos/macos_global_hotkey_manager.mm
         platform/posix/posix_crash_diagnostics.cpp
@@ -277,6 +279,7 @@ if(APPLE AND BLACKBOX_BUILD_APP)
         ${BLACKBOX_APPKIT_FRAMEWORK}
         ${BLACKBOX_CORE_GRAPHICS_FRAMEWORK}
         ${BLACKBOX_FOUNDATION_FRAMEWORK}
+        ${BLACKBOX_METRICKIT_FRAMEWORK}
         ${BLACKBOX_SERVICE_MANAGEMENT_FRAMEWORK}
         ${BLACKBOX_USER_NOTIFICATIONS_FRAMEWORK})
     blackbox_set_project_warnings(blackbox_platform_macos)
@@ -415,6 +418,7 @@ add_library(blackbox_app_support STATIC
     app/dashboard_projection.cpp
     app/product_settings.cpp
     app/recorder_settings.cpp
+    app/renderer_health.cpp
     app/support_bundle.cpp
     app/wall_clock_report.cpp
 )

@@ -86,6 +86,8 @@ TEST_CASE("support bundle publishes a privacy-safe direct-v1 directory atomicall
     CHECK(diagnostics.find("process_lifecycle_events_recorded=7") !=
           std::string::npos);
     CHECK(diagnostics.find("archive_schema_version=1") != std::string::npos);
+    CHECK(diagnostics.find("renderer_frames=") != std::string::npos);
+    CHECK(diagnostics.find("app_metric_payloads=") != std::string::npos);
     CHECK(diagnostics.find(temporary.root.string()) == std::string::npos);
     CHECK(readme.find("never uploaded automatically") != std::string::npos);
     CHECK(readme.find("excludes the") != std::string::npos);

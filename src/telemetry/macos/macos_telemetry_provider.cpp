@@ -68,6 +68,16 @@ template <typename T> [[nodiscard]] MetricValue<T> temporary() noexcept {
     return true;
 }
 
+[[nodiscard]] MetricValue<std::uint32_t> processor_count(const char* name) noexcept {
+    std::uint32_t value{};
+    std::size_t size = sizeof(value);
+    if (sysctlbyname(name, &value, &size, nullptr, 0U) != 0 || size != sizeof(value) ||
+        value == 0U) {
+        return temporary<std::uint32_t>();
+    }
+    return MetricValue<std::uint32_t>::available(value);
+}
+
 } // namespace
 
 struct MacosTelemetryProvider::NativeState {
@@ -75,6 +85,7 @@ struct MacosTelemetryProvider::NativeState {
     static constexpr std::size_t maximum_disk_devices = 128U;
 
     MacosMemoryPressureMonitor memory_pressure_monitor{};
+    MacosSchedulerLatencyMonitor scheduler_latency_monitor{};
 
     [[nodiscard]] bool read_cpu(RawTelemetrySnapshot& destination) noexcept {
         host_cpu_load_info_data_t info{};
@@ -114,6 +125,8 @@ struct MacosTelemetryProvider::NativeState {
             destination.system.logical_processor_count =
                 MetricValue<std::uint32_t>::available(logical_processors);
         }
+        destination.system.physical_processor_count = processor_count("hw.physicalcpu");
+        destination.system.active_processor_count = processor_count("hw.activecpu");
         return true;
     }
 
@@ -139,7 +152,7 @@ struct MacosTelemetryProvider::NativeState {
         if (host_page_size(host, &page_size) != KERN_SUCCESS ||
             host_statistics64(host, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&statistics),
                               &count) != KERN_SUCCESS ||
-            count < HOST_VM_INFO64_REV0_COUNT) {
+            count < HOST_VM_INFO64_COUNT) {
             return false;
         }
         std::uint64_t available_pages{};
@@ -152,6 +165,30 @@ struct MacosTelemetryProvider::NativeState {
         destination.system.memory_total = MetricValue<ByteCount>::available(ByteCount{total});
         destination.system.memory_available =
             MetricValue<ByteCount>::available(ByteCount{available});
+
+        auto& activity = destination.system.memory_activity;
+        std::uint64_t compressed{};
+        std::uint64_t page_out{};
+        std::uint64_t swap_in{};
+        std::uint64_t swap_out{};
+        std::uint64_t compression{};
+        std::uint64_t decompression{};
+        if (!page_bytes(statistics.compressor_page_count, page_size, compressed) ||
+            !page_bytes(statistics.pageouts, page_size, page_out) ||
+            !page_bytes(statistics.swapins, page_size, swap_in) ||
+            !page_bytes(statistics.swapouts, page_size, swap_out) ||
+            !page_bytes(statistics.compressions, page_size, compression) ||
+            !page_bytes(statistics.decompressions, page_size, decompression)) {
+            return false;
+        }
+        if (compressed > total) compressed = total;
+        activity.compressed_memory = MetricValue<ByteCount>::available(ByteCount{compressed});
+        activity.page_out_bytes = MetricValue<ByteCount>::available(ByteCount{page_out});
+        activity.swap_in_bytes = MetricValue<ByteCount>::available(ByteCount{swap_in});
+        activity.swap_out_bytes = MetricValue<ByteCount>::available(ByteCount{swap_out});
+        activity.compressed_bytes = MetricValue<ByteCount>::available(ByteCount{compression});
+        activity.decompressed_bytes =
+            MetricValue<ByteCount>::available(ByteCount{decompression});
         return true;
     }
 
@@ -385,6 +422,7 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
     destination.system.disk_quality.read_latency = temporary<Seconds>();
     destination.system.disk_quality.write_latency = temporary<Seconds>();
     destination.system.disk_quality.service_time = temporary<Seconds>();
+    destination.system.disk_quality.service_concurrency = temporary<double>();
     destination.system.disk_quality.queue_depth =
         MetricValue<double>::unavailable(MetricStatus::unsupported);
     destination.system.disk_quality.worst_device_id = temporary<std::uint64_t>();
@@ -405,6 +443,9 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
         native_state_ != nullptr
             ? native_state_->memory_pressure_monitor.state()
             : temporary<MemoryPressureState>();
+    destination.system.scheduler_delay =
+        native_state_ != nullptr ? native_state_->scheduler_latency_monitor.state()
+                                 : temporary<Seconds>();
     destination.system.foreground_process =
         request.collect_foreground_application
             ? temporary<ProcessIdentity>()
@@ -419,6 +460,8 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
     if (request.tiers.contains(SamplingTier::fast)) {
         destination.system.cpu_time = temporary<CpuTimeCounters>();
         destination.system.logical_processor_count = temporary<std::uint32_t>();
+        destination.system.physical_processor_count = temporary<std::uint32_t>();
+        destination.system.active_processor_count = temporary<std::uint32_t>();
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_cpu(destination)) ++failed;
         ++attempted;
@@ -438,6 +481,12 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
                 : MetricValue<ProcessId>::unavailable(MetricStatus::unsupported);
         destination.system.memory_total = temporary<ByteCount>();
         destination.system.memory_available = temporary<ByteCount>();
+        destination.system.memory_activity.compressed_memory = temporary<ByteCount>();
+        destination.system.memory_activity.page_out_bytes = temporary<ByteCount>();
+        destination.system.memory_activity.swap_in_bytes = temporary<ByteCount>();
+        destination.system.memory_activity.swap_out_bytes = temporary<ByteCount>();
+        destination.system.memory_activity.compressed_bytes = temporary<ByteCount>();
+        destination.system.memory_activity.decompressed_bytes = temporary<ByteCount>();
         ++attempted;
         if (native_state_ == nullptr || !native_state_->read_memory(destination)) ++failed;
         ++attempted;
@@ -480,6 +529,7 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.disk_throughput = true;
     result.disk_latency = true;
     result.disk_service_time = true;
+    result.disk_service_concurrency = true;
     result.network_usage = true;
     result.network_connectivity = true;
     result.network_transport_quality = true;
@@ -490,6 +540,9 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.system_uptime = true;
     result.thermal_pressure_state = true;
     result.memory_pressure_state = true;
+    result.memory_activity = true;
+    result.scheduler_responsiveness = true;
+    result.cpu_topology = true;
     return result;
 }
 

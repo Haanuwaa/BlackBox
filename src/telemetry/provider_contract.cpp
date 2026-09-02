@@ -40,8 +40,11 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
                                  snapshot.system.disk_quality.service_time) ||
         !unsupported_when_absent(capabilities.disk_queue_depth,
                                  snapshot.system.disk_quality.queue_depth) ||
+        !unsupported_when_absent(capabilities.disk_service_concurrency,
+                                 snapshot.system.disk_quality.service_concurrency) ||
         !unsupported_when_absent(capabilities.disk_latency || capabilities.disk_service_time ||
-                                     capabilities.disk_queue_depth,
+                                     capabilities.disk_queue_depth ||
+                                     capabilities.disk_service_concurrency,
                                  snapshot.system.disk_quality.worst_device_id) ||
         !unsupported_when_absent(capabilities.network_usage,
                                  snapshot.system.network_receive_bytes) ||
@@ -98,7 +101,27 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
         !unsupported_when_absent(capabilities.thermal_pressure_state,
                                  snapshot.system.thermal_pressure_state) ||
         !unsupported_when_absent(capabilities.memory_pressure_state,
-                                 snapshot.system.memory_pressure_state)) {
+                                 snapshot.system.memory_pressure_state) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.compressed_memory) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.page_out_bytes) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.swap_in_bytes) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.swap_out_bytes) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.compressed_bytes) ||
+        !unsupported_when_absent(capabilities.memory_activity,
+                                 snapshot.system.memory_activity.decompressed_bytes) ||
+        !unsupported_when_absent(capabilities.scheduler_responsiveness,
+                                 snapshot.system.scheduler_delay) ||
+        !unsupported_when_absent(capabilities.cpu_usage,
+                                 snapshot.system.logical_processor_count) ||
+        !unsupported_when_absent(capabilities.cpu_topology,
+                                 snapshot.system.physical_processor_count) ||
+        !unsupported_when_absent(capabilities.cpu_topology,
+                                 snapshot.system.active_processor_count)) {
         return ProviderContractViolation::capability_status_mismatch;
     }
     if (snapshot.system.cpu_time.has_value() &&
@@ -121,7 +144,10 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
         !valid_nonnegative(snapshot.system.disk_quality.service_time) ||
         (snapshot.system.disk_quality.queue_depth.has_value() &&
          (!std::isfinite(snapshot.system.disk_quality.queue_depth.value) ||
-          snapshot.system.disk_quality.queue_depth.value < 0.0))) {
+          snapshot.system.disk_quality.queue_depth.value < 0.0)) ||
+        (snapshot.system.disk_quality.service_concurrency.has_value() &&
+         (!std::isfinite(snapshot.system.disk_quality.service_concurrency.value) ||
+          snapshot.system.disk_quality.service_concurrency.value < 0.0))) {
         return ProviderContractViolation::invalid_disk_quality;
     }
     if (snapshot.system.network_quality.connectivity.has_value() &&
@@ -163,6 +189,28 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
     if (snapshot.system.memory_pressure_state.has_value() &&
         snapshot.system.memory_pressure_state.value > MemoryPressureState::unknown) {
         return ProviderContractViolation::invalid_pressure_evidence;
+    }
+    if ((snapshot.system.memory_activity.compressed_memory.has_value() &&
+         snapshot.system.memory_total.has_value() &&
+         snapshot.system.memory_activity.compressed_memory.value >
+             snapshot.system.memory_total.value) ||
+        (snapshot.system.scheduler_delay.has_value() &&
+         (!std::isfinite(snapshot.system.scheduler_delay.value.value) ||
+          snapshot.system.scheduler_delay.value.value < 0.0)) ||
+        (snapshot.system.logical_processor_count.has_value() &&
+         snapshot.system.logical_processor_count.value == 0U) ||
+        (snapshot.system.physical_processor_count.has_value() &&
+         snapshot.system.physical_processor_count.value == 0U) ||
+        (snapshot.system.active_processor_count.has_value() &&
+         (snapshot.system.active_processor_count.value == 0U ||
+          (snapshot.system.logical_processor_count.has_value() &&
+           snapshot.system.active_processor_count.value >
+               snapshot.system.logical_processor_count.value))) ||
+        (snapshot.system.physical_processor_count.has_value() &&
+         snapshot.system.logical_processor_count.has_value() &&
+         snapshot.system.physical_processor_count.value >
+             snapshot.system.logical_processor_count.value)) {
+        return ProviderContractViolation::invalid_responsiveness_evidence;
     }
     if (snapshot.system.foreground_process.has_value() &&
         (snapshot.system.foreground_process.value.pid.value == 0U ||

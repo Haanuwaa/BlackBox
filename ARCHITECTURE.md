@@ -1234,3 +1234,31 @@ validated direct-V1 settings to the exact child process, disables automatic capt
 limits resource sampling to the requested interval, and records later shutdown time separately. This
 changes no persisted product format and prevents a user's live configuration from becoming an
 uncontrolled performance-test input.
+
+## V0.27 macOS resource-context and app-performance note
+
+The macOS telemetry provider remains the sole owner of live native host evidence. Full-version Mach
+VM statistics contribute cumulative pageout, swap, compression, and decompression byte counters plus
+a compressed-memory gauge; the shared normalizer alone derives rates from measured monotonic
+intervals. The existing disk-quality tracker derives average I/O service concurrency from cumulative
+service duration. That channel is typed and described separately from exact queue depth, which
+remains unsupported on macOS. VM activity is likewise never converted into Linux PSI semantics.
+
+An application-independent Dispatch utility timer publishes only BlackBox observer wake delay beyond
+declared leeway. It begins unavailable, re-warms after suspend-sized gaps, owns no collector state,
+and does not change sampling cadence. CPU physical/logical/active topology, Low Power Mode, thermal
+pressure, and memory-pressure transitions are context channels; current CPU frequency remains
+unsupported rather than inferred from deprecated nominal hardware properties.
+
+BlackBox renderer diagnostics remain application-owned and downstream of recording. A fixed-size,
+allocation-free tracker receives only the duration of BlackBox frame construction and presentation,
+then publishes aggregate counts and bounded rolling percentiles to copied UI state. The macOS
+platform adapter separately subscribes to MetricKit and retains only delayed app-scoped aggregate
+CPU/GPU duration and hang count/duration. Diagnostic call stacks and payload objects are discarded.
+Neither path enters `TelemetryProvider -> Normalizer -> Recorder`, observes another process, claims
+whole-system GPU utilization, or introduces an upload path.
+
+Periodic native evidence follows the existing provider -> normalizer -> recorder -> immutable
+incident path. Persistence changes the single pre-release direct-V1 layout in place and adds no
+migration, compatibility reader, or alternate schema. UI and truth/dataset exports consume only
+recorded values with explicit availability and scope.

@@ -52,6 +52,7 @@ TEST_CASE("Linux provider samples native system and process evidence through the
   CHECK(provider.capabilities().disk_latency);
   CHECK(provider.capabilities().disk_queue_depth);
   CHECK(provider.capabilities().disk_service_time);
+  CHECK(provider.capabilities().disk_service_concurrency);
   CHECK(provider.capabilities().cpu_frequency);
   CHECK(provider.capabilities().gpu_inventory);
   const auto inventory = provider.gpu_inventory();

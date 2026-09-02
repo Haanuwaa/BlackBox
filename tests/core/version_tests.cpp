@@ -2,6 +2,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("the compiled version matches the V0.26 engineering line", "[core][version]") {
-    CHECK(blackbox::core::version == "0.26.0");
+TEST_CASE("the compiled version matches the V0.27 engineering line", "[core][version]") {
+    CHECK(blackbox::core::version == "0.27.0");
 }

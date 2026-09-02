@@ -47,6 +47,7 @@ public:
         bool have_candidate{};
         double candidate_latency{};
         double candidate_queue{};
+        double candidate_concurrency{};
 
         for (std::size_t index = 0U; index < observations.size(); ++index) {
             const auto& current = observations[index];
@@ -90,8 +91,10 @@ public:
             candidate.write_latency = mean_seconds(write_time, write_operations);
             candidate.service_time =
                 mean_seconds_sum(read_time, write_time, total_operations);
+            const auto elapsed = observed_at - entry->observed_at;
+            candidate.service_concurrency =
+                average_service_concurrency(read_time, write_time, elapsed);
             if (current.weighted_time_nanoseconds) {
-                const auto elapsed = observed_at - entry->observed_at;
                 const auto weighted = *current.weighted_time_nanoseconds -
                                       *entry->counters.weighted_time_nanoseconds;
                 const auto elapsed_nanoseconds =
@@ -110,12 +113,18 @@ public:
             const auto queue = candidate.queue_depth.has_value()
                                    ? candidate.queue_depth.value
                                    : 0.0;
+            const auto concurrency = candidate.service_concurrency.has_value()
+                                         ? candidate.service_concurrency.value
+                                         : 0.0;
             if (!have_candidate || latency > candidate_latency ||
-                (latency == candidate_latency && queue > candidate_queue)) {
+                (latency == candidate_latency &&
+                 (queue > candidate_queue ||
+                  (queue == candidate_queue && concurrency > candidate_concurrency)))) {
                 result = candidate;
                 have_candidate = true;
                 candidate_latency = latency;
                 candidate_queue = queue;
+                candidate_concurrency = concurrency;
             }
             warm(*entry, observed_at, current);
         }
@@ -149,6 +158,7 @@ private:
         result.queue_depth = has_queue_counter
                                  ? temporary<double>()
                                  : MetricValue<double>::unavailable(MetricStatus::unsupported);
+        result.service_concurrency = temporary<double>();
         result.worst_device_id = temporary<std::uint64_t>();
         return result;
     }
@@ -201,6 +211,26 @@ private:
             return temporary<Seconds>();
         }
         return mean_seconds(read_nanoseconds + write_nanoseconds, operations);
+    }
+
+    [[nodiscard]] static MetricValue<double> average_service_concurrency(
+        const std::uint64_t read_nanoseconds,
+        const std::uint64_t write_nanoseconds,
+        const std::chrono::steady_clock::duration elapsed) noexcept {
+        if (read_nanoseconds > std::numeric_limits<std::uint64_t>::max() -
+                                   write_nanoseconds) {
+            return temporary<double>();
+        }
+        const auto elapsed_nanoseconds =
+            std::chrono::duration<double, std::nano>{elapsed}.count();
+        if (!(elapsed_nanoseconds > 0.0) || !std::isfinite(elapsed_nanoseconds)) {
+            return temporary<double>();
+        }
+        const auto value = static_cast<double>(read_nanoseconds + write_nanoseconds) /
+                           elapsed_nanoseconds;
+        return std::isfinite(value) && value >= 0.0
+                   ? MetricValue<double>::available(value)
+                   : temporary<double>();
     }
 
     [[nodiscard]] static double maximum_latency(const RawDiskQuality& value) noexcept {

@@ -24,6 +24,7 @@ add_executable(blackbox_tests
     app/dashboard_projection_tests.cpp
     app/visible_frame_scheduler_tests.cpp
     app/recorder_settings_tests.cpp
+    app/renderer_health_tests.cpp
     app/support_bundle_tests.cpp
     app/wall_clock_report_tests.cpp
     property/strict_v1_input_property_tests.cpp
@@ -266,6 +267,7 @@ if(APPLE)
             BlackBox::PlatformMacos)
         blackbox_set_project_warnings(blackbox_posix_crash_probe)
         target_sources(blackbox_tests PRIVATE
+            platform/macos_app_performance_monitor_tests.cpp
             platform/macos_background_shell_tests.cpp
             platform/macos_global_hotkey_manager_tests.cpp
             platform/posix_crash_diagnostics_tests.cpp)

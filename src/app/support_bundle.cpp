@@ -152,6 +152,19 @@ void append_integer(std::ostringstream& output, const std::string_view name, con
     append_integer(output, "storage_write_failures", value.storage_write_failures);
     append_boolean(output, "recoverable_incident_available", value.recoverable_incident_available);
     append_integer(output, "previous_crash_evidence", value.previous_crash_evidence);
+    append_integer(output, "renderer_frames", value.renderer_frames);
+    append_integer(output, "renderer_hitches", value.renderer_hitches);
+    append_integer(output, "renderer_present_failures", value.renderer_present_failures);
+    append_integer(output, "renderer_frame_p95_milliseconds",
+                   value.renderer_frame_p95_milliseconds);
+    append_integer(output, "renderer_frame_maximum_milliseconds",
+                   value.renderer_frame_maximum_milliseconds);
+    append_integer(output, "app_metric_payloads", value.app_metric_payloads);
+    append_integer(output, "app_diagnostic_payloads", value.app_diagnostic_payloads);
+    append_integer(output, "app_cumulative_cpu_seconds", value.app_cumulative_cpu_seconds);
+    append_integer(output, "app_cumulative_gpu_seconds", value.app_cumulative_gpu_seconds);
+    append_integer(output, "app_hang_diagnostics", value.app_hang_diagnostics);
+    append_integer(output, "app_hang_duration_seconds", value.app_hang_duration_seconds);
     return output.str();
 }
 

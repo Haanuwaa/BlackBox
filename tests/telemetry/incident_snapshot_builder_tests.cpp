@@ -23,6 +23,15 @@ namespace {
     sample.memory_pressure_state =
         telemetry::MetricValue<telemetry::MemoryPressureState>::available(
             telemetry::MemoryPressureState::warning);
+    sample.disk_service_concurrency = telemetry::MetricValue<double>::available(1.5);
+    sample.compressed_memory =
+        telemetry::MetricValue<telemetry::ByteCount>::available({256U});
+    sample.memory_page_out_rate =
+        telemetry::MetricValue<telemetry::BytesPerSecond>::available({1'024.0});
+    sample.scheduler_delay = telemetry::MetricValue<telemetry::Seconds>::available({0.012});
+    sample.logical_processor_count = telemetry::MetricValue<std::uint32_t>::available(8U);
+    sample.physical_processor_count = telemetry::MetricValue<std::uint32_t>::available(4U);
+    sample.active_processor_count = telemetry::MetricValue<std::uint32_t>::available(6U);
     sample.foreground_application =
         telemetry::MetricValue<telemetry::OpaqueApplicationIdentity>::available({11U, 22U});
     return sample;
@@ -78,6 +87,11 @@ TEST_CASE("incident snapshot clips history and retains only referenced metadata"
     CHECK(incident->system_samples().front().cpu_some_pressure_fraction.value == 0.25);
     CHECK(incident->system_samples().front().thermal_pressure_state.value == 2U);
     CHECK(incident->system_samples().front().memory_pressure_state.value == 1U);
+    CHECK(incident->system_samples().front().disk_service_concurrency.value == 1.5);
+    CHECK(incident->system_samples().front().compressed_memory_bytes.value == 256U);
+    CHECK(incident->system_samples().front().memory_page_out_bytes_per_second.value == 1'024.0);
+    CHECK(incident->system_samples().front().scheduler_delay_seconds.value == 0.012);
+    CHECK(incident->system_samples().front().physical_processor_count.value == 4U);
     CHECK(incident->system_samples().front().foreground_application.value.session_token == 11U);
     CHECK(incident->system_samples().front().foreground_application.value.application_token ==
           22U);

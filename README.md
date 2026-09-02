@@ -6,7 +6,7 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.26.0** is the pre-1.0 platform-evidence engineering line. The product has one bounded
+Version **0.27.0** is the pre-1.0 macOS evidence and app-performance engineering line. The product has one bounded
 native recorder, direct-V1 archive, optional local statistical analysis, and an evidence-first
 desktop workflow across its Windows product target and Linux/macOS engineering previews. The default
 UI now leads with recorder readiness, capture, current activity, saved incidents, and plain-language

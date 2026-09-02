@@ -33,6 +33,18 @@ void value_row(const char* label, const MetricDisplayStatus status, const double
     }
 }
 
+void measurement_row(const char* label, const MetricDisplayStatus status, const char* format,
+                     const double value) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted(label);
+    ImGui::TableSetColumnIndex(1);
+    if (status == MetricDisplayStatus::available)
+        ImGui::Text(format, value);
+    else
+        ImGui::TextDisabled("%s", status_text(status));
+}
+
 [[nodiscard]] constexpr const char* thermal_text(const std::uint8_t state) noexcept {
     switch (state) {
     case 0U:
@@ -90,6 +102,32 @@ void render_pressure_rows(const DashboardState& state) {
         ImGui::TextUnformatted(memory_pressure_text(state.memory_pressure_state));
     } else {
         ImGui::TextDisabled("%s", status_text(state.memory_pressure_status));
+    }
+
+    measurement_row("Compressed memory", state.memory_activity_status, "%.1f MiB",
+                    static_cast<double>(state.compressed_memory_bytes) / (1024.0 * 1024.0));
+    measurement_row("VM pageout rate", state.memory_activity_status, "%.2f MiB/s",
+                    state.memory_page_out_mib_per_second);
+    measurement_row("VM swap-in rate", state.memory_activity_status, "%.2f MiB/s",
+                    state.memory_swap_in_mib_per_second);
+    measurement_row("VM swap-out rate", state.memory_activity_status, "%.2f MiB/s",
+                    state.memory_swap_out_mib_per_second);
+    measurement_row("VM compression rate", state.memory_activity_status, "%.2f MiB/s",
+                    state.memory_compression_mib_per_second);
+    measurement_row("VM decompression rate", state.memory_activity_status, "%.2f MiB/s",
+                    state.memory_decompression_mib_per_second);
+    measurement_row("BlackBox scheduler wake delay", state.scheduler_delay_status, "%.2f ms",
+                    state.scheduler_delay_milliseconds);
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("CPU topology");
+    ImGui::TableSetColumnIndex(1);
+    if (state.cpu_topology_status == MetricDisplayStatus::available) {
+        ImGui::Text("%u physical | %u logical | %u active", state.physical_processor_count,
+                    state.logical_processor_count, state.active_processor_count);
+    } else {
+        ImGui::TextDisabled("%s", status_text(state.cpu_topology_status));
     }
 }
 
