@@ -257,6 +257,7 @@ struct DashboardState {
     MetricDisplayStatus io_some_pressure_status{MetricDisplayStatus::unsupported};
     MetricDisplayStatus io_full_pressure_status{MetricDisplayStatus::unsupported};
     MetricDisplayStatus thermal_pressure_status{MetricDisplayStatus::unsupported};
+    MetricDisplayStatus memory_pressure_status{MetricDisplayStatus::unsupported};
     double cpu_usage{};
     std::uint64_t memory_used_bytes{};
     std::uint64_t memory_total_bytes{};
@@ -286,6 +287,8 @@ struct DashboardState {
     bool gpu_render_device_available{};
     bool renderer_active{};
     std::uint32_t foreground_pid{};
+    bool foreground_application_opaque{};
+    std::uint64_t foreground_application_token{};
     double foreground_gpu_usage{};
     double dpc_usage{};
     double interrupt_usage{};
@@ -303,6 +306,7 @@ struct DashboardState {
     double io_some_pressure{};
     double io_full_pressure{};
     std::uint8_t thermal_pressure_state{4U};
+    std::uint8_t memory_pressure_state{3U};
     bool event_collector_running{};
     std::uint64_t system_events_recorded{};
     std::uint64_t system_events_dropped{};

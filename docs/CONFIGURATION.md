@@ -57,7 +57,7 @@ foreground sampling request and restarts only the independent event provider whe
 
 | Control | Evidence enabled |
 |---|---|
-| Record foreground application | Durable foreground `(PID, creation token)` and matching GPU engine usage; never title/content |
+| Record foreground application | Durable foreground `(PID, creation token)` and matching GPU engine usage where process identity exists; an opaque session application key without PID/GPU correlation on advertising wlroots compositors; never title/content/raw `app_id` |
 | Record process start and exit identity | Durable `(PID, creation token)` lifecycle context from the existing process enumeration; initial inventory and recovery-gap observations are suppressed |
 | Record power and device events | Suspend/resume and device enumerate/start/remove notifications |
 | Record audio device events | Endpoint add/remove/state/default transitions without endpoint ID |
@@ -66,7 +66,8 @@ foreground sampling request and restarts only the independent event provider whe
 GPU aggregate/memory, DPC/ISR, CPU frequency/thermal limit, battery/power status, and uptime remain
 ordinary capability-gated system gauges. Process lifecycle is context only: it cannot request
 automatic capture or prove causation. The local archive retains durable identity, while dataset and
-truth-review exports use incident-local ordinals and never export PID or creation token. The event
+truth-review exports omit foreground identities and never export PID, creation token, or opaque
+application token. The event
 ring defaults to 4,096 records and is hard-capped
 at 65,536; there is no unbounded event configuration. Previously saved incidents are immutable and
 require explicit retention/purge to remove.

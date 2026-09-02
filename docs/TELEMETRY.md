@@ -38,10 +38,10 @@ an adjacent native counter is never relabelled to fill a portable gap.
 | Process I/O read | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.ReadTransferCount` selected | Limited-query access may fail | Per-identity cumulative byte delta / measured seconds | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes read | Windows/Linux/macOS implemented |
 | Process I/O write | `MetricValue<BytesPerSecond>` | bytes/s | Normal / 1 Hz | `GetProcessIoCounters.WriteTransferCount` selected | Limited-query access may fail | Same as process read | Medium across all accessible processes | `/proc/<pid>/io` | `proc_pid_rusage` disk bytes written | Windows/Linux/macOS implemented |
 | GPU engine/memory | `MetricValue<Ratio>` plus two `MetricValue<ByteCount>` gauges | fraction `[0,1]`, bytes | Normal / 1 Hz | Persistent PDH `GPU Engine(*)` and `GPU Adapter Memory(*)` queries | None observed | Busiest physical device/engine; dedicated bytes checked-summed; unsupported siblings remain explicit | Bounded native arrays and optional dynamic vendor API | AMD `gpu_busy_percent`/VRAM sysfs; runtime-loaded NVIDIA NVML | Passive whole-system gauge unavailable | Windows and capability-driven Linux implemented; macOS explicitly unsupported |
-| Foreground application/GPU correlation | `MetricValue<ProcessIdentity>` plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Normal / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | Current `(PID, creation token)` plus maximum matching engine usage; correlation only | Optional; no title, name, bus address, or content retained | X11 identity plus readable DRM `fdinfo` cumulative engine deltas | Workspace identity; GPU value unavailable | Windows and capability-driven Linux DRM implemented; privacy gated |
+| Foreground application/GPU correlation | typed process identity or session-scoped opaque application key plus `MetricValue<Ratio>` | opaque identity, fraction `[0,1]` | Normal / 1 Hz when explicitly enabled | `GetForegroundWindow`, `GetWindowThreadProcessId`, `GetProcessTimes`, and GPU-engine PDH rows | Limited-query access may fail | A durable process identity where supported; a non-correlatable application key otherwise; correlation only for process identity | Optional; no title, name, bus address, or content retained | X11 process identity plus readable DRM `fdinfo`; wlroots active state plus immediately hashed `app_id` without PID correlation | Workspace process identity; GPU value unavailable | Windows/macOS process identity, X11 process identity/DRM, and compositor-specific wlroots application key implemented; privacy gated |
 | DPC/ISR responsiveness | two `MetricValue<Ratio>` plus `MetricValue<double>` | fractions `[0,1]`, DPC/s | Fast / 1 Hz | Persistent PDH `Processor Information(_Total)` DPC/interrupt counters | None observed | Percentages divided by 100 and clamped; nonnegative rate gauge | Optional bounded PDH query | `/proc/interrupts`/trace candidates | Instruments candidate | Windows implemented V0.14; context only |
 | CPU frequency/thermal limit | four `MetricValue<double/Ratio>` gauges | MHz, fraction `[0,1]` | Normal / 1 Hz | `CallNtPowerInformation(ProcessorInformation)` | None observed | Mean current/max/limit MHz across active processors; limit/max ratio | Low bounded array | weighted CPUFreq policies | unavailable | Windows/Linux frequency implemented; Windows thermal-limit fraction implemented |
-| Pressure / thermal state | five independent `MetricValue<Ratio>` interval gauges plus a coarse thermal enum | fraction `[0,1]`, enum | Fast PSI / Normal thermal | cumulative-stall semantics unavailable; existing DPC/ISR stays separate | Source dependent | exact cumulative stalled-time delta / measured elapsed time; thermal is a separate state | Bounded reads | `/proc/pressure/{cpu,memory,io}` totals | public `NSProcessInfo.thermalState` | Linux PSI and macOS coarse thermal state implemented; no fabricated equivalence |
+| Pressure / thermal state | five independent `MetricValue<Ratio>` interval gauges plus separate coarse thermal and memory-pressure enums | fraction `[0,1]`, enum | Fast PSI / Normal coarse states | cumulative-stall semantics unavailable; existing DPC/ISR stays separate | Source dependent | exact cumulative stalled-time delta / measured elapsed time; coarse states remain separate | Bounded reads or native transition callback | `/proc/pressure/{cpu,memory,io}` totals | public `NSProcessInfo.thermalState` plus Dispatch memory-pressure transitions | Linux PSI and both macOS coarse states implemented; no fabricated equivalence |
 | Power/battery/uptime | typed source, battery/saver, uptime gauges | enum, fraction, boolean, seconds | Normal / 1 Hz | `GetSystemPowerStatus`, `GetTickCount64` | None | Direct gauges; unsupported fields remain explicit | Very low | `/sys/class/power_supply`, `/proc/uptime`, optional platform profile | IOKit power sources, continuous clock, Low Power Mode | Windows/Linux/macOS implemented; optional saver state remains capability-gated |
 | Per-process network | optional rate | bytes/s | Unspecified | No low-cost stable choice selected | Varies | Identity-aware flow accounting | Unknown/high | eBPF/netlink candidates | Network Extension candidates | Unsupported / research |
 
@@ -169,9 +169,10 @@ and connection/drop failures. Apple exposes no exact equivalent of the shared es
 field, which therefore remains explicitly unsupported. Sleep-inclusive monotonic uptime comes from
 the native continuous clock. The normal tier reads IOKit's current power-source snapshot and exposes
 battery fraction when the host reports a valid capacity. `NSProcessInfo` supplies Low Power Mode and
-the separate coarse nominal/fair/serious/critical thermal-pressure state. Thermal state is not
-converted into CPU frequency, utilization, or Linux PSI semantics; older or unavailable sources
-remain explicit.
+the separate coarse nominal/fair/serious/critical thermal-pressure state. A Dispatch memory-pressure
+source publishes only normal/warning/critical transitions and remains temporarily unavailable until
+its first event. Neither coarse state is converted into CPU frequency, utilization, or Linux PSI
+semantics; older or unavailable sources remain explicit.
 The independent macOS event provider consumes IOKit `IOMedia` first-match and termination
 notifications. It drains the initial inventory without emitting events and publishes only broad
 storage-media added/removed context; BSD names, registry paths, UUIDs, serials, properties, and
@@ -188,7 +189,8 @@ the same bounded sample before the PID-plus-creation-token identity crosses the 
 Names, titles, bundle identifiers, and native application objects do not cross. Public Metal device
 inventory and BlackBox renderer health remain distinct from passive whole-system utilization. GPU
 utilization, Windows-style DPC/ISR responsiveness, CPU frequency, and exact cumulative-stall pressure
-are explicitly unsupported; coarse thermal state is available under its own semantic.
+are explicitly unsupported; coarse thermal and memory-pressure states are available under separate
+semantics.
 
 `blackbox_telemetry_macos` is built only on Apple hosts and links only core, portable telemetry,
 libproc, and IOKit. Hosted Apple Silicon and Intel jobs build/test the complete desktop
@@ -217,8 +219,13 @@ battery-saver state. Unknown vendor values fail closed rather than being guessed
 On X11, the optional native reader accepts only EWMH `_NET_ACTIVE_WINDOW` plus `_NET_WM_PID`, verifies
 `WM_CLIENT_MACHINE` against the local host to reject remote-X PID collisions, and correlates the PID
 to the current process sample's creation identity. It never reads a window title or process name.
-Wayland sessions return explicit `unsupported`: the public XDG Desktop Portal API has no standardized
-active-window identity interface.
+Generic Wayland process identity remains `unsupported`: the public XDG Desktop Portal API has no
+standardized active-window identity interface. When a compositor advertises the wlroots unstable
+foreign-toplevel-management protocol, a separate worker can publish an opaque, session-scoped
+application key. It ignores titles, immediately hashes a bounded `app_id` with an in-memory random
+key, never exports the raw value, and never guesses a PID or correlates GPU/process evidence. Protocol
+absence, ambiguity, loss, reconnect warm-up, and capacity exhaustion remain explicit. GNOME and KDE's
+private protocol are not treated as supported sources.
 
 Linux GPU collection is capability-driven rather than falsely universal. A bounded inventory scans
 DRM card/render nodes without exporting names, serials, PCI locations, or client identifiers. AMD's
@@ -233,7 +240,8 @@ opted-in foreground PID. It retains fixed-capacity one-way identities and cumula
 warms new/replaced clients, rejects resets, removes departed clients, groups activity by engine, and
 emits only the maximum bounded fraction. It never scans window titles or exports PID, client id,
 engine label, or PCI location from this component, and it never presents readable-client coverage as
-whole-system utilization. Wayland foreground identity remains unavailable.
+whole-system utilization. Compositor-specific opaque Wayland application evidence cannot unlock this
+process/GPU correlation.
 
 macOS exposes only public, non-identifying Metal inventory counts and default render-device
 availability. The UI separately reports the successfully initialized SDL renderer backend. Public
@@ -256,7 +264,9 @@ macOS normalizes CoreAudio device/default changes, CoreGraphics display reconfig
 SystemConfiguration IPv4/IPv6 global changes, IOKit media/power changes, and `NSWorkspace` application
 launch/termination notifications. Display IDs and notification user-info are ignored. A termination
 notification is lifecycle context and is never relabeled as a crash. No public general launchd event
-stream has been accepted, so service events remain unsupported there.
+stream has been accepted, so service events remain unsupported there. `SMAppService` status is used
+only by the background shell to explain BlackBox's own login-item state; it is not recorded as a
+system event.
 
 GPU inventory now includes integrated, discrete, and unknown type counts whose sum must equal the
 total. Windows DXGI filters software adapters and reports every remaining adapter as unknown type;

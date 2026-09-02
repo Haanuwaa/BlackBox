@@ -355,6 +355,8 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                       event, [](const double value) { return value * 100.0; });
         append_metric(result.thermal_pressure_state, sample, sample.thermal_pressure_state, event,
                       [](const std::uint8_t value) { return static_cast<double>(value); });
+        append_metric(result.memory_pressure_state, sample, sample.memory_pressure_state, event,
+                      [](const std::uint8_t value) { return static_cast<double>(value); });
     }
 
     std::unordered_map<core::IncidentProcessIdentity, std::size_t, IdentityHash> row_by_id;
@@ -407,25 +409,46 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
     }
 
     std::optional<core::IncidentProcessIdentity> previous_foreground;
+    std::optional<core::IncidentApplicationIdentity> previous_application;
     for (const auto& sample : incident.system_samples()) {
-        if (sample.foreground_process.status != core::RecordedValueStatus::available ||
-            (previous_foreground.has_value() &&
-             *previous_foreground == sample.foreground_process.value)) {
-            continue;
+        if (sample.foreground_process.status == core::RecordedValueStatus::available) {
+            if (previous_foreground.has_value() &&
+                *previous_foreground == sample.foreground_process.value) {
+                continue;
+            }
+            previous_foreground = sample.foreground_process.value;
+            previous_application.reset();
+            ForegroundApplicationRow row{};
+            row.seconds_from_event = seconds_from(sample.observed_at, event);
+            row.identity = sample.foreground_process.value;
+            row.has_process_identity = true;
+            const auto found = row_by_id.find(row.identity);
+            row.name = found != row_by_id.end()
+                           ? result.processes[found->second].name
+                           : std::string{"PID "} + std::to_string(row.identity.pid);
+            if (sample.foreground_gpu_fraction.status == core::RecordedValueStatus::available) {
+                row.gpu_available = true;
+                row.gpu_percent = sample.foreground_gpu_fraction.value * 100.0;
+            }
+            result.foreground_applications.push_back(std::move(row));
+        } else if (sample.foreground_application.status ==
+                   core::RecordedValueStatus::available) {
+            if (previous_application.has_value() &&
+                *previous_application == sample.foreground_application.value) {
+                continue;
+            }
+            previous_application = sample.foreground_application.value;
+            previous_foreground.reset();
+            ForegroundApplicationRow row{};
+            row.seconds_from_event = seconds_from(sample.observed_at, event);
+            row.application_identity = sample.foreground_application.value;
+            const auto suffix = row.application_identity.application_token & 0xFFFFFFU;
+            char opaque_label[32]{};
+            std::snprintf(opaque_label, sizeof(opaque_label), "Private application %06llX",
+                          static_cast<unsigned long long>(suffix));
+            row.name = opaque_label;
+            result.foreground_applications.push_back(std::move(row));
         }
-        previous_foreground = sample.foreground_process.value;
-        ForegroundApplicationRow row{};
-        row.seconds_from_event = seconds_from(sample.observed_at, event);
-        row.identity = sample.foreground_process.value;
-        const auto found = row_by_id.find(row.identity);
-        row.name = found != row_by_id.end()
-                       ? result.processes[found->second].name
-                       : std::string{"PID "} + std::to_string(row.identity.pid);
-        if (sample.foreground_gpu_fraction.status == core::RecordedValueStatus::available) {
-            row.gpu_available = true;
-            row.gpu_percent = sample.foreground_gpu_fraction.value * 100.0;
-        }
-        result.foreground_applications.push_back(std::move(row));
     }
     result.system_events.reserve(incident.system_events().size());
     for (const auto& recorded_event : incident.system_events()) {
@@ -477,6 +500,7 @@ build_incident_detail(const std::int64_t id, const std::int64_t created_utc_mill
                          &result.io_some_pressure_percent,
                          &result.io_full_pressure_percent,
                          &result.thermal_pressure_state,
+                         &result.memory_pressure_state,
                          &result.selected_process_cpu_percent,
                          &result.selected_process_working_set_mib,
                          &result.selected_process_disk_read_mib_per_second,

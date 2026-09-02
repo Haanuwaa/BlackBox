@@ -500,7 +500,10 @@ void Application::refresh_dashboard_if_due() {
             display_status(latest.network_tcp_retransmit_fraction.status);
         dashboard_state_.gpu_status = display_status(latest.gpu_usage.status);
         dashboard_state_.gpu_memory_status = display_status(latest.gpu_dedicated_memory.status);
-        dashboard_state_.foreground_status = display_status(latest.foreground_process.status);
+        dashboard_state_.foreground_status =
+            display_status(latest.foreground_process.status != telemetry::MetricStatus::unsupported
+                               ? latest.foreground_process.status
+                               : latest.foreground_application.status);
         dashboard_state_.dpc_status = display_status(latest.dpc_usage.status);
         dashboard_state_.cpu_frequency_status = display_status(latest.cpu_current_mhz.status);
         dashboard_state_.cpu_thermal_limit_status =
@@ -515,6 +518,8 @@ void Application::refresh_dashboard_if_due() {
         dashboard_state_.io_full_pressure_status = display_status(latest.io_full_pressure.status);
         dashboard_state_.thermal_pressure_status =
             display_status(latest.thermal_pressure_state.status);
+        dashboard_state_.memory_pressure_status =
+            display_status(latest.memory_pressure_state.status);
         if (latest.disk_read_rate.has_value()) {
             dashboard_state_.disk_read_mib_per_second =
                 mebibytes_per_second(latest.disk_read_rate.value);
@@ -583,6 +588,11 @@ void Application::refresh_dashboard_if_due() {
         }
         if (latest.foreground_process.has_value()) {
             dashboard_state_.foreground_pid = latest.foreground_process.value.pid.value;
+            dashboard_state_.foreground_application_opaque = false;
+        } else if (latest.foreground_application.has_value()) {
+            dashboard_state_.foreground_application_opaque = true;
+            dashboard_state_.foreground_application_token =
+                latest.foreground_application.value.application_token;
         }
         if (latest.foreground_gpu_usage.has_value()) {
             dashboard_state_.foreground_gpu_usage = latest.foreground_gpu_usage.value.value;
@@ -636,6 +646,10 @@ void Application::refresh_dashboard_if_due() {
         if (latest.thermal_pressure_state.has_value()) {
             dashboard_state_.thermal_pressure_state =
                 static_cast<std::uint8_t>(latest.thermal_pressure_state.value);
+        }
+        if (latest.memory_pressure_state.has_value()) {
+            dashboard_state_.memory_pressure_state =
+                static_cast<std::uint8_t>(latest.memory_pressure_state.value);
         }
     }
 }

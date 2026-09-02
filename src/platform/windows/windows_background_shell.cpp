@@ -642,8 +642,15 @@ bool WindowsBackgroundShell::launch_at_login_enabled() const noexcept {
 }
 
 BackgroundShellDiagnostics WindowsBackgroundShell::diagnostics() const noexcept {
-    const std::scoped_lock lock{native_->diagnostics_mutex};
-    return native_->diagnostics;
+    BackgroundShellDiagnostics result{};
+    {
+        const std::scoped_lock lock{native_->diagnostics_mutex};
+        result = native_->diagnostics;
+    }
+    result.launch_at_login_state = launch_at_login_enabled()
+                                       ? LaunchAtLoginState::enabled
+                                       : LaunchAtLoginState::disabled;
+    return result;
 }
 
 bool WindowsBackgroundShell::post_command_for_testing(

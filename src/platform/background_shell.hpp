@@ -30,6 +30,14 @@ enum class BackgroundShellStartResult : std::uint8_t {
     unavailable,
 };
 
+enum class LaunchAtLoginState : std::uint8_t {
+    unsupported,
+    disabled,
+    enabled,
+    approval_required,
+    unavailable,
+};
+
 struct BackgroundShellDiagnostics {
     bool running{};
     bool tray_available{};
@@ -38,6 +46,7 @@ struct BackgroundShellDiagnostics {
     bool portal_notifications_active{};
     bool background_status_available{};
     bool notifications_enabled{true};
+    LaunchAtLoginState launch_at_login_state{LaunchAtLoginState::unsupported};
     std::uint64_t commands_dispatched{};
     std::uint64_t notifications_sent{};
     std::uint64_t notifications_dropped{};

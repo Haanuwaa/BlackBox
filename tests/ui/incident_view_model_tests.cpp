@@ -56,6 +56,8 @@ TEST_CASE("incident view model preserves ranges marker-relative time and missing
     CHECK(detail.cpu_current_mhz.values.front() == Catch::Approx{3'200.0});
     CHECK(detail.cpu_thermal_limit_percent.values.front() == Catch::Approx{80.0});
     CHECK(detail.battery_percent.values.front() == Catch::Approx{42.0});
+    REQUIRE(detail.memory_pressure_state.values.size() == 2U);
+    CHECK(detail.memory_pressure_state.values.front() == 1.0);
     REQUIRE(detail.foreground_applications.size() == 1U);
     CHECK(detail.foreground_applications.front().name == "PID 99");
     CHECK(detail.foreground_applications.front().gpu_percent == Catch::Approx{70.0});
@@ -67,6 +69,33 @@ TEST_CASE("incident view model preserves ranges marker-relative time and missing
     CHECK(detail.processes.front().identity == incident->process_samples()[0].identity);
     REQUIRE(detail.selected_process_cpu_percent.values.size() == 1U);
     CHECK(detail.selected_process_cpu_percent.values.front() == 12.5);
+}
+
+TEST_CASE("opaque foreground application remains private and non-correlatable in incident views",
+          "[ui][viewer][view-model][foreground][wayland][privacy]") {
+    const auto fixture = storage::test::representative_incident();
+    auto samples = std::vector<core::IncidentSystemSample>{fixture->system_samples().begin(),
+                                                           fixture->system_samples().end()};
+    for (auto& sample : samples) {
+        sample.foreground_process.status = core::RecordedValueStatus::unsupported;
+    }
+    const core::IncidentSnapshot incident{
+        fixture->header(), std::move(samples),
+        std::vector<core::IncidentProcessInfo>{fixture->process_metadata().begin(),
+                                               fixture->process_metadata().end()},
+        std::vector<core::IncidentProcessSample>{fixture->process_samples().begin(),
+                                                 fixture->process_samples().end()},
+        {}};
+
+    const auto detail = ui::build_incident_detail(46, 0, {}, {}, incident, std::nullopt);
+
+    REQUIRE(detail.foreground_applications.size() == 1U);
+    const auto& foreground = detail.foreground_applications.front();
+    CHECK_FALSE(foreground.has_process_identity);
+    CHECK_FALSE(foreground.gpu_available);
+    CHECK(foreground.application_identity.session_token == 987'654U);
+    CHECK(foreground.application_identity.application_token == 456'789U);
+    CHECK(foreground.name.starts_with("Private application "));
 }
 
 TEST_CASE("display timeout recovery has a privacy-normalized view model",

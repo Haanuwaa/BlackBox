@@ -1,10 +1,10 @@
 # V1.0 qualification plan
 
-The current application version is 0.25.0. V1.0 is reserved for the completed product and is not
+The current application version is 0.26.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.
 Roadmap headings `V0.16` and `V0.17` are engineering stages. The runtime/package version now follows
-the completed audit-closure, pressure-evidence, durability, UI-efficiency, and consumer-workflow engineering stages as `0.25.0`; it changes to `1.0.0` only for the
+the completed audit-closure, pressure-evidence, durability, UI-efficiency, consumer-workflow, and platform-evidence engineering stages as `0.26.0`; it changes to `1.0.0` only for the
 exact final candidate revision that must repeat and compose the complete evidence.
 
 The first public release version is exactly `1.0.0`. No prerelease or release-candidate build may
@@ -64,8 +64,9 @@ restart-aware XDG GlobalShortcuts session. Hosted Weston/Mutter/KWin/Sway compos
 engineering evidence only; physical-desktop, portal-permission, session, accessibility, GPU-hardware,
 power, and installer qualification remain open. Its platform adapter reads standardized contrast and
 reduced-motion settings asynchronously through XDG Settings; physical desktop behavior is unqualified.
-Wayland foreground identity remains unsupported because the public portal surface has no standardized
-active-window identity. Linux and macOS also publish a fixed,
+Generic Wayland foreground process identity remains unsupported because the public portal surface has
+no standardized active-window identity. A capability-gated wlroots reader may publish only an opaque
+session application key, without PID or GPU correlation. Linux and macOS also publish a fixed,
 bounded local POSIX signal record behind the portable crash-diagnostics boundary. macOS has an
 engineering-only native system/process provider and `.app` shell with a single-instance lock, tray,
 ServiceManagement login item, permission-gated local notifications, and AppKit accessibility

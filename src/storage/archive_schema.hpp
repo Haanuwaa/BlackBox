@@ -83,6 +83,9 @@ CREATE TABLE system_extended_samples (
  gpu_shared_status INTEGER NOT NULL CHECK(gpu_shared_status BETWEEN 0 AND 3), gpu_shared_bytes BLOB CHECK(gpu_shared_status<>0 OR (gpu_shared_bytes IS NOT NULL AND length(gpu_shared_bytes)=8)),
  foreground_status INTEGER NOT NULL CHECK(foreground_status BETWEEN 0 AND 3), foreground_pid INTEGER CHECK(foreground_status<>0 OR foreground_pid IS NOT NULL),
  foreground_creation_token BLOB CHECK(foreground_status<>0 OR (foreground_creation_token IS NOT NULL AND length(foreground_creation_token)=8)),
+ foreground_application_status INTEGER NOT NULL CHECK(foreground_application_status BETWEEN 0 AND 3),
+ foreground_application_session_token BLOB CHECK(foreground_application_status<>0 OR (foreground_application_session_token IS NOT NULL AND length(foreground_application_session_token)=8)),
+ foreground_application_token BLOB CHECK(foreground_application_status<>0 OR (foreground_application_token IS NOT NULL AND length(foreground_application_token)=8)),
  foreground_gpu_status INTEGER NOT NULL CHECK(foreground_gpu_status BETWEEN 0 AND 3), foreground_gpu_fraction REAL CHECK(foreground_gpu_status<>0 OR foreground_gpu_fraction IS NOT NULL),
  dpc_status INTEGER NOT NULL CHECK(dpc_status BETWEEN 0 AND 3), dpc_fraction REAL CHECK(dpc_status<>0 OR dpc_fraction IS NOT NULL),
  interrupt_status INTEGER NOT NULL CHECK(interrupt_status BETWEEN 0 AND 3), interrupt_fraction REAL CHECK(interrupt_status<>0 OR interrupt_fraction IS NOT NULL),
@@ -112,6 +115,8 @@ R"sql(CREATE TABLE system_pressure_samples (
  io_full_fraction REAL CHECK(io_full_status<>0 OR io_full_fraction IS NOT NULL),
  thermal_pressure_status INTEGER NOT NULL CHECK(thermal_pressure_status BETWEEN 0 AND 3),
  thermal_pressure_state INTEGER CHECK(thermal_pressure_status<>0 OR thermal_pressure_state BETWEEN 0 AND 4),
+ memory_pressure_status INTEGER NOT NULL CHECK(memory_pressure_status BETWEEN 0 AND 3),
+ memory_pressure_state INTEGER CHECK(memory_pressure_status<>0 OR memory_pressure_state BETWEEN 0 AND 3),
  PRIMARY KEY(incident_id,sample_index),
  FOREIGN KEY(incident_id,sample_index) REFERENCES system_samples(incident_id,sample_index) ON DELETE CASCADE);
 CREATE TABLE system_events (

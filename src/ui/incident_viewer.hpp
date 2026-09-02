@@ -275,6 +275,8 @@ struct IncidentProcessRow {
 struct ForegroundApplicationRow {
     double seconds_from_event{};
     core::IncidentProcessIdentity identity{};
+    core::IncidentApplicationIdentity application_identity{};
+    bool has_process_identity{};
     std::string name{};
     bool gpu_available{};
     double gpu_percent{};
@@ -344,6 +346,7 @@ struct IncidentDetailView {
     IncidentPlotSeries io_some_pressure_percent{};
     IncidentPlotSeries io_full_pressure_percent{};
     IncidentPlotSeries thermal_pressure_state{};
+    IncidentPlotSeries memory_pressure_state{};
     std::vector<ForegroundApplicationRow> foreground_applications{};
     std::vector<SystemEventRow> system_events{};
     std::vector<IncidentProcessRow> processes{};

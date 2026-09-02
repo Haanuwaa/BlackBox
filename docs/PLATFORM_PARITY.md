@@ -17,13 +17,13 @@ qualified.
 | System disk/network throughput | Native | Native `/proc` and `/sys` | Native BSD interfaces and IOKit block-driver statistics |
 | Disk latency/queue/service evidence | Native | Native read/write/combined service and interval-average queue | Native read/write/combined service; exact queue unsupported |
 | Network connectivity/transport quality | Native | Local-link transitions plus `/proc/net/snmp` TCP MIB | Local-link transitions plus native TCP send/retransmission/failure subset; exact established resets open |
-| Foreground-application evidence | Native, capability-gated | Privacy-bounded X11 EWMH PID correlated to process creation identity; Wayland explicitly unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
+| Foreground-application evidence | Native, capability-gated process identity | Privacy-bounded X11 process identity; on wlroots only, an opaque session application key with no PID/GPU correlation; generic Wayland, GNOME, and KDE unsupported | Privacy-bounded `NSWorkspace` PID correlated to process creation identity |
 | GPU and responsiveness evidence | Native counters plus non-software DXGI inventory with adapter type explicitly unknown | Capability-driven AMD sysfs and optional runtime-loaded NVIDIA NVML whole-system usage/memory; privacy-bounded DRM `fdinfo` foreground activity; inventory type explicitly unknown | Public non-identifying Metal device inventory plus active SDL renderer evidence; passive whole-system and foreground utilization explicitly unsupported |
 | Power source, battery, frequency, thermal, uptime | Native, capability-gated | Native power/battery/uptime, weighted CPU policy frequency, and ACPI platform-profile saver state; thermal unavailable | Native power/battery/uptime, Low Power Mode, and public coarse thermal-pressure state; CPU frequency unavailable |
-| Resource-pressure evidence | Windows responsiveness evidence stays separate; cumulative-stall channels unsupported | Exact per-interval CPU/memory/I/O PSI `some`/`full` fractions from cumulative totals | Exact cumulative-stall channels unsupported; coarse thermal state stays separate |
+| Resource-pressure evidence | Windows responsiveness evidence stays separate; cumulative-stall channels unsupported | Exact per-interval CPU/memory/I/O PSI `some`/`full` fractions from cumulative totals | Exact cumulative-stall channels unsupported; separate coarse thermal and event-driven memory-pressure states |
 | Native suspend/resume lifecycle evidence | Native power notifications | Native logind `PrepareForSleep`; explicit partial status without system D-Bus/logind | Native IOKit system-power notifications |
 | Privacy-reduced symptom/system events | Native, independently gated | Identifier-free device/audio/storage/display/network uevents, logind power, systemd job result class, and coredump crash marker | Identifier-free application lifecycle, audio/default, storage, display, network, and power context; general service events unsupported |
-| Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX plus coalesced XDG Background portal status; exact XDG autostart remains authoritative | Native SDL/POSIX |
+| Tray/background controls and single-instance enforcement | Native | Native SDL/POSIX plus coalesced XDG Background portal status; exact XDG autostart remains authoritative | Native SDL/POSIX plus explicit BlackBox-owned `SMAppService` disabled/enabled/approval/unavailable state |
 | Desktop notifications | Native | Bounded XDG Notification portal queue with freedesktop-service fallback and service rediscovery | Bounded, permission-aware UserNotifications |
 | Launch at login | Current-user Run value | Exact owned XDG entry | Current `SMAppService` main-app registration |
 | Global incident shortcut | Native registration | Versioned XDG GlobalShortcuts session with closure/service-loss recovery and user-removal detection | AppKit global/local key monitor with Input Monitoring permission; passive and not conflict-aware |
@@ -63,15 +63,17 @@ The previous V0.22 evidence remains bound to revision
    key behavior, and app restart. The AppKit monitor is intentionally labeled passive because it cannot
    detect conflicts or reserve the combination like Windows/XDG registration.
 3. Physically validate Linux CPU-frequency/profile coverage across governors and hardware, macOS Low
-   Power Mode transitions, and privacy-bounded foreground identity on macOS and X11. Wayland remains
+   Power Mode and memory-pressure transitions, and privacy-bounded foreground identity on macOS and
+   X11. Exercise the opaque application-key reader on Sway and other advertising wlroots compositors,
+   including ambiguity, reconnect, and protocol loss. Generic Wayland process identity remains
    unsupported because its public portal API has no standardized active-window interface.
 4. Physically validate Linux GPU coverage on AMD, NVIDIA, Intel, hybrid, permission-restricted, and
    hotplug-capable hosts. AMD and NVIDIA provide whole-system device gauges; DRM `fdinfo` supplies
    only readable foreground-client activity and is never relabeled as complete host utilization.
    Keep macOS passive whole-system GPU utilization unsupported. Linux PSI is now implemented against
    `PRESSURE_CONTRACT.md`; physically validate its reset, permission, suspend/resume, and overhead
-   behavior. macOS cumulative-stall pressure remains unsupported; its coarse thermal state is not a
-   PSI substitute. PSI is not Windows DPC/ISR activity.
+   behavior. macOS cumulative-stall pressure remains unsupported; neither its coarse thermal nor
+   memory-pressure state is a PSI substitute. PSI is not Windows DPC/ISR activity.
 5. Retain and physically qualify portal permission/denial/restart behavior, the implemented
    Linux/macOS telemetry, accessibility, crash, background, notification, autostart, package,
    sleep/resume, and shortcut boundaries. Hosted compositor smoke cannot exercise a real user's
@@ -95,8 +97,10 @@ evidence beats the existing statistical pipeline under the predeclared accuracy 
 - [Apple sleep-inclusive continuous time](https://developer.apple.com/documentation/driverkit/mach_continuous_time)
 - [Apple `getifaddrs` interface statistics](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getifaddrs.3.html)
 - [Apple `IOBlockStorageDriver` statistics](https://developer.apple.com/documentation/kernel/ioblockstoragedriver)
+- [Apple Dispatch memory-pressure source](https://developer.apple.com/documentation/dispatch/dispatchsourcememorypressure)
 - [Linux block-device I/O statistics](https://docs.kernel.org/admin-guide/iostats.html)
 - [Linux kernel uevent environment](https://docs.kernel.org/driver-api/driver-model/uevent.html)
+- [wlroots foreign-toplevel-management protocol](https://gitlab.freedesktop.org/wlroots/wlr-protocols/-/blob/master/unstable/wlr-foreign-toplevel-management-unstable-v1.xml)
 - [systemd-logind `PrepareForSleep`](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html)
 - [Linux TCP SNMP counters](https://docs.kernel.org/networking/snmp_counter.html)
 - [XDG Global Shortcuts portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)

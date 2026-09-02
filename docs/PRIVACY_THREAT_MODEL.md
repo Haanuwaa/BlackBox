@@ -14,7 +14,9 @@ process's memory or the user's files.
 
 - Incident system/process samples and timestamps.
 - Process identities, executable names, and optional executable paths.
-- Foreground-application identity, durable process start/exit identity, and selected normalized system-event evidence when enabled;
+- Foreground process identity or a session-scoped opaque Wayland application key, durable process
+  start/exit identity, and selected normalized system-event evidence when enabled; raw Wayland
+  `app_id`, title, and compositor handle are discarded before the portable boundary;
   queried DNS hostnames, display driver names, adapter identities, storage LBAs/device paths/PDO
   identities, Event Log messages, and payloads are never collected.
 - User labels, notes, feedback, recurrence overrides, and personalized observations.
@@ -46,6 +48,10 @@ unavailable instead of being inferred.
 Network evidence is passive and aggregate: BlackBox records no payload, packet content, endpoint,
 DNS name, or browsing destination. Incident retention and purge require explicit user action;
 automatic deletion remains prohibited.
+
+The opaque Wayland application token is keyed by fresh in-memory randomness for each BlackBox run.
+It supports transitions within that run and any locally captured incident, but cannot be joined across
+runs or to a native PID. Offline dataset and truth-review exports omit it.
 
 The privacy-safe support bundle is an allowlist, not a redaction pass. Free-form status/error strings,
 logs, process rows, archive paths, and settings are never admitted to `diagnostics.ini`, avoiding the

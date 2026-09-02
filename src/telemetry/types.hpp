@@ -80,6 +80,15 @@ enum class ThermalPressureState : std::uint8_t {
     unknown,
 };
 
+// Coarse event-latched system memory pressure. This is intentionally not a
+// Linux PSI fraction: it carries no cumulative stalled-time meaning.
+enum class MemoryPressureState : std::uint8_t {
+    normal,
+    warning,
+    critical,
+    unknown,
+};
+
 // Cumulative machine-wide stalled durations. Linux PSI supplies microseconds;
 // other providers leave these dimensions unsupported unless they can prove
 // the same cumulative wall-time semantics.
@@ -134,6 +143,16 @@ struct ProcessIdentity {
     ProcessId pid{};
     std::uint64_t creation_token{};
     friend constexpr auto operator<=>(const ProcessIdentity&, const ProcessIdentity&) = default;
+};
+
+// Privacy-reduced application identity for native surfaces that can identify
+// an active application but cannot prove a PID/creation-token pair. Both
+// tokens are session-scoped and opaque; neither is a native application ID.
+struct OpaqueApplicationIdentity {
+    std::uint64_t session_token{};
+    std::uint64_t application_token{};
+    friend constexpr auto operator<=>(const OpaqueApplicationIdentity&,
+                                      const OpaqueApplicationIdentity&) = default;
 };
 
 struct ProcessInfo {
@@ -206,6 +225,7 @@ struct RawSystemCounters {
     MetricValue<ByteCount> gpu_dedicated_memory{};
     MetricValue<ByteCount> gpu_shared_memory{};
     MetricValue<ProcessIdentity> foreground_process{};
+    MetricValue<OpaqueApplicationIdentity> foreground_application{};
     MetricValue<Ratio> foreground_gpu_usage{};
     MetricValue<Ratio> dpc_usage{};
     MetricValue<Ratio> interrupt_usage{};
@@ -220,6 +240,7 @@ struct RawSystemCounters {
     MetricValue<Seconds> system_uptime{};
     RawPressureCounters pressure{};
     MetricValue<ThermalPressureState> thermal_pressure_state{};
+    MetricValue<MemoryPressureState> memory_pressure_state{};
     MetricValue<std::uint32_t> logical_processor_count{};
     friend constexpr bool operator==(const RawSystemCounters&, const RawSystemCounters&) = default;
 };
@@ -249,6 +270,7 @@ struct SystemSample {
     MetricValue<ByteCount> gpu_dedicated_memory{};
     MetricValue<ByteCount> gpu_shared_memory{};
     MetricValue<ProcessIdentity> foreground_process{};
+    MetricValue<OpaqueApplicationIdentity> foreground_application{};
     MetricValue<Ratio> foreground_gpu_usage{};
     MetricValue<Ratio> dpc_usage{};
     MetricValue<Ratio> interrupt_usage{};
@@ -267,6 +289,7 @@ struct SystemSample {
     MetricValue<Ratio> io_some_pressure{};
     MetricValue<Ratio> io_full_pressure{};
     MetricValue<ThermalPressureState> thermal_pressure_state{};
+    MetricValue<MemoryPressureState> memory_pressure_state{};
     friend constexpr bool operator==(const SystemSample&, const SystemSample&) = default;
 };
 

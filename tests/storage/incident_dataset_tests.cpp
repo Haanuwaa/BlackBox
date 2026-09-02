@@ -110,6 +110,9 @@ TEST_CASE("offline dataset round-trips classification without changing telemetry
     CHECK(all_files.find("blackbox-offline-dataset") != std::string::npos);
     CHECK(all_files.find("bytes/second") != std::string::npos);
     CHECK(all_files.find("foreground process identity") != std::string::npos);
+    CHECK(all_files.find("foreground application identity") != std::string::npos);
+    CHECK(all_files.find("987654") == std::string::npos);
+    CHECK(all_files.find("456789") == std::string::npos);
     CHECK(all_files.find("system_events.tsv") == std::string::npos);
     CHECK(read_all(fixture.dataset / "system_events.tsv").find("\t1014\t9\t\n") !=
           std::string::npos);

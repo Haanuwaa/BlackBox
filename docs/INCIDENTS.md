@@ -8,7 +8,8 @@ Short uptime and ring boundaries never fabricate history. Snapshot construction 
 
 The incident contains:
 
-- normalized system samples with explicit units and availability states;
+- normalized system samples with explicit units and availability states, including either a durable
+  foreground process identity or a non-correlatable opaque application key when opted in and native;
 - flattened process samples carrying their frame observation time and full PID/creation-token identity;
 - only process metadata referenced by those selected samples;
 - the original event, requested range, actual range, manual/automatic trigger counts, strongest

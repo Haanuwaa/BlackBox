@@ -44,4 +44,20 @@ TEST_CASE("portable provider contract accepts a future backend and rejects capab
         .cpu_usage = true, .disk_service_time = true};
     CHECK(validate_provider_snapshot_contract(disk_quality, request, snapshot) ==
           ProviderContractViolation::invalid_disk_quality);
+
+    snapshot.reset(blackbox::core::MonotonicTimePoint{}, request.tiers);
+    snapshot.system.foreground_application =
+        MetricValue<OpaqueApplicationIdentity>::available({5U, 7U});
+    const PlatformCapabilities compositor_foreground{
+        .foreground_application = true, .foreground_application_identity = true};
+    CHECK(validate_provider_snapshot_contract(compositor_foreground, request, snapshot) ==
+          ProviderContractViolation::none);
+    snapshot.system.foreground_application.value.application_token = 0U;
+    CHECK(validate_provider_snapshot_contract(compositor_foreground, request, snapshot) ==
+          ProviderContractViolation::invalid_process_identity);
+
+    snapshot.reset(blackbox::core::MonotonicTimePoint{}, request.tiers);
+    const PlatformCapabilities inconsistent_foreground{.foreground_application = true};
+    CHECK(validate_provider_snapshot_contract(inconsistent_foreground, request, snapshot) ==
+          ProviderContractViolation::capability_status_mismatch);
 }

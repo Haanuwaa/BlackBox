@@ -186,7 +186,7 @@ export_incident_dataset(SqliteIncidentArchive& archive,
   "time":{"created_utc_ms":"milliseconds since Unix epoch","offset_ns":"nanoseconds relative to incident event"},
   "recorded_value_status":{"0":"available","1":"warming_up","2":"unsupported","3":"temporarily_unavailable"},
   "units":{"cpu_fraction":"ratio 0..1","gpu_fraction":"ratio 0..1","memory_bytes":"bytes","memory_fraction":"ratio 0..1","io_rate":"bytes/second","disk_latency":"seconds","disk_queue_depth":"requests","frequency":"MHz","battery_fraction":"ratio 0..1","uptime":"seconds","tcp_retransmit_fraction":"ratio 0..1","event_count":"count per sample interval"},
-  "privacy":{"pseudonymous_incident_keys":true,"normalized_system_events":true,"excluded":["archive paths","executable paths","process names","process identifiers","foreground process identity","creation tokens","Event Log messages","device identifiers","audio endpoint identifiers","window titles","free-form labels","free-form notes"]}
+  "privacy":{"pseudonymous_incident_keys":true,"normalized_system_events":true,"excluded":["archive paths","executable paths","process names","process identifiers","foreground process identity","foreground application identity","creation tokens","Event Log messages","device identifiers","audio endpoint identifiers","window titles","free-form labels","free-form notes"]}
 }
 )json";
         incidents << "incident_key\tcreated_utc_ms\tcategory\tuser_feedback\t"
@@ -238,7 +238,8 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                    "memory_full_pressure_status\tmemory_full_pressure_fraction\t"
                    "io_some_pressure_status\tio_some_pressure_fraction\t"
                    "io_full_pressure_status\tio_full_pressure_fraction\t"
-                   "thermal_pressure_status\tthermal_pressure_state\n";
+                   "thermal_pressure_status\tthermal_pressure_state\t"
+                   "memory_pressure_status\tmemory_pressure_state\n";
         processes << "incident_key\tsample_index\toffset_ns\tprocess_ordinal\t"
                      "cpu_status\tcpu_fraction\tworking_set_status\tworking_set_"
                      "bytes\t"
@@ -366,6 +367,8 @@ export_incident_dataset(SqliteIncidentArchive& archive,
                     write_recorded(systems, sample.io_full_pressure_fraction);
                     systems << '\t';
                     write_recorded_byte(systems, sample.thermal_pressure_state);
+                    systems << '\t';
+                    write_recorded_byte(systems, sample.memory_pressure_state);
                     systems << '\n';
                     ++statistics.system_samples;
                 }

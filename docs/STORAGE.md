@@ -47,7 +47,8 @@ follows:
 | `incident_classification_history` | Bounded category/feedback changes, UTC change time, and capture/user/dataset-import origin keyed to an incident |
 | `system_samples` | Chronological system metrics keyed by `(incident_id, sample_index)` |
 | `system_quality_samples` | Capability/status-preserving physical-disk and passive-network quality evidence keyed one-to-one with a system sample |
-| `system_extended_samples` | Capability/status-preserving GPU, foreground, DPC/ISR, CPU frequency/thermal, power, battery, and uptime evidence keyed one-to-one with a system sample |
+| `system_extended_samples` | Capability/status-preserving GPU, process or opaque application foreground identity, DPC/ISR, CPU frequency/thermal, power, battery, and uptime evidence keyed one-to-one with a system sample |
+| `system_pressure_samples` | Independent Linux PSI interval fractions plus coarse thermal and memory-pressure states, each with explicit availability, keyed one-to-one with a system sample |
 | `system_events` | Privacy-normalized power/device/audio/Windows activity plus opt-in process lifecycle context keyed chronologically within an incident; only lifecycle rows may reference a durable incident-local process identity, and no native message/payload is stored |
 | `process_identities` | Full `(PID, creation token)` identities and optional static metadata, keyed within an incident |
 | `process_samples` | Chronological process metrics with a foreign key to the full incident-local identity |
@@ -62,7 +63,11 @@ Indexes support newest-first and label-ordered incident discovery, chronological
 
 Metric units are unchanged from the core domain: CPU and memory utilization are fractions, memory/working-set values are bytes, I/O and network rates are bytes per second, disk latency/service time is seconds, disk queue is requests, TCP retransmission is a fraction, network events are counts, and observation/window times are monotonic nanoseconds. Every metric stores its explicit availability status. Schema checks require a value when that status is `available`.
 
-SQLite signed integers cannot exactly represent every core `uint64_t`. Capture sequences, recorder epochs, process creation tokens (including lifecycle-event references), and unsigned byte counts are therefore stored as fixed eight-byte big-endian blobs. This preserves values through `UINT64_MAX` and keeps PID reuse protection exact.
+SQLite signed integers cannot exactly represent every core `uint64_t`. Capture sequences, recorder
+epochs, process creation tokens (including lifecycle-event references), opaque foreground session and
+application tokens, and unsigned byte counts are therefore stored as fixed eight-byte big-endian
+blobs. This preserves values through `UINT64_MAX` and keeps PID reuse protection exact. Offline
+dataset export excludes both kinds of foreground identity.
 
 ## Pre-release reset and recovery
 

@@ -2,7 +2,7 @@
 
 ## Intended release target
 
-V0.25 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
+V0.26 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or
 Windows 11 and an ordinary, interactive user session. It has not completed the clean-client,
 wall-clock soak, usability, accessibility, or official-signing gates required for V1.0. The native
 APIs selected are non-elevated. Protected processes may remain inaccessible and are represented
@@ -24,7 +24,7 @@ ctest --preset windows-msvc-release
 cpack --preset windows-msvc-release
 ```
 
-The package is `out/build/windows-msvc-release/BlackBox-0.25.0-windows-x64.zip`. It includes the
+The package is `out/build/windows-msvc-release/BlackBox-0.26.0-windows-x64.zip`. It includes the
 executable, non-system runtime DLLs discovered from the target graph, and user/architecture docs.
 Extract it to a writable directory and launch `blackbox.exe`; no installer or service is required.
 

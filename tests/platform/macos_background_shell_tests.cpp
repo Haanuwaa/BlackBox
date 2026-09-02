@@ -55,6 +55,7 @@ TEST_CASE("macOS background shell enforces one instance without UI services",
     CHECK(diagnostics.running);
     CHECK_FALSE(diagnostics.tray_available);
     CHECK_FALSE(diagnostics.notifications_available);
+    CHECK(diagnostics.launch_at_login_state == platform::LaunchAtLoginState::unsupported);
     CHECK(second.start([](platform::BackgroundShellCommand) {}) ==
           platform::BackgroundShellStartResult::already_running);
 

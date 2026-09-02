@@ -6,7 +6,7 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.25.0** is the pre-1.0 consumer-workflow engineering line. The product has one bounded
+Version **0.26.0** is the pre-1.0 platform-evidence engineering line. The product has one bounded
 native recorder, direct-V1 archive, optional local statistical analysis, and an evidence-first
 desktop workflow across its Windows product target and Linux/macOS engineering previews. The default
 UI now leads with recorder readiness, capture, current activity, saved incidents, and plain-language
@@ -23,11 +23,13 @@ Windows remains the intended first product target, but no platform has a public 
 the remaining physical, signing, long-run, and diagnostic-quality gates pass. Linux implements native
 CPU/memory/process/disk/network/power/uptime evidence, capability-driven GPU backends, exact PSI
 CPU/memory/I/O stall fractions, X11 foreground identity, Wayland portal integration, and TGZ/DEB/RPM
-engineering packages. Wayland foreground identity remains explicitly unavailable because the public
-portal surface has no standardized permission-bounded active-window identity API.
+engineering packages. Generic Wayland process identity remains unavailable because the public portal
+surface has no standardized permission-bounded active-window API. Advertising wlroots compositors
+can instead supply an opaque session application key that cannot be correlated to process/GPU data.
 
 macOS implements native CPU/memory/process/disk/network/power/uptime evidence, public Metal inventory,
-BlackBox renderer health, coarse public thermal-pressure state, desktop integration, global-shortcut
+BlackBox renderer health, separate coarse thermal and memory-pressure states, BlackBox-owned login-
+item authorization, desktop integration, global-shortcut
 permission UX, and unsigned TGZ/DMG/PKG engineering packages. It does not relabel renderer health as
 whole-system GPU utilization or invent exact disk-queue/PSI evidence. Runtime ML remains unshipped:
 the offline comparison harness exists, but adoption stays blocked until a representative,

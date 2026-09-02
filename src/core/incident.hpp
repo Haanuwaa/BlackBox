@@ -41,6 +41,13 @@ struct IncidentProcessIdentity {
                                       const IncidentProcessIdentity&) = default;
 };
 
+struct IncidentApplicationIdentity {
+    std::uint64_t session_token{};
+    std::uint64_t application_token{};
+    friend constexpr auto operator<=>(const IncidentApplicationIdentity&,
+                                      const IncidentApplicationIdentity&) = default;
+};
+
 struct IncidentSystemSample {
     MonotonicTimePoint observed_at{};
     RecordedValue<double> cpu_fraction{};
@@ -66,6 +73,7 @@ struct IncidentSystemSample {
     RecordedValue<std::uint64_t> gpu_dedicated_memory_bytes{};
     RecordedValue<std::uint64_t> gpu_shared_memory_bytes{};
     RecordedValue<IncidentProcessIdentity> foreground_process{};
+    RecordedValue<IncidentApplicationIdentity> foreground_application{};
     RecordedValue<double> foreground_gpu_fraction{};
     RecordedValue<double> dpc_fraction{};
     RecordedValue<double> interrupt_fraction{};
@@ -84,6 +92,7 @@ struct IncidentSystemSample {
     RecordedValue<double> io_some_pressure_fraction{};
     RecordedValue<double> io_full_pressure_fraction{};
     RecordedValue<std::uint8_t> thermal_pressure_state{};
+    RecordedValue<std::uint8_t> memory_pressure_state{};
     friend bool operator==(const IncidentSystemSample&, const IncidentSystemSample&) = default;
 };
 

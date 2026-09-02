@@ -10,6 +10,9 @@
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
 #include "telemetry/linux/linux_x11_foreground_reader.hpp"
 #endif
+#if defined(BLACKBOX_HAS_WAYLAND_FOREGROUND)
+#include "telemetry/linux/linux_wayland_foreground_reader.hpp"
+#endif
 
 #include <algorithm>
 #include <array>
@@ -418,6 +421,9 @@ struct LinuxTelemetryProvider::NativeState {
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
     LinuxX11ForegroundReader foreground_reader{};
 #endif
+#if defined(BLACKBOX_HAS_WAYLAND_FOREGROUND)
+    LinuxWaylandForegroundReader wayland_foreground_reader{};
+#endif
 };
 
 LinuxTelemetryProvider::LinuxTelemetryProvider(const core::IMonotonicClock& clock) noexcept
@@ -467,6 +473,15 @@ ProviderSampleResult LinuxTelemetryProvider::sample(const SamplingRequest reques
 #else
     destination.system.foreground_process =
         MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+#endif
+#if defined(BLACKBOX_HAS_WAYLAND_FOREGROUND)
+    destination.system.foreground_application =
+        request.collect_foreground_application
+            ? temporary<OpaqueApplicationIdentity>()
+            : MetricValue<OpaqueApplicationIdentity>::unavailable(MetricStatus::unsupported);
+#else
+    destination.system.foreground_application =
+        MetricValue<OpaqueApplicationIdentity>::unavailable(MetricStatus::unsupported);
 #endif
     destination.system.foreground_gpu_usage =
         MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
@@ -535,6 +550,12 @@ ProviderSampleResult LinuxTelemetryProvider::sample(const SamplingRequest reques
             request.collect_foreground_application && native_state_ != nullptr
                 ? native_state_->foreground_reader.read()
                 : MetricValue<ProcessId>::unavailable(MetricStatus::unsupported);
+#endif
+#if defined(BLACKBOX_HAS_WAYLAND_FOREGROUND)
+        if (request.collect_foreground_application && native_state_ != nullptr) {
+            destination.system.foreground_application =
+                native_state_->wayland_foreground_reader.read();
+        }
 #endif
         ++attempted;
         if (read_bounded_proc_file("/proc/meminfo", contents)) {
@@ -626,10 +647,16 @@ PlatformCapabilities LinuxTelemetryProvider::capabilities() const noexcept {
         native_state_ != nullptr && native_state_->gpu_collector.supports_foreground_usage();
     result.cpu_frequency = true;
 #if defined(BLACKBOX_HAS_X11_FOREGROUND)
-    result.foreground_application =
+    result.foreground_process_identity =
         native_state_ != nullptr &&
         native_state_->foreground_reader.status() != MetricStatus::unsupported;
 #endif
+#if defined(BLACKBOX_HAS_WAYLAND_FOREGROUND)
+    result.foreground_application_identity =
+        native_state_ != nullptr && native_state_->wayland_foreground_reader.candidate();
+#endif
+    result.foreground_application =
+        result.foreground_process_identity || result.foreground_application_identity;
     result.power_status = true;
     result.system_uptime = true;
     result.cpu_some_pressure = true;

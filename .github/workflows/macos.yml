@@ -56,7 +56,7 @@ jobs:
           test "$(plutil -extract CFBundleIdentifier raw "$bundle/Contents/Info.plist")" = \
             "io.github.Haanuwaa.BlackBox"
           test "$(plutil -extract CFBundleShortVersionString raw "$bundle/Contents/Info.plist")" = \
-            "0.25.0"
+            "0.26.0"
           test "$(plutil -extract LSMinimumSystemVersion raw "$bundle/Contents/Info.plist")" = \
             "13.0"
       - name: Measure native provider overhead
@@ -86,9 +86,9 @@ jobs:
           tar -tzf "$package" | grep -Eq \
             'BlackBox-[^/]+/BlackBox.app/Contents/Info.plist$'
           bash scripts/package-macos-engineering.sh \
-          out/build/macos/src/BlackBox.app out/build/macos 0.25.0
-          dmg="$(find out/build/macos -maxdepth 1 -type f -name 'BlackBox-0.25.0-macos-*-engineering-preview.dmg' -print -quit)"
-          pkg="$(find out/build/macos -maxdepth 1 -type f -name 'BlackBox-0.25.0-macos-*-engineering-preview.pkg' -print -quit)"
+          out/build/macos/src/BlackBox.app out/build/macos 0.26.0
+          dmg="$(find out/build/macos -maxdepth 1 -type f -name 'BlackBox-0.26.0-macos-*-engineering-preview.dmg' -print -quit)"
+          pkg="$(find out/build/macos -maxdepth 1 -type f -name 'BlackBox-0.26.0-macos-*-engineering-preview.pkg' -print -quit)"
           test -n "$dmg" && test -s "$dmg"
           test -n "$pkg" && test -s "$pkg"
       - name: Upload package and provider evidence

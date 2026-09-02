@@ -20,8 +20,8 @@ path. Earlier development data must be recollected or expressed in the current f
 
 ## Current status
 
-- Engineering version: `0.25.0`; the first public release is reserved for exactly `1.0.0`.
-- Current completed test graph: 374 Release tests.
+- Engineering version: `0.26.0`; the first public release is reserved for exactly `1.0.0`.
+- Current completed test graph: 378 Release tests.
 - V0.24 implementation revision `85044988da5817fa4e759b6c57d014731ce7a528` passed Windows,
   Linux, macOS, and quality/security hosted matrices. Documentation was recorded at `ba4c9c8`.
 - Windows is the most qualified implementation. Linux and macOS have broad engineering parity but
@@ -49,6 +49,7 @@ path. Earlier development data must be recollected or expressed in the current f
 | V0.22 | Linux PSI and macOS thermal pressure behind one portable pressure contract. |
 | V0.23 | Audit closure: fuzz/model coverage, app/UI coverage floors, visible performance evidence, decomposition, and documentation correction. |
 | V0.24 | 30 Hz idle visible rendering, four-state profiling, repository protection, zero open security alerts, and exact-revision hosted evidence. |
+| V0.25 | Consumer workflow, clearer evidence language, graph legibility, keyboard workflows, interaction-aware 60 Hz presentation, and documentation consolidation. |
 
 Detailed contracts and evidence procedures are indexed in [docs/README.md](docs/README.md).
 
@@ -69,6 +70,24 @@ retaining technical depth on demand and preserving the recorder/UI independence 
   complete Release graph.
 - [x] Replace dated pre-release audit/campaign snapshots with one documentation map and concise
   living roadmap while retaining every claim boundary and gate.
+
+## V0.26 - Honest platform evidence expansion
+
+**Objective:** Add useful native evidence where public platform APIs support it without manufacturing
+cross-platform equivalence or weakening the privacy boundary.
+
+- [x] Add event-driven macOS normal/warning/critical memory-pressure state as a separate metric,
+  never as Linux PSI, utilization, thermal state, or CPU-frequency evidence.
+- [x] Expose only BlackBox's own macOS `SMAppService` launch-at-login state, including approval and
+  unavailable outcomes; keep general launchd service activity unsupported.
+- [x] Add a capability-gated wlroots Wayland foreground application key that immediately hashes
+  bounded `app_id`, discards titles, never guesses PID, and fails closed on ambiguity or source loss.
+- [x] Preserve typed process identity for Windows, macOS, and X11 while making the compositor-specific
+  opaque identity explicitly non-correlatable with process and GPU evidence.
+- [x] Carry the new optional evidence through normalization, immutable incidents, direct schema V1,
+  local viewing, and truth review while excluding both identity forms from offline dataset export.
+- [x] Add bounded tracker, privacy, capability-contract, normalization, direct-V1 round-trip, and
+  owned-service diagnostics tests; pass the complete 378-test Windows Release graph.
 
 ## Release qualification gates
 
@@ -126,8 +145,8 @@ These are evidence-execution tasks, not missing schema or architecture work.
 
 ## Exact next milestone
 
-V0.25 consumer workflow and documentation consolidation is complete locally: deterministic UI
-qualification passed and the full 374-test Release graph is green. The next gate is to freeze one
-clean revision, repeat Windows/Linux/macOS/quality hosted matrices, and run the controlled visible-
-runtime comparison. Resource-dependent physical, signing, 72-hour, and corpus gates remain open and
-must not be replaced by local simulation.
+V0.26 platform evidence expansion is complete locally and the full 378-test Windows Release graph is
+green. The next gate is to freeze one clean revision and repeat Windows/Linux/macOS/quality hosted
+matrices, with special attention to the native Dispatch/ServiceManagement compile and the optional
+Wayland protocol build. Then run the controlled visible-runtime comparison. Resource-dependent
+physical, signing, 72-hour, and corpus gates remain open and must not be replaced by local simulation.

@@ -899,9 +899,10 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     ImGui::TextWrapped("Pressure is exact interval stall time where the platform "
                        "exposes cumulative counters; it is not utilization or "
                        "proof of a cause. Thermal pressure is a separate coarse "
-                       "platform state and is never relabeled as PSI.");
+                       "platform state and is never relabeled as PSI. Memory pressure is a "
+                       "separate coarse transition state, not cumulative stall time.");
     if (ImPlot::BeginPlot("Resource pressure context", ImVec2{-1.0F, 210.0F})) {
-        ImPlot::SetupAxes("Seconds from event", "Stalled interval % / thermal state");
+        ImPlot::SetupAxes("Seconds from event", "Stalled interval % / coarse state");
         ImPlot::SetupAxisLinks(ImAxis_X1, &product.timeline_min, &product.timeline_max);
         render_series("CPU some %", detail.cpu_some_pressure_percent);
         render_series("Memory some %", detail.memory_some_pressure_percent);
@@ -909,6 +910,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         render_series("I/O some %", detail.io_some_pressure_percent);
         render_series("I/O full %", detail.io_full_pressure_percent);
         render_series("Thermal state (0 nominal - 3 critical)", detail.thermal_pressure_state);
+        render_series("Memory state (0 normal - 2 critical)", detail.memory_pressure_state);
         render_timeline_references(product, x_min, x_max);
         ImPlot::EndPlot();
     }
@@ -916,6 +918,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Memory stall pressure", detail.memory_some_pressure_percent);
     render_missing_summary("I/O stall pressure", detail.io_some_pressure_percent);
     render_missing_summary("Thermal pressure state", detail.thermal_pressure_state);
+    render_missing_summary("Memory pressure state", detail.memory_pressure_state);
 
     ImGui::SeparatorText("Foreground and system-event evidence");
     ImGui::TextDisabled("The recorder never stores window titles, Event Log messages/payloads, "
@@ -932,7 +935,11 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
             ImGui::TableSetColumnIndex(0);
             ImGui::Text("%+.2f s", row.seconds_from_event);
             ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%s (PID %u)", row.name.c_str(), row.identity.pid);
+            if (row.has_process_identity) {
+                ImGui::Text("%s (PID %u)", row.name.c_str(), row.identity.pid);
+            } else {
+                ImGui::TextUnformatted(row.name.c_str());
+            }
             ImGui::TableSetColumnIndex(2);
             row.gpu_available ? ImGui::Text("%.1f%%", row.gpu_percent) : ImGui::TextDisabled("N/A");
         }

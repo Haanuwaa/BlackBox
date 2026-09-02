@@ -38,6 +38,11 @@ recorded_identity(const ProcessIdentity identity) noexcept {
     return {identity.pid.value, identity.creation_token};
 }
 
+[[nodiscard]] core::IncidentApplicationIdentity
+recorded_identity(const OpaqueApplicationIdentity identity) noexcept {
+    return {identity.session_token, identity.application_token};
+}
+
 [[nodiscard]] core::IncidentSystemSample recorded_system_sample(const SystemSample& sample) {
     core::IncidentSystemSample result{};
     result.observed_at = sample.observed_at;
@@ -87,7 +92,12 @@ recorded_identity(const ProcessIdentity identity) noexcept {
     result.gpu_shared_memory_bytes = recorded_value<core::RecordedValue<std::uint64_t>>(
         sample.gpu_shared_memory, [](const ByteCount value) { return value.value; });
     result.foreground_process = recorded_value<core::RecordedValue<core::IncidentProcessIdentity>>(
-        sample.foreground_process, recorded_identity);
+        sample.foreground_process,
+        [](const ProcessIdentity value) { return recorded_identity(value); });
+    result.foreground_application =
+        recorded_value<core::RecordedValue<core::IncidentApplicationIdentity>>(
+            sample.foreground_application,
+            [](const OpaqueApplicationIdentity value) { return recorded_identity(value); });
     result.foreground_gpu_fraction = recorded_value<core::RecordedValue<double>>(
         sample.foreground_gpu_usage, [](const Ratio value) { return value.value; });
     result.dpc_fraction = recorded_value<core::RecordedValue<double>>(
@@ -126,6 +136,9 @@ recorded_identity(const ProcessIdentity identity) noexcept {
     result.thermal_pressure_state = recorded_value<core::RecordedValue<std::uint8_t>>(
         sample.thermal_pressure_state,
         [](const ThermalPressureState value) { return static_cast<std::uint8_t>(value); });
+    result.memory_pressure_state = recorded_value<core::RecordedValue<std::uint8_t>>(
+        sample.memory_pressure_state,
+        [](const MemoryPressureState value) { return static_cast<std::uint8_t>(value); });
     return result;
 }
 

@@ -572,8 +572,15 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     ImGui::TextUnformatted("Foreground application");
                     ImGui::TableSetColumnIndex(1);
                     if (state.foreground_status == MetricDisplayStatus::available) {
-                        ImGui::Text("PID %u | foreground GPU %.1f%%", state.foreground_pid,
-                                    state.foreground_gpu_usage * 100.0);
+                        if (state.foreground_application_opaque) {
+                            ImGui::Text("Private application %06llX | process/GPU correlation "
+                                        "unavailable",
+                                        static_cast<unsigned long long>(
+                                            state.foreground_application_token & 0xFFFFFFU));
+                        } else {
+                            ImGui::Text("PID %u | foreground GPU %.1f%%", state.foreground_pid,
+                                        state.foreground_gpu_usage * 100.0);
+                        }
                     } else {
                         render_metric_unavailable(state.foreground_status);
                     }

@@ -57,6 +57,9 @@ public:
     before.disk_queue_depth = {4.0, core::RecordedValueStatus::available};
     before.network_tcp_retransmit_fraction.status =
         core::RecordedValueStatus::temporarily_unavailable;
+    before.foreground_application = {{918'273U, 192'837U},
+                                     core::RecordedValueStatus::available};
+    before.memory_pressure_state = {1U, core::RecordedValueStatus::available};
     auto after = before;
     after.observed_at = core::MonotonicTimePoint{101s};
     after.cpu_fraction.value = 0.75;
@@ -125,12 +128,17 @@ TEST_CASE("truth review publishes exact prediction-free ordinal evidence atomica
         "review.html"});
 
     const auto manifest = read(output / "manifest.ini");
+    const auto systems = read(output / "system-samples.tsv");
     const auto processes = read(output / "processes.tsv");
     const auto events = read(output / "system-events.tsv");
     const auto html = read(output / "review.html");
     CHECK(manifest.find("format=1\n") == 0U);
     CHECK(manifest.find("prediction_free=1\n") != std::string::npos);
     CHECK(manifest.find("local_process_identities=0\n") != std::string::npos);
+    CHECK(systems.find("memory_pressure_status\tmemory_pressure_state") !=
+          std::string::npos);
+    CHECK(systems.find("918273") == std::string::npos);
+    CHECK(systems.find("192837") == std::string::npos);
     CHECK(processes.find("\n0\t\t\t1\t50") != std::string::npos);
     CHECK(processes.find("fixture") == std::string::npos);
     CHECK(processes.find("123456") == std::string::npos);

@@ -58,9 +58,14 @@ TEST_CASE("macOS provider exposes native system and process evidence",
     CHECK(provider.capabilities().gpu_inventory);
     CHECK(provider.capabilities().power_status);
     CHECK(provider.capabilities().foreground_application);
+    CHECK(provider.capabilities().foreground_process_identity);
+    CHECK_FALSE(provider.capabilities().foreground_application_identity);
+    CHECK(provider.capabilities().memory_pressure_state);
     CHECK_FALSE(provider.capabilities().gpu_usage);
     CHECK_FALSE(provider.capabilities().dpc_isr);
     CHECK(snapshot.system.foreground_process.status !=
+          telemetry::MetricStatus::unsupported);
+    CHECK(snapshot.system.memory_pressure_state.status !=
           telemetry::MetricStatus::unsupported);
     CHECK(snapshot.system.foreground_gpu_usage.status ==
           telemetry::MetricStatus::unsupported);

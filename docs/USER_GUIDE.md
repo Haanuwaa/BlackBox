@@ -9,8 +9,11 @@ collect native telemetry, publish bounded notifications through the XDG portal w
 service fallback, publish coalesced background status, and request its configured global shortcut
 through the XDG Desktop Portal. Shortcut sessions recover after a portal restart, while a shortcut
 removed by the desktop remains visibly unavailable until reapplied. Desktop policy may require user
-approval or leave any service unavailable. Wayland foreground-application identity remains explicitly
-unsupported because no standardized permission-bounded portal exposes an active-window PID. Both
+approval or leave any service unavailable. Generic Wayland foreground process identity remains
+unsupported because no standardized permission-bounded portal exposes an active-window PID. On
+wlroots compositors that advertise the optional protocol, BlackBox may instead show a private
+session-only application key; it never exposes a title, raw application ID, or inferred PID, and it
+cannot correlate that key with process or GPU evidence. Both
 previews supply native CPU/memory/disk/network/power/uptime/process
 telemetry and passive local-link/TCP-quality evidence, but no qualified product experience. macOS's
 unsigned engineering `.app` can expose menu-bar controls, request launch at

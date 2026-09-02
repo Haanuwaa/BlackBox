@@ -61,6 +61,8 @@ representative_incident(const std::size_t large_text_bytes = 0U) {
     first.gpu_dedicated_memory_bytes = {3ULL << 30U, core::RecordedValueStatus::available};
     first.gpu_shared_memory_bytes = {512ULL << 20U, core::RecordedValueStatus::available};
     first.foreground_process = {{99U, 123'456U}, core::RecordedValueStatus::available};
+    first.foreground_application = {{987'654U, 456'789U},
+                                    core::RecordedValueStatus::available};
     first.foreground_gpu_fraction = {0.7, core::RecordedValueStatus::available};
     first.dpc_fraction = {0.03, core::RecordedValueStatus::available};
     first.interrupt_fraction = {0.02, core::RecordedValueStatus::available};
@@ -79,6 +81,7 @@ representative_incident(const std::size_t large_text_bytes = 0U) {
     first.io_some_pressure_fraction = {0.35, core::RecordedValueStatus::available};
     first.io_full_pressure_fraction.status = core::RecordedValueStatus::inaccessible;
     first.thermal_pressure_state = {2U, core::RecordedValueStatus::available};
+    first.memory_pressure_state = {1U, core::RecordedValueStatus::available};
     auto second = first;
     second.observed_at = core::MonotonicTimePoint{130s};
     second.cpu_fraction.value = 0.25;

@@ -208,11 +208,27 @@ struct MacosBackgroundShell::NativeState {
         exit_entry = nullptr;
     }
 
-    [[nodiscard]] bool launch_at_login_enabled_unlocked() const noexcept {
-        if (!options.use_native_services || !uses_application_bundle()) return false;
-        @autoreleasepool {
-            return SMAppService.mainAppService.status == SMAppServiceStatusEnabled;
+    [[nodiscard]] LaunchAtLoginState launch_at_login_state_unlocked() const noexcept {
+        if (!options.use_native_services || !uses_application_bundle()) {
+            return LaunchAtLoginState::unsupported;
         }
+        @autoreleasepool {
+            switch (SMAppService.mainAppService.status) {
+            case SMAppServiceStatusNotRegistered:
+                return LaunchAtLoginState::disabled;
+            case SMAppServiceStatusEnabled:
+                return LaunchAtLoginState::enabled;
+            case SMAppServiceStatusRequiresApproval:
+                return LaunchAtLoginState::approval_required;
+            case SMAppServiceStatusNotFound:
+                return LaunchAtLoginState::unavailable;
+            }
+        }
+        return LaunchAtLoginState::unavailable;
+    }
+
+    [[nodiscard]] bool launch_at_login_enabled_unlocked() const noexcept {
+        return launch_at_login_state_unlocked() == LaunchAtLoginState::enabled;
     }
 
     void count_notification_drop() noexcept {
@@ -444,6 +460,7 @@ BackgroundShellDiagnostics MacosBackgroundShell::diagnostics() const noexcept {
         NotificationAuthorization::denied) {
         result.notifications_available = false;
     }
+    result.launch_at_login_state = native_->launch_at_login_state_unlocked();
     return result;
 }
 

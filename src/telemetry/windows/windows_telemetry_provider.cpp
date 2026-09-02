@@ -1138,6 +1138,8 @@ ProviderSampleResult WindowsTelemetryProvider::sample(
     destination.system.foreground_process = request.collect_foreground_application
         ? temporary<ProcessIdentity>()
         : MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+    destination.system.foreground_application =
+        MetricValue<OpaqueApplicationIdentity>::unavailable(MetricStatus::unsupported);
     destination.system.foreground_gpu_usage = request.collect_foreground_application
         ? temporary<Ratio>()
         : MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
@@ -1392,6 +1394,7 @@ PlatformCapabilities WindowsTelemetryProvider::capabilities() const noexcept {
     result.gpu_memory = result.gpu_usage;
     result.gpu_inventory = native_state_ != nullptr;
     result.foreground_application = native_state_ != nullptr;
+    result.foreground_process_identity = result.foreground_application;
     result.foreground_gpu_usage = result.gpu_usage;
     result.dpc_isr = native_state_ != nullptr && native_state_->responsiveness_available();
     result.cpu_frequency = native_state_ != nullptr;

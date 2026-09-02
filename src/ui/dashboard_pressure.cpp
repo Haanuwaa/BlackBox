@@ -48,6 +48,19 @@ void value_row(const char* label, const MetricDisplayStatus status, const double
     }
 }
 
+[[nodiscard]] constexpr const char* memory_pressure_text(const std::uint8_t state) noexcept {
+    switch (state) {
+    case 0U:
+        return "Normal";
+    case 1U:
+        return "Warning";
+    case 2U:
+        return "Critical";
+    default:
+        return "Unknown";
+    }
+}
+
 } // namespace
 
 void render_pressure_rows(const DashboardState& state) {
@@ -67,6 +80,16 @@ void render_pressure_rows(const DashboardState& state) {
         ImGui::TextUnformatted(thermal_text(state.thermal_pressure_state));
     } else {
         ImGui::TextDisabled("%s", status_text(state.thermal_pressure_status));
+    }
+
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted("Memory pressure state");
+    ImGui::TableSetColumnIndex(1);
+    if (state.memory_pressure_status == MetricDisplayStatus::available) {
+        ImGui::TextUnformatted(memory_pressure_text(state.memory_pressure_state));
+    } else {
+        ImGui::TextDisabled("%s", status_text(state.memory_pressure_status));
     }
 }
 

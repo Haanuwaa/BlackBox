@@ -131,6 +131,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(PkgConfig_FOUND)
         pkg_check_modules(BLACKBOX_DBUS QUIET IMPORTED_TARGET GLOBAL dbus-1)
         pkg_check_modules(BLACKBOX_SYSTEMD QUIET IMPORTED_TARGET libsystemd)
+        pkg_check_modules(BLACKBOX_WAYLAND_CLIENT QUIET IMPORTED_TARGET GLOBAL wayland-client)
     endif()
     find_package(X11 QUIET)
     add_library(blackbox_telemetry_linux STATIC
@@ -151,6 +152,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_compile_definitions(blackbox_telemetry_linux PUBLIC
             BLACKBOX_HAS_X11_FOREGROUND=1)
         target_link_libraries(blackbox_telemetry_linux PRIVATE X11::X11)
+    endif()
+    if(TARGET PkgConfig::BLACKBOX_WAYLAND_CLIENT)
+        target_sources(blackbox_telemetry_linux PRIVATE
+            telemetry/linux/linux_wayland_foreground_reader.cpp)
+        target_compile_definitions(blackbox_telemetry_linux PUBLIC
+            BLACKBOX_HAS_WAYLAND_FOREGROUND=1)
+        target_link_libraries(blackbox_telemetry_linux PRIVATE
+            PkgConfig::BLACKBOX_WAYLAND_CLIENT)
     endif()
     if(TARGET PkgConfig::BLACKBOX_DBUS)
         target_compile_definitions(blackbox_telemetry_linux PUBLIC

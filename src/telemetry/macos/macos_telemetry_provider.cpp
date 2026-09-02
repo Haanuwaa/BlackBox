@@ -74,6 +74,8 @@ struct MacosTelemetryProvider::NativeState {
     static constexpr std::size_t maximum_network_interfaces = 128U;
     static constexpr std::size_t maximum_disk_devices = 128U;
 
+    MacosMemoryPressureMonitor memory_pressure_monitor{};
+
     [[nodiscard]] bool read_cpu(RawTelemetrySnapshot& destination) noexcept {
         host_cpu_load_info_data_t info{};
         mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
@@ -399,10 +401,16 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
     destination.system.battery_saver = temporary<bool>();
     destination.system.system_uptime = temporary<Seconds>();
     destination.system.thermal_pressure_state = temporary<ThermalPressureState>();
+    destination.system.memory_pressure_state =
+        native_state_ != nullptr
+            ? native_state_->memory_pressure_monitor.state()
+            : temporary<MemoryPressureState>();
     destination.system.foreground_process =
         request.collect_foreground_application
             ? temporary<ProcessIdentity>()
             : MetricValue<ProcessIdentity>::unavailable(MetricStatus::unsupported);
+    destination.system.foreground_application =
+        MetricValue<OpaqueApplicationIdentity>::unavailable(MetricStatus::unsupported);
     destination.system.foreground_gpu_usage =
         MetricValue<Ratio>::unavailable(MetricStatus::unsupported);
     std::uint32_t attempted{};
@@ -477,9 +485,11 @@ PlatformCapabilities MacosTelemetryProvider::capabilities() const noexcept {
     result.network_transport_quality = true;
     result.gpu_inventory = true;
     result.foreground_application = true;
+    result.foreground_process_identity = true;
     result.power_status = true;
     result.system_uptime = true;
     result.thermal_pressure_state = true;
+    result.memory_pressure_state = true;
     return result;
 }
 

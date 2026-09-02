@@ -20,6 +20,11 @@ namespace {
     sample.thermal_pressure_state =
         telemetry::MetricValue<telemetry::ThermalPressureState>::available(
             telemetry::ThermalPressureState::serious);
+    sample.memory_pressure_state =
+        telemetry::MetricValue<telemetry::MemoryPressureState>::available(
+            telemetry::MemoryPressureState::warning);
+    sample.foreground_application =
+        telemetry::MetricValue<telemetry::OpaqueApplicationIdentity>::available({11U, 22U});
     return sample;
 }
 
@@ -72,6 +77,10 @@ TEST_CASE("incident snapshot clips history and retains only referenced metadata"
     CHECK(incident->system_samples().front().cpu_fraction.value == 0.5);
     CHECK(incident->system_samples().front().cpu_some_pressure_fraction.value == 0.25);
     CHECK(incident->system_samples().front().thermal_pressure_state.value == 2U);
+    CHECK(incident->system_samples().front().memory_pressure_state.value == 1U);
+    CHECK(incident->system_samples().front().foreground_application.value.session_token == 11U);
+    CHECK(incident->system_samples().front().foreground_application.value.application_token ==
+          22U);
     CHECK(incident->process_samples().front().working_set_bytes.value == 84U);
 }
 

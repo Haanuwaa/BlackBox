@@ -405,10 +405,13 @@ ApplicationInitializationResult Application::initialize() {
                                    : "GPU inventory remains available; whole-device usage needs a "
                                      "readable AMD sysfs or NVIDIA NVML backend";
     dashboard_state_.foreground_identity_support =
-        platform_capabilities.foreground_application
-            ? "Available through privacy-bounded X11 identity"
-            : "Unavailable on Wayland: no standardized permission-bounded "
-              "active-window identity API";
+        platform_capabilities.foreground_process_identity
+            ? "Available through privacy-bounded X11 process identity"
+        : platform_capabilities.foreground_application_identity
+            ? "A compositor-specific private application key can be used when the protocol is "
+              "advertised; PID and GPU correlation remain unavailable"
+            : "Generic Wayland foreground identity is unavailable: no standardized "
+              "permission-bounded active-window API";
 #elif defined(__APPLE__)
     dashboard_state_.gpu_usage_support =
         whole_device_gpu_available
@@ -1166,8 +1169,21 @@ void Application::refresh_background_shell_if_due() {
     background_status_text_ +=
         shell.notifications_enabled ? " | notifications on" : " | notifications quiet";
 #endif
-    background_status_text_ +=
-        background_launch_at_login_enabled_ ? " | starts at login" : " | manual startup";
+    switch (shell.launch_at_login_state) {
+    case platform::LaunchAtLoginState::enabled:
+        background_status_text_ += " | starts at login";
+        break;
+    case platform::LaunchAtLoginState::approval_required:
+        background_status_text_ += " | startup approval needed";
+        break;
+    case platform::LaunchAtLoginState::unavailable:
+        background_status_text_ += " | startup state unavailable";
+        break;
+    case platform::LaunchAtLoginState::unsupported:
+    case platform::LaunchAtLoginState::disabled:
+        background_status_text_ += " | manual startup";
+        break;
+    }
     if (shell.tray_readd_failures != 0U) {
         background_status_text_ += " | tray recovery failed";
     }

@@ -68,8 +68,11 @@ TEST_CASE("Linux autostart is an exact owned XDG desktop entry",
     REQUIRE(shell.start([](platform::BackgroundShellCommand) {}) ==
             platform::BackgroundShellStartResult::started);
     CHECK_FALSE(shell.launch_at_login_enabled());
+    CHECK(shell.diagnostics().launch_at_login_state ==
+          platform::LaunchAtLoginState::disabled);
     REQUIRE(shell.set_launch_at_login(true));
     CHECK(shell.launch_at_login_enabled());
+    CHECK(shell.diagnostics().launch_at_login_state == platform::LaunchAtLoginState::enabled);
 
     const auto desktop = temporary.path() / "config" / "autostart" / "blackbox.desktop";
     std::ifstream input{desktop, std::ios::binary};

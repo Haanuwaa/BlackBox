@@ -396,7 +396,8 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                       "fraction\t"
                       "io_some_pressure_status\tio_some_pressure_fraction\t"
                       "io_full_pressure_status\tio_full_pressure_fraction\t"
-                      "thermal_pressure_status\tthermal_pressure_state\n";
+                      "thermal_pressure_status\tthermal_pressure_state\t"
+                      "memory_pressure_status\tmemory_pressure_state\n";
             for (const auto& sample : systems) {
                 output << relative_seconds(sample.observed_at, event_time) << '\t';
                 write_recorded(output, sample.cpu_fraction);
@@ -450,6 +451,8 @@ export_truth_review(const core::IncidentSnapshot& incident, const std::string_vi
                 write_recorded(output, sample.io_full_pressure_fraction);
                 output << '\t';
                 write_recorded(output, sample.thermal_pressure_state);
+                output << '\t';
+                write_recorded(output, sample.memory_pressure_state);
                 output << '\n';
             }
             if (!stream_ok(output)) {

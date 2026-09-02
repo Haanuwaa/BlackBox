@@ -23,7 +23,11 @@ struct PlatformCapabilities {
     bool gpu_usage{};
     bool gpu_memory{};
     bool gpu_inventory{};
+    // Umbrella UI/privacy-setting capability. Exactly one or both of the
+    // typed identity capabilities below may be present.
     bool foreground_application{};
+    bool foreground_process_identity{};
+    bool foreground_application_identity{};
     bool foreground_gpu_usage{};
     bool dpc_isr{};
     bool cpu_frequency{};
@@ -36,6 +40,7 @@ struct PlatformCapabilities {
     bool io_some_pressure{};
     bool io_full_pressure{};
     bool thermal_pressure_state{};
+    bool memory_pressure_state{};
     friend constexpr bool operator==(const PlatformCapabilities&,
                                      const PlatformCapabilities&) = default;
 };

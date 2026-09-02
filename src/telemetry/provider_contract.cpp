@@ -22,6 +22,11 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
     if (snapshot.sampled_tiers != request.tiers) {
         return ProviderContractViolation::sampled_tiers_mismatch;
     }
+    if (capabilities.foreground_application !=
+        (capabilities.foreground_process_identity ||
+         capabilities.foreground_application_identity)) {
+        return ProviderContractViolation::capability_status_mismatch;
+    }
     if (!unsupported_when_absent(capabilities.cpu_usage, snapshot.system.cpu_time) ||
         !unsupported_when_absent(capabilities.memory_usage, snapshot.system.memory_total) ||
         !unsupported_when_absent(capabilities.memory_usage, snapshot.system.memory_available) ||
@@ -61,8 +66,10 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
     if (!unsupported_when_absent(capabilities.gpu_usage, snapshot.system.gpu_usage) ||
         !unsupported_when_absent(capabilities.gpu_memory, snapshot.system.gpu_dedicated_memory) ||
         !unsupported_when_absent(capabilities.gpu_memory, snapshot.system.gpu_shared_memory) ||
-        !unsupported_when_absent(capabilities.foreground_application,
+        !unsupported_when_absent(capabilities.foreground_process_identity,
                                  snapshot.system.foreground_process) ||
+        !unsupported_when_absent(capabilities.foreground_application_identity,
+                                 snapshot.system.foreground_application) ||
         !unsupported_when_absent(capabilities.foreground_gpu_usage,
                                  snapshot.system.foreground_gpu_usage) ||
         !unsupported_when_absent(capabilities.dpc_isr, snapshot.system.dpc_usage) ||
@@ -89,7 +96,9 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
         !unsupported_when_absent(capabilities.io_full_pressure,
                                  snapshot.system.pressure.io_full_microseconds) ||
         !unsupported_when_absent(capabilities.thermal_pressure_state,
-                                 snapshot.system.thermal_pressure_state)) {
+                                 snapshot.system.thermal_pressure_state) ||
+        !unsupported_when_absent(capabilities.memory_pressure_state,
+                                 snapshot.system.memory_pressure_state)) {
         return ProviderContractViolation::capability_status_mismatch;
     }
     if (snapshot.system.cpu_time.has_value() &&
@@ -151,9 +160,18 @@ validate_provider_snapshot_contract(const PlatformCapabilities& capabilities,
         snapshot.system.thermal_pressure_state.value > ThermalPressureState::unknown) {
         return ProviderContractViolation::invalid_pressure_evidence;
     }
+    if (snapshot.system.memory_pressure_state.has_value() &&
+        snapshot.system.memory_pressure_state.value > MemoryPressureState::unknown) {
+        return ProviderContractViolation::invalid_pressure_evidence;
+    }
     if (snapshot.system.foreground_process.has_value() &&
         (snapshot.system.foreground_process.value.pid.value == 0U ||
          snapshot.system.foreground_process.value.creation_token == 0U)) {
+        return ProviderContractViolation::invalid_process_identity;
+    }
+    if (snapshot.system.foreground_application.has_value() &&
+        (snapshot.system.foreground_application.value.session_token == 0U ||
+         snapshot.system.foreground_application.value.application_token == 0U)) {
         return ProviderContractViolation::invalid_process_identity;
     }
     for (std::size_t index = 0U; index < snapshot.processes.size(); ++index) {

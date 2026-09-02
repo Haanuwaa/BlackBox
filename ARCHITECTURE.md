@@ -145,6 +145,11 @@ collector dependency graph.
 
 Provider selection happens in `app`. Core code sees capabilities and normalized values, not build macros or native handles. Windows remains the only supported production backend. Mock scenarios support deterministic development on every build host. Linux has an engineering provider for system CPU/memory/disk/network/power/uptime, capability-driven GPU evidence, and process CPU/memory/I/O behind the same interface. Its native desktop target and explicitly labeled TGZ, DEB, and RPM engineering packages are built, measured, extracted, and smoke-tested across Ubuntu, Debian, and Fedora hosted containers. Linux platform services supply a native SDL tray boundary, a per-user instance lock, exact XDG autostart ownership, bounded freedesktop notifications, a Wayland global-shortcut boundary, and nonblocking increased-contrast/reduced-motion reads through the XDG Desktop Portal. Unavailable desktop protocols keep the window visible and remain explicit. macOS has an engineering provider for system CPU/memory/disk/network/power/uptime and process CPU/memory/I/O using Mach, sysctl, libproc, BSD interface counters, and IOKit behind the same telemetry interface. It exposes public non-identifying Metal inventory and render-device availability, but not passive whole-system GPU utilization. All native APIs remain confined to `telemetry/<os>` or `platform/<os>` and neither backend changes the collector dependency graph. These are hosted engineering boundaries, not physical qualification or product-support claims.
 
+Optional platform evidence stays narrower than this shared graph. A wlroots Wayland reader may expose
+only a session-scoped opaque foreground application key; it discards titles and raw application IDs
+and never guesses a PID. macOS exposes a separate coarse memory-pressure state and BlackBox's own
+login-item authorization status, but neither Linux PSI semantics nor system-wide service activity.
+
 Candidate Windows APIs are documented in `docs/TELEMETRY.md`; candidates remain uncommitted until measured for accuracy, overhead, privilege behavior, and supported Windows versions.
 
 ## Future analysis boundary
@@ -1038,6 +1043,8 @@ network changes, IOKit storage/power notifications, and `NSWorkspace` applicatio
 macOS termination is explicitly `application_terminated`, never crash evidence. Native identifiers,
 unit/application names, paths, interface names, display IDs, message text, and payloads are discarded.
 macOS general launchd service events and any unavailable native source remain explicitly unsupported.
+The background-shell adapter may report only BlackBox's own `SMAppService` registration state; that
+owned-service diagnostic is never presented as system-wide service evidence.
 
 Offline model research remains below the evaluation boundary. A development-only tool reads an
 archive through the read-only direct-v1 storage mode and publishes a sibling-staged, label-free
@@ -1131,10 +1138,36 @@ driver and prove bounded collection, shutdown, source identity, and the no-tray 
 Those compositor-engine smokes do not claim a physical GNOME/KDE session, assistive-technology input,
 fractional-scale visual review, real multi-monitor placement, portal permission UX, or product support.
 
-Foreground identity on Wayland remains explicitly unsupported. The public XDG Desktop Portal API
-still has no standardized permission-bounded active-window/PID interface; screen-cast and private
-compositor protocols are not substitutes. No compatibility reader, migration path, alternate schema,
-native identifier, or direct-schema change is introduced by this slice.
+Generic foreground process identity on Wayland remains explicitly unsupported. The public XDG
+Desktop Portal API still has no standardized permission-bounded active-window/PID interface;
+screen-cast and private compositor protocols are not substitutes. A later optional compositor-
+specific evidence source is described below. No compatibility reader, migration path, alternate
+schema, or native identifier was introduced by the V0.20 desktop slice.
+
+## V0.26 coarse macOS pressure and compositor-specific identity note
+
+The macOS provider owns a Dispatch memory-pressure source and publishes only the native
+normal/warning/critical transition state. The state begins `temporarily_unavailable` until the first
+native notification, remains distinct from Linux PSI fractions and thermal state, and adds no polling
+or callback work to the recorder. The macOS background shell queries `SMAppService` only for
+BlackBox's own main-app registration and exposes disabled, enabled, approval-required, unavailable,
+or unsupported diagnostics. It does not monitor launchd or other applications' services.
+
+The optional Linux Wayland foreground reader owns a second Wayland connection on a stop-aware worker
+inside `telemetry/linux`. It binds only the advertised wlroots foreign-toplevel-management protocol,
+retains at most 256 native handles, ignores titles, hashes each bounded `app_id` immediately with a
+random in-memory session key, and publishes only `(session_token, application_token)`. The portable
+type cannot carry a PID, title, raw application ID, or compositor handle. Conflicting active
+application tokens, missing IDs, protocol loss, permission loss, capacity exhaustion, and reconnect
+warm-up fail closed; multiple active surfaces with the same token remain one application.
+No process or GPU correlation is attempted. GNOME, generic Wayland, and compositors that do not
+advertise the protocol remain explicitly unsupported; KDE's private protocol is not used.
+
+The opaque application evidence follows provider -> normalizer -> recorder like any other optional
+metric and enters the one direct V1 archive layout without a migration or compatibility path. Local
+incident views show a short private token, while offline dataset export deliberately excludes both
+foreground process and foreground application identities. Neither source changes collection cadence,
+automatic incident decisions, analysis causality, or the UI/collector dependency direction.
 
 ## V0.21/V0.22 durability and pressure implementation note
 

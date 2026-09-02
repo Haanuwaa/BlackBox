@@ -835,13 +835,13 @@ INSERT INTO system_quality_samples VALUES(
         }
         auto extended_insert = prepare(database, R"sql(
 INSERT INTO system_extended_samples VALUES(
- ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 )sql",
                                        "prepare system extended sample insert");
         if (!extended_insert) return std::unexpected{extended_insert.error()};
         auto pressure_insert = prepare(database, R"sql(
 INSERT INTO system_pressure_samples VALUES(
- ?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 )sql",
                                        "prepare system pressure sample insert");
         if (!pressure_insert) return std::unexpected{pressure_insert.error()};
@@ -898,23 +898,34 @@ INSERT INTO system_pressure_samples VALUES(
                 sqlite3_bind_null(statement, 10);
                 sqlite3_bind_null(statement, 11);
             }
-            bind_double_value(statement, 12, 13, sample.foreground_gpu_fraction);
-            bind_double_value(statement, 14, 15, sample.dpc_fraction);
-            bind_double_value(statement, 16, 17, sample.interrupt_fraction);
-            bind_double_value(statement, 18, 19, sample.dpc_rate);
-            bind_double_value(statement, 20, 21, sample.cpu_current_mhz);
-            bind_double_value(statement, 22, 23, sample.cpu_max_mhz);
-            bind_double_value(statement, 24, 25, sample.cpu_thermal_limit_mhz);
-            bind_double_value(statement, 26, 27, sample.cpu_thermal_limit_fraction);
-            bind_byte_value(statement, 28, 29, sample.power_source);
-            bind_double_value(statement, 30, 31, sample.battery_fraction);
-            sqlite3_bind_int(statement, 32, stored_status(sample.battery_saver.status));
-            if (sample.battery_saver.status == core::RecordedValueStatus::available) {
-                sqlite3_bind_int(statement, 33, sample.battery_saver.value ? 1 : 0);
+            sqlite3_bind_int(statement, 12,
+                             stored_status(sample.foreground_application.status));
+            if (sample.foreground_application.status == core::RecordedValueStatus::available) {
+                bind_unsigned(statement, 13,
+                              sample.foreground_application.value.session_token);
+                bind_unsigned(statement, 14,
+                              sample.foreground_application.value.application_token);
             } else {
-                sqlite3_bind_null(statement, 33);
+                sqlite3_bind_null(statement, 13);
+                sqlite3_bind_null(statement, 14);
             }
-            bind_double_value(statement, 34, 35, sample.system_uptime_seconds);
+            bind_double_value(statement, 15, 16, sample.foreground_gpu_fraction);
+            bind_double_value(statement, 17, 18, sample.dpc_fraction);
+            bind_double_value(statement, 19, 20, sample.interrupt_fraction);
+            bind_double_value(statement, 21, 22, sample.dpc_rate);
+            bind_double_value(statement, 23, 24, sample.cpu_current_mhz);
+            bind_double_value(statement, 25, 26, sample.cpu_max_mhz);
+            bind_double_value(statement, 27, 28, sample.cpu_thermal_limit_mhz);
+            bind_double_value(statement, 29, 30, sample.cpu_thermal_limit_fraction);
+            bind_byte_value(statement, 31, 32, sample.power_source);
+            bind_double_value(statement, 33, 34, sample.battery_fraction);
+            sqlite3_bind_int(statement, 35, stored_status(sample.battery_saver.status));
+            if (sample.battery_saver.status == core::RecordedValueStatus::available) {
+                sqlite3_bind_int(statement, 36, sample.battery_saver.value ? 1 : 0);
+            } else {
+                sqlite3_bind_null(statement, 36);
+            }
+            bind_double_value(statement, 37, 38, sample.system_uptime_seconds);
             if (auto inserted = expect_done(database, statement, "insert system extended sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
@@ -929,6 +940,7 @@ INSERT INTO system_pressure_samples VALUES(
             bind_double_value(statement, 9, 10, sample.io_some_pressure_fraction);
             bind_double_value(statement, 11, 12, sample.io_full_pressure_fraction);
             bind_byte_value(statement, 13, 14, sample.thermal_pressure_state);
+            bind_byte_value(statement, 15, 16, sample.memory_pressure_state);
             if (auto inserted = expect_done(database, statement, "insert system pressure sample");
                 !inserted) {
                 return std::unexpected{inserted.error()};
@@ -1435,7 +1447,9 @@ FROM system_quality_samples WHERE incident_id=? ORDER BY sample_index
 SELECT sample_index,
  gpu_status, gpu_fraction, gpu_dedicated_status, gpu_dedicated_bytes,
  gpu_shared_status, gpu_shared_bytes, foreground_status, foreground_pid,
- foreground_creation_token, foreground_gpu_status, foreground_gpu_fraction,
+ foreground_creation_token, foreground_application_status,
+ foreground_application_session_token, foreground_application_token,
+ foreground_gpu_status, foreground_gpu_fraction,
  dpc_status, dpc_fraction, interrupt_status, interrupt_fraction,
  dpc_rate_status, dpc_rate, cpu_current_status, cpu_current_mhz,
  cpu_max_status, cpu_max_mhz, cpu_limit_status, cpu_limit_mhz,
@@ -1474,22 +1488,24 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
                 read_unsigned_value(extended_query->get(), 3, 4, "gpu_dedicated_bytes");
             auto shared = read_unsigned_value(extended_query->get(), 5, 6, "gpu_shared_bytes");
             auto foreground_status = read_status(extended_query->get(), 7);
-            auto foreground_gpu = read_double_value(extended_query->get(), 10, 11);
-            auto dpc = read_double_value(extended_query->get(), 12, 13);
-            auto interrupt = read_double_value(extended_query->get(), 14, 15);
-            auto dpc_rate = read_double_value(extended_query->get(), 16, 17);
-            auto current = read_double_value(extended_query->get(), 18, 19);
-            auto maximum = read_double_value(extended_query->get(), 20, 21);
-            auto limit = read_double_value(extended_query->get(), 22, 23);
-            auto limit_fraction = read_double_value(extended_query->get(), 24, 25);
-            auto power = read_byte_value(extended_query->get(), 26, 27, 3U);
-            auto battery = read_double_value(extended_query->get(), 28, 29);
-            auto saver_status = read_status(extended_query->get(), 30);
-            auto uptime = read_double_value(extended_query->get(), 32, 33);
+            auto application_status = read_status(extended_query->get(), 10);
+            auto foreground_gpu = read_double_value(extended_query->get(), 13, 14);
+            auto dpc = read_double_value(extended_query->get(), 15, 16);
+            auto interrupt = read_double_value(extended_query->get(), 17, 18);
+            auto dpc_rate = read_double_value(extended_query->get(), 19, 20);
+            auto current = read_double_value(extended_query->get(), 21, 22);
+            auto maximum = read_double_value(extended_query->get(), 23, 24);
+            auto limit = read_double_value(extended_query->get(), 25, 26);
+            auto limit_fraction = read_double_value(extended_query->get(), 27, 28);
+            auto power = read_byte_value(extended_query->get(), 29, 30, 3U);
+            auto battery = read_double_value(extended_query->get(), 31, 32);
+            auto saver_status = read_status(extended_query->get(), 33);
+            auto uptime = read_double_value(extended_query->get(), 35, 36);
             if (!gpu) return std::unexpected{gpu.error()};
             if (!dedicated) return std::unexpected{dedicated.error()};
             if (!shared) return std::unexpected{shared.error()};
             if (!foreground_status) return std::unexpected{foreground_status.error()};
+            if (!application_status) return std::unexpected{application_status.error()};
             if (!foreground_gpu) return std::unexpected{foreground_gpu.error()};
             if (!dpc) return std::unexpected{dpc.error()};
             if (!interrupt) return std::unexpected{interrupt.error()};
@@ -1515,6 +1531,19 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
                 }
                 sample.foreground_process.value = {static_cast<std::uint32_t>(pid), *token};
             }
+            sample.foreground_application.status = *application_status;
+            if (*application_status == core::RecordedValueStatus::available) {
+                auto session = read_unsigned(extended_query->get(), 11,
+                                             "foreground_application_session_token");
+                auto application = read_unsigned(extended_query->get(), 12,
+                                                 "foreground_application_token");
+                if (!session || !application || *session == 0U || *application == 0U) {
+                    return std::unexpected{simple_error(
+                        StorageErrorCode::invalid_data,
+                        "foreground application identity is invalid")};
+                }
+                sample.foreground_application.value = {*session, *application};
+            }
             sample.foreground_gpu_fraction = *foreground_gpu;
             sample.dpc_fraction = *dpc;
             sample.interrupt_fraction = *interrupt;
@@ -1527,7 +1556,7 @@ FROM system_extended_samples WHERE incident_id=? ORDER BY sample_index
             sample.battery_fraction = *battery;
             sample.battery_saver.status = *saver_status;
             if (*saver_status == core::RecordedValueStatus::available) {
-                const auto value = sqlite3_column_int(extended_query->get(), 31);
+                const auto value = sqlite3_column_int(extended_query->get(), 34);
                 if (value != 0 && value != 1) {
                     return std::unexpected{simple_error(StorageErrorCode::invalid_data,
                                                         "battery saver value is invalid")};
@@ -1544,7 +1573,8 @@ SELECT sample_index,
  memory_full_status, memory_full_fraction,
  io_some_status, io_some_fraction,
  io_full_status, io_full_fraction,
- thermal_pressure_status, thermal_pressure_state
+ thermal_pressure_status, thermal_pressure_state,
+ memory_pressure_status, memory_pressure_state
 FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
 )sql",
                                       "prepare system pressure sample load");
@@ -1577,12 +1607,14 @@ FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
             auto io_some = read_double_value(pressure_query->get(), 7, 8);
             auto io_full = read_double_value(pressure_query->get(), 9, 10);
             auto thermal = read_byte_value(pressure_query->get(), 11, 12, 4U);
+            auto memory_pressure = read_byte_value(pressure_query->get(), 13, 14, 3U);
             if (!cpu_some) return std::unexpected{cpu_some.error()};
             if (!memory_some) return std::unexpected{memory_some.error()};
             if (!memory_full) return std::unexpected{memory_full.error()};
             if (!io_some) return std::unexpected{io_some.error()};
             if (!io_full) return std::unexpected{io_full.error()};
             if (!thermal) return std::unexpected{thermal.error()};
+            if (!memory_pressure) return std::unexpected{memory_pressure.error()};
             auto& sample = systems[index];
             sample.cpu_some_pressure_fraction = *cpu_some;
             sample.memory_some_pressure_fraction = *memory_some;
@@ -1590,6 +1622,7 @@ FROM system_pressure_samples WHERE incident_id=? ORDER BY sample_index
             sample.io_some_pressure_fraction = *io_some;
             sample.io_full_pressure_fraction = *io_full;
             sample.thermal_pressure_state = *thermal;
+            sample.memory_pressure_state = *memory_pressure;
         }
 
         std::vector<core::SystemEvent> events;

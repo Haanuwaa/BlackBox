@@ -7,6 +7,7 @@ add_executable(blackbox_tests
     telemetry/collection_timing_tests.cpp
     telemetry/disk_quality_tracker_tests.cpp
     telemetry/event_collector_tests.cpp
+    telemetry/foreground_application_tracker_tests.cpp
     telemetry/gpu_aggregation_tests.cpp
     telemetry/incident_snapshot_builder_tests.cpp
     telemetry/linux_proc_parser_tests.cpp

@@ -119,7 +119,7 @@ but never renders more than once per interval. This addresses the visible tradeo
 hover could feel less fluid than a 60 Hz desktop. Collection and dashboard projection rates are
 unchanged, hidden/minimized behavior remains event-driven, and deterministic tests cover idle,
 interaction, expiry, reset, and stale-deadline behavior. The controlled clean-revision runtime
-comparison remains open until V0.25 is frozen.
+comparison remains open until the current V0.26 candidate is frozen.
 
 ### Process-scale matrix
 

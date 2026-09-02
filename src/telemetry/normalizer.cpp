@@ -185,6 +185,7 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.gpu_dedicated_memory = raw.system.gpu_dedicated_memory;
     result.gpu_shared_memory = raw.system.gpu_shared_memory;
     result.foreground_process = raw.system.foreground_process;
+    result.foreground_application = raw.system.foreground_application;
     result.foreground_gpu_usage = raw.system.foreground_gpu_usage;
     result.dpc_usage = raw.system.dpc_usage;
     result.interrupt_usage = raw.system.interrupt_usage;
@@ -198,6 +199,7 @@ SystemSample SystemTelemetryNormalizer::normalize(const RawTelemetrySnapshot& ra
     result.battery_saver = raw.system.battery_saver;
     result.system_uptime = raw.system.system_uptime;
     result.thermal_pressure_state = raw.system.thermal_pressure_state;
+    result.memory_pressure_state = raw.system.memory_pressure_state;
 
     if (!previous_) {
         result.cpu_usage = initial_cumulative_status<CpuTimeCounters, Ratio>(raw.system.cpu_time);

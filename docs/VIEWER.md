@@ -20,6 +20,10 @@ Series with at most 2,048 available points are retained exactly. Larger series u
 
 The process table aggregates by full PID/creation-token identity and exposes sample count, peak CPU, peak working set, and peak disk read/write. Name/path/PID filtering is case-insensitive. Sorting supports name, PID, and each peak metric in both directions. Selecting a row rebuilds only that process's four bounded graph series from the already-loaded incident on the viewer worker.
 
+Foreground transitions backed by a durable process identity resolve to local process metadata and may
+show matching GPU evidence. A compositor-specific Wayland transition is labeled only with a short
+private application token; the viewer never guesses a process name/PID or attaches GPU evidence to it.
+
 ## Labels and notes
 
 The pre-release schema-v1 baseline includes a label and note for every incident. Labels are limited to 128 UTF-8 bytes and notes to 4,096 UTF-8 bytes at the repository boundary; schema checks also cap stored character counts. Updates use prepared statements in a transaction and survive restart. V0.0.9 treats both fields as local diagnostic data and provides no export or synchronization.

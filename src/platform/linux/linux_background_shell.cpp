@@ -788,8 +788,15 @@ bool LinuxBackgroundShell::launch_at_login_enabled() const noexcept {
 }
 
 BackgroundShellDiagnostics LinuxBackgroundShell::diagnostics() const noexcept {
-    const std::scoped_lock lock{native_->mutex};
-    return native_->diagnostics;
+    BackgroundShellDiagnostics result{};
+    {
+        const std::scoped_lock lock{native_->mutex};
+        result = native_->diagnostics;
+    }
+    result.launch_at_login_state = native_->launch_at_login_enabled_unlocked()
+                                       ? LaunchAtLoginState::enabled
+                                       : LaunchAtLoginState::disabled;
+    return result;
 }
 
 } // namespace blackbox::platform::linux

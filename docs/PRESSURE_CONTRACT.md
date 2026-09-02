@@ -54,8 +54,10 @@ pressure dimension.
 
 macOS has no accepted public source that exposes the cumulative stalled-time meanings above.
 `NSProcessInfo.thermalState` is therefore represented as a separate coarse
-nominal/fair/serious/critical state. It is never converted into a stall fraction, CPU frequency, or
-utilization value.
+nominal/fair/serious/critical thermal state. Dispatch memory-pressure notifications are represented
+by a second, separate normal/warning/critical memory-pressure state. Neither state is converted into
+a stall fraction, CPU frequency, utilization value, or the other state. Memory pressure starts
+temporarily unavailable until the first native transition is observed.
 
 ## Privacy, persistence, and analysis
 
@@ -75,6 +77,6 @@ input, overflow, partial dimensions, and `some`-only CPU files. Normalizer tests
 warm-up, independent reset/failure, and impossible fractions; provider-contract, direct-V1 archive
 round-trip, dataset/truth export, UI availability copy, and the existing all-tier overhead benchmark
 cover the remaining boundaries. The native parser is also part of the bounded libFuzzer graph.
-Exact-revision hosted Linux execution remains required before the V0.22 engineering evidence is
-frozen. A future macOS cumulative-stall implementation still requires a separately documented public
-source with the same semantics; the implemented thermal level does not satisfy that contract.
+The V0.22 Linux implementation has exact-revision hosted evidence. A future macOS cumulative-stall
+implementation still requires a separately documented public source with the same semantics; the
+implemented thermal and memory-pressure levels do not satisfy that contract.

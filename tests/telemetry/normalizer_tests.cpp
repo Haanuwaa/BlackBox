@@ -59,6 +59,26 @@ TEST_CASE("the first observation establishes only cumulative baselines",
     CHECK(result.memory_usage.value.value == Approx(0.375));
 }
 
+TEST_CASE("opaque foreground identity and coarse pressure pass through normalization",
+          "[telemetry][normalizer][privacy][pressure]") {
+    telemetry::SystemTelemetryNormalizer normalizer;
+    auto raw = snapshot(std::chrono::steady_clock::time_point{10s}, 250U, 1000U, 16'000U,
+                        10'000U, 100U, 200U, 300U, 400U);
+    raw.system.foreground_application =
+        telemetry::MetricValue<telemetry::OpaqueApplicationIdentity>::available({19U, 23U});
+    raw.system.memory_pressure_state =
+        telemetry::MetricValue<telemetry::MemoryPressureState>::available(
+            telemetry::MemoryPressureState::critical);
+
+    const auto result = normalizer.normalize(raw);
+
+    REQUIRE(result.foreground_application.has_value());
+    CHECK(result.foreground_application.value.session_token == 19U);
+    CHECK(result.foreground_application.value.application_token == 23U);
+    REQUIRE(result.memory_pressure_state.has_value());
+    CHECK(result.memory_pressure_state.value == telemetry::MemoryPressureState::critical);
+}
+
 TEST_CASE("cumulative counters normalize using measured elapsed time", "[telemetry][normalizer]") {
     telemetry::SystemTelemetryNormalizer normalizer;
     const auto first = snapshot(std::chrono::steady_clock::time_point{10s}, 100U, 1000U, 1000U,
