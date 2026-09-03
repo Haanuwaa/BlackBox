@@ -22,8 +22,9 @@ path. Earlier development data must be recollected or expressed in the current f
 
 - Engineering version: `0.27.0`; the first public release is reserved for exactly `1.0.0`.
 - Current completed Windows test graph: 381 Release tests.
-- V0.24 implementation revision `85044988da5817fa4e759b6c57d014731ce7a528` passed Windows,
-  Linux, macOS, and quality/security hosted matrices. Documentation was recorded at `ba4c9c8`.
+- V0.27 implementation revision `a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete
+  381-test Windows Release graph and exact-revision Windows, Linux, macOS, and quality/security
+  hosted matrices.
 - Windows is the most qualified implementation. Linux and macOS have broad engineering parity but
   remain engineering targets until physical desktop, package, lifecycle, accessibility, signing,
   and support qualification is complete.
@@ -166,9 +167,10 @@ These are evidence-execution tasks, not missing schema or architecture work.
 
 ## Exact next milestone
 
-V0.27 macOS resource-context and app-performance evidence is complete locally and the full 381-test
-Windows Release graph is green. The next gate is to freeze one clean revision and repeat the
-Windows/Linux/macOS/quality hosted matrices, with special attention to the full VM-statistics,
-Dispatch timer, MetricKit subscriber, and app-bundle compile paths. Then run the controlled visible
-runtime comparison using the new renderer health counters. Resource-dependent physical, signing,
-72-hour, and corpus gates remain open and must not be replaced by local simulation.
+V0.27 macOS resource-context and app-performance evidence is complete. Exact revision
+`a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete 381-test Windows Release graph and
+the Windows, Linux, macOS, and quality/security hosted matrices. Freeze the documentation successor,
+rebuild and test that exact revision, run a short fault-recovery smoke, and then run the fresh
+operator-assisted 72-hour Windows campaign. The controlled 30-minute runtime repetitions and
+resource-dependent physical, signing, and corpus gates remain open and must not be replaced by local
+simulation.

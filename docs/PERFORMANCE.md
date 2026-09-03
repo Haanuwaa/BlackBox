@@ -119,7 +119,8 @@ but never renders more than once per interval. This addresses the visible tradeo
 hover could feel less fluid than a 60 Hz desktop. Collection and dashboard projection rates are
 unchanged, hidden/minimized behavior remains event-driven, and deterministic tests cover idle,
 interaction, expiry, reset, and stale-deadline behavior. The controlled clean-revision runtime
-comparison remains open until the current V0.27 candidate is frozen.
+comparison remains open on the frozen V0.27 candidate. The two-minute hidden fault-recovery smoke is
+qualification preflight, not a substitute for the three controlled 30-minute UI-state repetitions.
 
 V0.27 adds allocation-free instrumentation for BlackBox's own visible frames. A fixed 256-frame
 window reports build, present, total-frame P95, maximum frame time, present failures, and a hitch

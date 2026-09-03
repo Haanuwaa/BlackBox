@@ -55,6 +55,15 @@ exact-revision Windows, Linux, macOS, and quality/security hosted workflows. Thi
 visible-rendering characterization and hosted engineering gates, not the controlled 30-minute
 repetitions or any physical-client, long-run, signing, corpus, or V1 release gate below.
 
+The V0.27 macOS resource-context and app-performance implementation at
+`a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete 381-test local Release graph and
+exact-revision [Windows](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207216),
+[Linux](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207099),
+[macOS](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207113), and
+[quality/security](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207108) hosted workflows.
+This proves the engineering build, native compile/package paths, and automated contracts; it does
+not close the controlled 30-minute, physical-client, 72-hour, signing, corpus, or V1 release gates.
+
 Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
 system/process telemetry; and Ubuntu, Debian, and Fedora hosted containers build, measure, package,
@@ -141,7 +150,8 @@ canonical held-out report, and matches its calibration/report fingerprints to th
 one-shot attempt. Only its independently rechecked `v1_release_evidence_satisfied=1` ledger can close
 the evidence-composition requirement; the ledger cannot replace any retained source artifact.
 
-The current V0.18 package is portable and has no background updater or installer. It can optionally
+The current 0.27.0 Windows engineering package is portable and has no background updater or
+installer. It can optionally
 create one current-user Run value for launch-at-login; disabling **Start with Windows** removes it.
 Updates are side-by-side and recoverable: exit BlackBox from its tray menu, verify the new ZIP and
 signatures, extract to a new directory, and retain the prior directory until verification succeeds.
