@@ -2,6 +2,7 @@ name: Quality and security
 
 on:
   push:
+    branches-ignore: ["dependabot/**"]
   pull_request:
   workflow_dispatch:
 
@@ -15,16 +16,17 @@ concurrency:
 jobs:
   dependency-policy-sbom:
     runs-on: windows-2022
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-sbom-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-sbom-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -37,12 +39,7 @@ jobs:
           ./scripts/verify-quality-gates.ps1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Resolve pinned dependency graph
         shell: pwsh
         run: >-
@@ -64,6 +61,7 @@ jobs:
 
   dependency-review:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -114,10 +112,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore CodeQL vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-codeql-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-codeql-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare CodeQL vcpkg binary cache
@@ -125,18 +123,13 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Resolve production dependencies outside CodeQL tracing
         shell: pwsh
         run: >-
           cmake --preset windows-msvc-release -DBLACKBOX_BUILD_TESTS=OFF
       - name: Initialize CodeQL C++ analysis
-        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           languages: c-cpp
           build-mode: manual
@@ -160,20 +153,21 @@ jobs:
             blackbox_offline_ml_tool `
             blackbox_dogfood_capture
       - name: Analyze
-        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
 
   msvc-static-analysis:
     runs-on: windows-2022
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-static-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-static-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -181,12 +175,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure MSVC native analysis
         shell: pwsh
         run: >-
@@ -201,6 +190,7 @@ jobs:
 
   windows-address-sanitizer:
     runs-on: windows-2022
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
@@ -208,10 +198,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-asan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/x64-windows-blackbox-asan.cmake') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-asan-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -219,12 +209,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure AddressSanitizer graph
         shell: pwsh
         run: >-
@@ -246,6 +231,7 @@ jobs:
 
   linux-undefined-sanitizer:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
@@ -253,10 +239,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-ubsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-ubsan-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -264,12 +250,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure UndefinedBehaviorSanitizer graph
         shell: bash
         run: >-
@@ -286,6 +267,7 @@ jobs:
 
   linux-native-fuzz:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
@@ -298,10 +280,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends libdbus-1-dev
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-fuzz-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-fuzz-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -309,12 +291,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure Clang libFuzzer graph
         shell: bash
         run: >-
@@ -350,6 +327,7 @@ jobs:
 
   linux-thread-sanitizer:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
@@ -357,10 +335,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-tsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-tsan-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -368,12 +346,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure ThreadSanitizer graph
         shell: bash
         run: >-
@@ -393,6 +366,7 @@ jobs:
 
   linux-coverage:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
@@ -410,10 +384,10 @@ jobs:
             libgl1-mesa-dev libasound2-dev libpulse-dev libudev-dev \
             libdbus-1-dev libsystemd-dev
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
-          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-coverage-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-coverage-${{ hashFiles('vcpkg.json', 'cmake/triplets/*.cmake') }}
           restore-keys: |
             quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-
       - name: Prepare shared vcpkg binary cache
@@ -421,12 +395,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure coverage graph
         shell: bash
         run: >-
@@ -491,6 +460,7 @@ jobs:
       - linux-thread-sanitizer
       - linux-coverage
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Write revision-bound hosted success attestation

@@ -113,10 +113,15 @@ try {
         Copy-Item -LiteralPath (Join-Path $sourceRelease $name) `
             -Destination (Join-Path $packageRoot $name)
     }
-    [IO.File]::WriteAllText((Join-Path $packageRoot 'docs\RELEASE_READINESS.md'),
-        "fixture`n", [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText((Join-Path $packageRoot 'docs\USER_GUIDE.md'),
-        "fixture`n", [Text.UTF8Encoding]::new($false))
+    foreach ($relative in @('docs\README.md', 'docs\docs\RELEASE_READINESS.md',
+                            'docs\docs\USER_GUIDE.md', 'docs\LICENSE.txt',
+                            'docs\THIRD_PARTY_NOTICES.md', 'docs\licenses\sdl3\copyright',
+                            'docs\licenses\imgui\copyright', 'docs\licenses\implot\copyright',
+                            'docs\licenses\sqlite3\copyright')) {
+        $document = Join-Path $packageRoot $relative
+        [IO.Directory]::CreateDirectory((Split-Path -Parent $document)) | Out-Null
+        [IO.File]::WriteAllText($document, "fixture`n", [Text.UTF8Encoding]::new($false))
+    }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $package = Join-Path $scratch "$packageName.zip"
     [IO.Compression.ZipFile]::CreateFromDirectory(

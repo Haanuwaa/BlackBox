@@ -73,7 +73,13 @@ if ($workflowFiles.Count -eq 0) {
 }
 $actionCount = 0
 $bootstrapCount = 0
-$expectedCheckout = '3d3c42e5aac5ba805825da76410c181273ba90b1'
+$actionPins = @{}
+$bootstrap = Get-Content -LiteralPath (Join-Path $root 'scripts/bootstrap-vcpkg.cmake') -Raw
+if ($bootstrap -notmatch 'string\(JSON baseline GET "\$\{manifest\}" builtin-baseline\)' -or
+    $bootstrap -notmatch 'fetch --depth 1 origin "\$\{baseline\}"' -or
+    $bootstrap -notmatch 'https://github\.com/microsoft/vcpkg\.git') {
+    Fail 'shared bootstrap must fetch the immutable baseline read from vcpkg.json'
+}
 foreach ($workflow in $workflowFiles) {
     $text = Get-Content -LiteralPath $workflow.FullName -Raw
     foreach ($match in [regex]::Matches($text, 'uses:\s*([^\s@]+)@([^\s#]+)')) {
@@ -83,23 +89,27 @@ foreach ($workflow in $workflowFiles) {
         if ($reference -notmatch '^[0-9a-f]{40}$') {
             Fail "$($workflow.Name) uses a mutable action reference '$reference'"
         }
-        if ($actionName -eq 'actions/checkout' -and $reference -ne $expectedCheckout) {
-            Fail "$($workflow.Name) uses an outdated actions/checkout runtime '$reference'"
+        $repository = ($actionName -split '/')[0..1] -join '/'
+        if ($actionPins.ContainsKey($repository) -and $actionPins[$repository] -ne $reference) {
+            Fail "$repository must use one consistent commit across workflows and sub-actions"
         }
+        $actionPins[$repository] = $reference
     }
-    foreach ($match in [regex]::Matches(
-        $text, 'fetch\s+--depth\s+1\s+origin\s+([0-9a-f]{40})')) {
-        ++$bootstrapCount
-        if ($match.Groups[1].Value -ne $baseline) {
-            Fail "$($workflow.Name) bootstraps a vcpkg commit different from the manifest"
-        }
+    if ($text -match 'fetch\s+--depth\s+1\s+origin') {
+        Fail "$($workflow.Name) duplicates vcpkg bootstrap logic instead of using the shared helper"
     }
+    $calls = [regex]::Matches($text, 'cmake -P scripts/bootstrap-vcpkg\.cmake').Count
+    $roots = [regex]::Matches($text, '(?m)^\s+VCPKG_ROOT:').Count
+    if ($calls -ne $roots) {
+        Fail "$($workflow.Name) must bootstrap each isolated vcpkg job through the shared helper"
+    }
+    $bootstrapCount += $calls
 }
 if ($actionCount -eq 0) {
     Fail 'workflow action pin inspection found no actions'
 }
 if ($bootstrapCount -eq 0) {
-    Fail 'workflow vcpkg bootstrap inspection found no immutable commit'
+    Fail 'workflow vcpkg bootstrap inspection found no shared bootstrap calls'
 }
 
 Write-Output "Dependency policy verified: version=$($manifest.'version-semver') baseline=$baseline direct=$($expected.Count) pinned_actions=$actionCount bootstraps=$bootstrapCount"

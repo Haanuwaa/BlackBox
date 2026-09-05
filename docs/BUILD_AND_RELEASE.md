@@ -30,6 +30,23 @@ The hosted job limits are 45 minutes for native builds and 15 minutes for compos
 individual CTest cases have a 120-second default limit. These bounds do not turn failed
 qualification into success.
 
+CI bootstraps vcpkg through `cmake -P scripts/bootstrap-vcpkg.cmake`. Set `VCPKG_ROOT`
+to a new absolute directory; the helper refuses an existing checkout, reads the immutable
+registry revision from `vcpkg.json`, and propagates bounded Git/bootstrap failures.
+Dependency policy requires one action commit per upstream repository, so CodeQL `init`
+and `analyze` cannot drift apart. Binary-cache keys include the manifest and overlay triplets.
+
+The September CI refresh pins cache 6.1.0, download-artifact 8.0.1, and CodeQL 4.37.9
+to their verified release commits. Checkout 7.0.1, upload-artifact 7.0.1,
+dependency-review-action 5.0.0, and gcovr 8.6 were already current. Dependabot groups
+GitHub Actions updates into one pull request. Its branches run PR validation without a
+duplicate push campaign; other branches retain push validation. All four workflows cancel
+superseded runs on the same ref and have explicit job limits. Historical qualification
+runs and retained artifacts remain available under their existing retention policies.
+Windows matrix jobs also retain CTest/JUnit and configuration diagnostics after failure.
+The ZIP verifier checks the preserved `docs/docs/` guide layout and the packaged project
+license, third-party overview, and original runtime dependency notices.
+
 Packages preserve the root README/architecture/roadmap files and the nested `docs/` tree.
 Project license and third-party overview accompany the docs; original resolved dependency notices
 are in `licenses/<package>/copyright`. macOS bundles also include them in

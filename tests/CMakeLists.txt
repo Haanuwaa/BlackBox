@@ -645,6 +645,14 @@ add_test(
 set_tests_properties(source_revision_contract
     PROPERTIES LABELS "architecture;hosted-ci;release;repository;version")
 
+add_test(NAME vcpkg_bootstrap_contract
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_ROOT=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/bootstrap-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_vcpkg_bootstrap.cmake)
+set_tests_properties(vcpkg_bootstrap_contract
+    PROPERTIES LABELS "hosted-ci;dependencies" TIMEOUT 30)
+
 add_test(
     NAME prediction_free_dogfood_cli_contract
     COMMAND ${CMAKE_COMMAND}

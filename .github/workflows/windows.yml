@@ -2,15 +2,21 @@ name: Windows validation
 
 on:
   push:
+    branches-ignore: ["dependabot/**"]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test-package:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -30,12 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure
         shell: pwsh
         run: cmake --preset ${{ matrix.preset }}
@@ -44,7 +45,9 @@ jobs:
         run: cmake --build --preset ${{ matrix.preset }}
       - name: Test
         shell: pwsh
-        run: ctest --preset ${{ matrix.preset }}
+        run: >-
+          ctest --preset ${{ matrix.preset }} --timeout 120
+          --output-junit "$env:GITHUB_WORKSPACE/out/windows-test-results.xml"
       - name: Package
         if: matrix.configuration == 'Release' && matrix.os == 'windows-2022'
         shell: pwsh
@@ -62,21 +65,28 @@ jobs:
           path: |
             out/build/windows-msvc-release/BlackBox-*.zip
             out/build/windows-msvc-release/BlackBox-*.zip.sha256
+      - name: Retain Windows diagnostics even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-diagnostics-windows-${{ matrix.os }}-${{ matrix.configuration }}-${{ github.sha }}
+          path: |
+            out/build/${{ matrix.preset }}/CMakeFiles/CMakeConfigureLog.yaml
+            out/build/${{ matrix.preset }}/Testing/Temporary/*.log
+            out/windows-test-results.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   headless-collection:
     runs-on: windows-2022
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
-        run: |
-          git init "$env:VCPKG_ROOT"
-          git -C "$env:VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$env:VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$env:VCPKG_ROOT" checkout FETCH_HEAD
-          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure core collection graph
         shell: pwsh
         run: >-
@@ -93,6 +103,7 @@ jobs:
 
   linux-boundary:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
     steps:
@@ -111,12 +122,7 @@ jobs:
             pkg-config libdbus-1-dev
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure portable headless graph
         shell: bash
         run: >-
@@ -207,6 +213,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: [build-test-package, headless-collection, linux-boundary]
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Write revision-bound hosted success attestation

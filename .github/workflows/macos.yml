@@ -2,11 +2,16 @@ name: macOS engineering compatibility
 
 on:
   push:
+    branches-ignore: ["dependabot/**"]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   native-provider:
@@ -26,12 +31,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
         shell: bash
-        run: |
-          git init "$VCPKG_ROOT"
-          git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
-          git -C "$VCPKG_ROOT" fetch --depth 1 origin d015e31e90838a4c9dfa3eed45979bc70d9357fc
-          git -C "$VCPKG_ROOT" checkout FETCH_HEAD
-          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        run: cmake -P scripts/bootstrap-vcpkg.cmake
       - name: Configure native macOS graph
         shell: bash
         run: |

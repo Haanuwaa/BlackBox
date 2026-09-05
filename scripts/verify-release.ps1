@@ -87,8 +87,15 @@ try {
         'blackbox.exe',
         'blackbox_dataset_tool.exe',
         'blackbox_dogfood_tool.exe',
-        'docs\RELEASE_READINESS.md',
-        'docs\USER_GUIDE.md'
+        'docs\README.md',
+        'docs\docs\RELEASE_READINESS.md',
+        'docs\docs\USER_GUIDE.md',
+        'docs\LICENSE.txt',
+        'docs\THIRD_PARTY_NOTICES.md',
+        'docs\licenses\sdl3\copyright',
+        'docs\licenses\imgui\copyright',
+        'docs\licenses\implot\copyright',
+        'docs\licenses\sqlite3\copyright'
     )
     foreach ($relative in $required) {
         $target = Join-Path $root $relative

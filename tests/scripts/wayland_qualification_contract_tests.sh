@@ -15,6 +15,14 @@ cat > "$work/tools/find" <<'EOF'
 [[ "$CASE" != startup_failure ]] || exit 0
 echo wayland-fixture
 EOF
+cat > "$work/tools/timeout" <<'EOF'
+#!/usr/bin/env bash
+# The fixture child exits immediately. GNU timeout belongs to the Linux runtime,
+# not the macOS host running these control-flow tests; CTest bounds this suite.
+[[ "$1" == 30s ]] || exit 2
+shift
+exec "$@"
+EOF
 cat > "$work/application" <<'EOF'
 #!/usr/bin/env bash
 echo 'fixture application launched'
