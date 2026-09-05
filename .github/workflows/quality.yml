@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-sbom-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -114,7 +114,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore CodeQL vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-codeql-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -170,7 +170,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-static-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -208,7 +208,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-asan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/x64-windows-blackbox-asan.cmake') }}
@@ -253,7 +253,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-ubsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -298,7 +298,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends libdbus-1-dev
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-fuzz-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -357,7 +357,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-tsan-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
@@ -410,7 +410,7 @@ jobs:
             libgl1-mesa-dev libasound2-dev libpulse-dev libudev-dev \
             libdbus-1-dev libsystemd-dev
       - name: Restore shared vcpkg binary cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
           key: quality-vcpkg-${{ runner.os }}-${{ runner.arch }}-coverage-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
