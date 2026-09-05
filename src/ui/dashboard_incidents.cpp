@@ -1,6 +1,7 @@
 #include "ui/dashboard_incidents.hpp"
 
 #include "ui/dashboard.hpp"
+#include "ui/dashboard_settings.hpp"
 #include "ui/product_ui_model.hpp"
 
 #include <algorithm>
@@ -409,6 +410,14 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 detail.actual_end_seconds, detail.trigger_count);
     ImGui::EndChild();
     ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Export readable incident summary")) {
+        detail::render_path_input("New summary text file", product.summary_path,
+                                  PathField::summary, product, command);
+        ImGui::Checkbox("Include saved label and note", &product.summary_include_annotations);
+        ImGui::TextWrapped("Exports coverage, observed metrics, and explanation uncertainty. Review the text before sharing it.");
+        if (ImGui::Button("Export summary")) command.action = DashboardAction::export_summary;
+        if (!product.file_dialog_status.empty()) ImGui::TextWrapped("%s", product.file_dialog_status.c_str());
+    }
     ImGui::BeginChild("Incident annotations", ImVec2{-1.0F, 300.0F}, ImGuiChildFlags_Borders);
     ImGui::TextUnformatted("Annotation and recurring group");
     ImGui::TextDisabled("Annotations are editable metadata; the captured "

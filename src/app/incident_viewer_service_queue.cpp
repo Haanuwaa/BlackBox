@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <stdexcept>
 #include <utility>
 
 namespace blackbox::app {
@@ -47,6 +48,26 @@ void IncidentViewerService::request_page(const std::size_t offset, std::string s
     job.search = std::move(search);
     job.order = order;
     enqueue(std::move(job));
+}
+
+void IncidentViewerService::invalidate_archive() {
+    const std::scoped_lock lock{mutex_};
+    if (worker_.joinable()) throw std::logic_error{"archive invalidation requires stopped viewer"};
+    read_jobs_.clear();
+    mutation_jobs_.clear();
+    queue_diagnostics_.queued_reads = 0U;
+    queue_diagnostics_.queued_mutations = 0U;
+    last_page_ = {};
+    last_query_ = {};
+    loaded_incident_.reset();
+    loaded_annotation_ = {};
+    loaded_analysis_ = {};
+    loaded_incident_id_ = 0;
+    loaded_created_utc_milliseconds_ = 0;
+    recurring_created_utc_by_id_.clear();
+    auto state = std::make_shared<ui::IncidentViewerContent>();
+    state->generation = ++generation_;
+    snapshot_ = std::move(state);
 }
 
 void IncidentViewerService::request_detail(const std::int64_t incident_id) {
@@ -134,7 +155,7 @@ IncidentViewerQueueDiagnostics IncidentViewerService::queue_diagnostics() const 
 bool IncidentViewerService::is_mutation(const JobType type) noexcept {
     return type == JobType::annotation || type == JobType::contributor_feedback ||
            type == JobType::recurring_override || type == JobType::feedback_reset ||
-           type == JobType::feedback_rollback;
+           type == JobType::feedback_rollback || type == JobType::summary_export;
 }
 
 bool IncidentViewerService::enqueue(Job job) {
@@ -212,6 +233,9 @@ void IncidentViewerService::run(const std::stop_token stop_token) noexcept {
         bool mutation_succeeded = true;
         try {
             switch (job.type) {
+            case JobType::summary_export:
+                mutation_succeeded = handle_summary_export(job);
+                break;
             case JobType::page:
                 handle_page(job);
                 break;

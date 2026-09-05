@@ -1,0 +1,8 @@
+Copyright (c) 2026 BlackBox contributors. All rights reserved.
+
+BlackBox is proprietary software. No general permission to use, reproduce,
+modify, or distribute BlackBox is granted by this notice. Separately granted
+permissions and applicable rights remain unaffected.
+
+Third-party components remain subject to their respective licenses. Their
+notices are distributed separately with engineering packages.

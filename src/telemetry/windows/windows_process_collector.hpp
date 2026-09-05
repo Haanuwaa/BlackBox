@@ -31,7 +31,8 @@ public:
 
     [[nodiscard]] MetricStatus collect(bool collect_counters,
                                        bool resolve_paths,
-                                       RawTelemetrySnapshot& destination);
+                                       RawTelemetrySnapshot& destination,
+                                       bool refresh_metadata = false);
     [[nodiscard]] std::size_t cache_size() const noexcept;
     [[nodiscard]] std::size_t cached_handle_count() const noexcept;
     [[nodiscard]] WindowsProcessCollectorDiagnostics diagnostics() const noexcept;

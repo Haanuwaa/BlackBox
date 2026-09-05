@@ -1,5 +1,11 @@
 # UI qualification
 
+Screen-reader support is unqualified. Keyboard navigation, high contrast and readable exports do
+not provide a complete UI Automation/NSAccessibility/AT-SPI semantic tree for ImGui controls.
+Narrator, VoiceOver and Orca qualification must record actual names, focus, values and announcements,
+including unsupported workflows. Native file picker cancellation keeps the previous path;
+overlong UTF-8 selections are rejected without truncation. See [current gates](CURRENT_CANDIDATE.md).
+
 BlackBox uses deterministic software raster evidence to catch native UI rendering regressions before
 the physical Windows client matrix. This is a development qualification aid, not a substitute for
 testing the packaged application on real displays and assistive configurations.
@@ -7,10 +13,11 @@ testing the packaged application on real displays and assistive configurations.
 The product UI uses one code-native semantic visual system: restrained navy surfaces, explicit
 text/accent/success/warning roles, consistent padding and rounding, a system-native UI font when one
 is available, and a reversible maximum-contrast palette. Live leads with recording state and one
-primary capture action; incident browsing, explanation/annotation, collection profiles, capture
-preferences, archive maintenance, and permanent removal are grouped into bordered surfaces. The
-deterministic raster runner intentionally keeps its bundled Basic Latin font so screenshots remain
-host-independent; production font loading has an explicit fallback and does not alter evidence text.
+primary capture action. Collection profiles, capture preferences, archive maintenance, and
+permanent removal use one Settings scroll area. The raster
+runner and production app share the same platform-font loader and fallback. Compare the same
+font installation and DPI context when reviewing raster output. Fixtures scale the font and style
+at the target DPI and settle page layout before capture; they do not enlarge a 100% bitmap.
 
 ## Generate the direct-v1 evidence bundle
 

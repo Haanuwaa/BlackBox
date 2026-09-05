@@ -183,6 +183,27 @@ $expectedFiles = @(
     'process-samples.tsv',
     'summary.ini'
 )
+$inventoryPath = Join-Path $campaign 'runtime-inventory.ini'
+if (-not [IO.File]::Exists($inventoryPath) -or (Get-Item -LiteralPath $inventoryPath).Length -gt 16KB) {
+    throw 'Missing or oversized runtime inventory.'
+}
+$inventory = Read-DirectV1 $inventoryPath
+$runtimeCount = Read-UInt $inventory 'file_count'
+if ($runtimeCount -lt 1 -or $runtimeCount -gt 32 -or $inventory.Count -ne ($runtimeCount + 2)) {
+    throw 'Invalid runtime inventory file count.'
+}
+$runtimeFiles = @($inventory.Keys | Where-Object { $_ -notin @('format', 'file_count') })
+foreach ($relative in $runtimeFiles) {
+    if ($relative -notmatch '^runtime/[A-Za-z0-9_.-]+\.(exe|dll)$' -or
+        $inventory[$relative] -notmatch '^[0-9a-f]{64}$') {
+        throw 'Invalid runtime inventory path or hash.'
+    }
+}
+if ('runtime/blackbox.exe' -cnotin $runtimeFiles) { throw 'Runtime application is missing.' }
+$expectedFiles += @('runtime-inventory.ini', 'app-progress.ini') + $runtimeFiles
+# A recovery export is mandatory exactly when a fault probe is bound.
+$faultBundle = 'runtime/blackbox_soak_archive_fault.exe' -cin $runtimeFiles
+if ($faultBundle) { $expectedFiles += 'recovered-incident.sqlite3' }
 $actualFiles = @(Get-ChildItem -LiteralPath $campaign -Recurse -Force -File)
 if ($actualFiles.Count -ne $expectedFiles.Count) {
     throw 'The soak bundle does not contain the exact direct-v1 file set.'
@@ -198,7 +219,8 @@ foreach ($file in $actualFiles) {
         'data/incidents.sqlite3' { 1GB }
         'process-samples.tsv' { 32MB }
         'operator-events.tsv' { 64KB }
-        default { 1MB }
+        'recovered-incident.sqlite3' { 1GB }
+        default { if ($relative.StartsWith('runtime/')) { 200MB } else { 1MB } }
     }
     if ($file.Length -le 0 -or $file.Length -gt $limit) {
         throw "Soak bundle file violates its size bound: $relative"
@@ -215,7 +237,7 @@ foreach ($directory in $directories) {
     }
     $directoryRelative += Get-BundleRelativePath $campaign $directory.FullName
 }
-if (Compare-Object @('data', 'data/crashes') ($directoryRelative | Sort-Object)) {
+if (Compare-Object @('data', 'data/crashes', 'runtime') ($directoryRelative | Sort-Object)) {
     throw 'The soak bundle must contain only its data and empty crash-staging directories.'
 }
 if (@(Get-ChildItem -LiteralPath (Join-Path $campaign 'data/crashes') -Force).Count -ne 0) {
@@ -238,6 +260,11 @@ foreach ($relative in $expectedFiles | Where-Object { $_ -ne 'manifest.sha256.in
     if ($actualHash -cne $expectedHash) { throw "Changed soak evidence: $relative" }
 }
 
+foreach ($relative in $runtimeFiles) {
+    if ((Require-Field $manifest $relative) -cne $inventory[$relative]) {
+        throw "Runtime inventory and final manifest disagree: $relative"
+    }
+}
 $campaignFields = Read-DirectV1 (Join-Path $campaign 'campaign.ini')
 $summary = Read-DirectV1 (Join-Path $campaign 'summary.ini')
 $checkpoint = Read-DirectV1 (Join-Path $campaign 'checkpoint.ini')
@@ -250,6 +277,9 @@ if ($mode -notin @('smoke', 'overnight', '72-hour') -or
     (Require-Field $checkpoint 'state') -cne 'completed') {
     throw 'Campaign, summary, and checkpoint state do not describe one passed campaign.'
 }
+$profile = Require-Field $campaignFields 'profile'
+if ($profile -notin @('isolated', 'defaults') -or (Require-Field $summary 'profile') -cne $profile) { throw 'Invalid or inconsistent campaign profile.' }
+if ($profile -eq 'defaults' -and ($mode -ne 'smoke' -or 'runtime/blackbox_default_profile_workload.exe' -notin $runtimeFiles)) { throw 'Default rehearsal requires the preserved workload binary and smoke mode.' }
 $sourceRevision = Require-Field $campaignFields 'source_revision'
 if ($sourceRevision -notmatch '^(local-uncommitted|[0-9a-f]{40}|[0-9a-f]{64})$') {
     throw 'The campaign source revision is malformed.'
@@ -268,6 +298,13 @@ foreach ($pair in @(@('runner_sha256', $currentRunnerHash),
         (Require-Field $summary $pair[0]) -cne $pair[1]) {
         throw "Campaign harness does not match current release source: $($pair[0])"
     }
+}
+if ($inventory['runtime/blackbox.exe'] -cne $applicationHash) { throw 'Preserved runtime has the wrong application hash.' }
+$progress = Read-DirectV1 (Join-Path $campaign 'app-progress.ini')
+if ((Require-Field $progress 'source_revision') -cne $sourceRevision -or
+    (Require-Field $progress 'complete') -cne '1' -or
+    (Read-UInt $progress 'collections') -gt (Read-UInt $report 'collections')) {
+    throw 'Final live progress is incomplete or contradicts the application report.'
 }
 $faultProbeHash = Require-Field $campaignFields 'archive_fault_probe_sha256'
 if (($faultProbeHash -cne 'none' -and $faultProbeHash -notmatch '^[0-9a-f]{64}$') -or
@@ -307,6 +344,7 @@ $expectedProcessSamples = [uint64][math]::Max(
         2, [math]::Ceiling($nominalProcessSamples * 0.05)))
 $expectedScheduledCaptures = [uint64][math]::Max(
     0, [math]::Ceiling(($requested - 2) / [double]$captureInterval) - 1)
+if ($profile -eq 'defaults') { $expectedScheduledCaptures = [uint64]1 }
 if ($minimumCollections -ne $expectedCollections -or
     $minimumProcessSamples -ne $expectedProcessSamples -or
     $minimumScheduledCaptures -ne $expectedScheduledCaptures) {
@@ -427,6 +465,8 @@ if ($eventLines.Count -lt 1 -or $eventLines.Count -gt 1025 -or
     throw 'The operator journal header or bound is invalid.'
 }
 $events = @()
+$faultStarts = @()
+$faultEnds = @()
 foreach ($line in $eventLines | Select-Object -Skip 1) {
     $columns = $line.Split("`t")
     [DateTimeOffset]$utc = [DateTimeOffset]::MinValue
@@ -434,10 +474,13 @@ foreach ($line in $eventLines | Select-Object -Skip 1) {
         -not [DateTimeOffset]::TryParse($columns[0], $invariant,
                                         [Globalization.DateTimeStyles]::RoundtripKind, [ref]$utc) -or
         $columns[1] -notin @('sleep_resume', 'lock_unlock', 'device_churn',
-                             'archive_fault_started', 'archive_recovered')) {
+                             'archive_fault_started', 'archive_recovered',
+                             'ui_visible', 'ui_minimized', 'ui_hidden')) {
         throw 'The operator journal contains a malformed or unknown event.'
     }
     $events += $columns[1]
+    if ($columns[1] -eq 'archive_fault_started') { $faultStarts += $utc }
+    if ($columns[1] -eq 'archive_recovered') { $faultEnds += $utc }
 }
 
 if ((Require-Field $report 'archive_healthy') -cne '1' -or
@@ -452,10 +495,27 @@ Require-Zero $report @('failed_samples', 'dropped_samples', 'deadline_misses',
                         'collector_worker_failures', 'snapshot_failures',
                         'capture_queue_rejections', 'event_worker_failures',
                         'native_events_dropped', 'writer_cancelled',
-                        'automatic_detection_enabled',
-                        'automatic_detector_triggers',
-                        'automatic_captures_started',
-                        'automatic_event_requests')
+                        'unclassified_long_gaps', 'unclassified_skipped_samples',
+                        'writer_failed_incidents_not_retained')
+$pre = Read-UInt $report 'incident_pre_window_seconds'
+$post = Read-UInt $report 'incident_post_window_seconds'
+$history = Read-UInt $report 'history_duration_seconds'
+$paths = Read-UInt $report 'collect_process_paths'
+if ($profile -eq 'isolated') {
+    Require-Zero $report @('automatic_detection_enabled', 'automatic_detector_triggers', 'automatic_captures_started', 'automatic_event_requests')
+    if ($pre -ne 1 -or $post -ne 1 -or $history -ne 60 -or $paths -ne 0) { throw 'Isolated profile configuration mismatch.' }
+} else {
+    if ($pre -ne 120 -or $post -ne 30 -or $history -ne 300 -or $paths -ne 1 -or
+        (Read-UInt $report 'automatic_detection_enabled') -ne 1 -or
+        (Read-UInt $report 'automatic_detector_triggers') -lt 1 -or
+        (Read-UInt $report 'automatic_captures_started') -lt 1 -or $requested -lt 220) {
+        throw 'Default-profile configuration or automatic-capture coverage is missing.'
+    }
+    if ((Read-UInt $report 'capture_requests_merged') -lt 1 -or
+        'ui_visible' -notin $events -or 'ui_minimized' -notin $events -or 'ui_hidden' -notin $events) {
+        throw 'Default rehearsal did not cover manual/automatic overlap and visible/minimized/hidden transitions.'
+    }
+}
 $eventCount = (Read-UInt $report 'power_events_recorded') +
               (Read-UInt $report 'device_events_recorded') +
               (Read-UInt $report 'audio_events_recorded') +
@@ -467,7 +527,8 @@ $eventCount = (Read-UInt $report 'power_events_recorded') +
               (Read-UInt $report 'graphics_events_recorded') +
               (Read-UInt $report 'storage_events_recorded')
 if ($eventCount -ne (Read-UInt $report 'system_events_recorded') -or
-    (Read-UInt $report 'writer_succeeded') + (Read-UInt $report 'writer_failed') -ne
+    (Read-UInt $report 'writer_succeeded') + (Read-UInt $report 'writer_failed') -
+        (Read-UInt $report 'writer_explicit_recoveries') -ne
         (Read-UInt $report 'incidents_completed') -or
     (Read-UInt $report 'archive_incidents') -ne (Read-UInt $report 'writer_succeeded') -or
     (Read-UInt $report 'incidents_completed') -lt $minimumScheduledCaptures) {
@@ -478,15 +539,32 @@ $faultExercised = Read-UInt $summary 'archive_fault_exercised'
 if ($faultExercised -gt 1) { throw 'archive_fault_exercised must be zero or one.' }
 if ($faultExercised -eq 0) {
     if ($faultProbeHash -cne 'none') { throw 'An unexercised fault probe must not claim a hash.' }
-    Require-Zero $report @('writer_retry_exhausted', 'writer_failed')
+    Require-Zero $report @('writer_retry_exhausted', 'writer_failed', 'writer_explicit_recoveries')
+    if ($faultBundle -or $faultStarts.Count -ne 0 -or $faultEnds.Count -ne 0) { throw 'Unexpected archive-fault evidence.' }
 } elseif ($faultProbeHash -eq 'none' -or
           (Read-UInt $report 'writer_retry_attempts') -lt 1 -or
-          (Read-UInt $report 'writer_retry_exhausted') -lt 1 -or
-          (Read-UInt $report 'writer_failed') -lt 1 -or
+          (Read-UInt $report 'writer_retry_exhausted') -ne 1 -or
+          (Read-UInt $report 'writer_failed') -ne 1 -or
           (Read-UInt $report 'writer_recoveries') -lt 1 -or
-          (Require-Field $report 'recoverable_incident_available') -cne '1' -or
+          (Require-Field $report 'recoverable_incident_available') -cne '0' -or
+          (Read-UInt $report 'writer_explicit_recoveries') -ne 1 -or
+          (Read-UInt $report 'writer_last_failed_capture_sequence') -ne 2 -or
+          -not $faultBundle -or $inventory['runtime/blackbox_soak_archive_fault.exe'] -cne $faultProbeHash -or
           'archive_fault_started' -notin $events -or 'archive_recovered' -notin $events) {
     throw 'Archive-fault evidence is incomplete or uncorroborated.'
+}
+
+if ($faultExercised -eq 1) {
+    if ($faultStarts.Count -ne 1 -or $faultEnds.Count -ne 1 -or $faultEnds[0] -le $faultStarts[0]) {
+        throw 'A single ordered fault window is required.'
+    }
+    $failureNs = [decimal](Read-UInt $report 'writer_last_failure_utc_nanoseconds')
+    $epoch = [DateTimeOffset]::Parse('1970-01-01T00:00:00Z')
+    $startNs = [decimal]($faultStarts[0].UtcTicks - $epoch.UtcTicks) * 100
+    $endNs = [decimal]($faultEnds[0].UtcTicks - $epoch.UtcTicks) * 100
+    if ($failureNs -lt $startNs -or $failureNs -gt $endNs) {
+        throw 'The failed capture was outside the injected archive-fault window.'
+    }
 }
 
 if ($mode -ne 'smoke') {

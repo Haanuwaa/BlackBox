@@ -1,5 +1,7 @@
 #pragma once
 
+#include "app/file_dialog_service.hpp"
+
 #include "app/product_settings.hpp"
 #include "app/recorder_settings.hpp"
 #include "app/renderer_health.hpp"
@@ -49,6 +51,8 @@ struct ApplicationDiagnosticOptions {
     std::chrono::seconds runtime{};
     std::chrono::seconds capture_interval{};
     std::filesystem::path report_path{};
+    bool recover_failed_incident{};
+    bool overlap_automatic_capture{};
 };
 
 enum class ApplicationInitializationResult : std::uint8_t {
@@ -60,7 +64,7 @@ enum class ApplicationInitializationResult : std::uint8_t {
 class Application final {
 public:
     explicit Application(bool start_hidden = false,
-                         ApplicationDiagnosticOptions diagnostic_options = {}) noexcept;
+                         ApplicationDiagnosticOptions diagnostic_options = {});
     ~Application();
 
     Application(const Application&) = delete;
@@ -82,8 +86,11 @@ private:
     void request_incident_capture() noexcept;
     void apply_product_settings(const ui::DashboardCommand& command) noexcept;
     void request_support_bundle(const ui::DashboardCommand& command) noexcept;
-    void synchronize_product_ui() noexcept;
+    void synchronize_product_ui();
+    void request_file_dialog(ui::PathField field);
+    void consume_file_dialog();
     void write_diagnostic_report() noexcept;
+    void write_diagnostic_progress() noexcept;
     [[nodiscard]] bool register_configured_hotkey(platform::HotkeyCombination combination) noexcept;
     void refresh_hotkey_status() noexcept;
     void shutdown() noexcept;
@@ -121,6 +128,8 @@ private:
     ui::DashboardState dashboard_state_{};
     ui::IncidentViewerState incident_viewer_state_{};
     ui::ProductUiState product_ui_state_{};
+    ui::ProductPreferences saved_product_preferences_{};
+    FileDialogService file_dialog_service_{};
     core::MonotonicTimePoint next_dashboard_refresh_at_{};
     core::MonotonicTimePoint next_accessibility_refresh_at_{};
     std::uint64_t dashboard_projection_collection_count_{std::numeric_limits<std::uint64_t>::max()};
@@ -143,6 +152,7 @@ private:
     std::uint64_t background_last_snapshot_failures_{};
     std::uint64_t background_last_capture_cancellations_{};
     std::uint64_t archive_maintenance_generation_{};
+    std::uint64_t archive_content_epoch_{};
     core::MonotonicTimePoint next_background_refresh_at_{};
 
     SDL_Window* window_{nullptr};
@@ -168,6 +178,9 @@ private:
     bool diagnostic_completed_{};
     bool diagnostic_report_written_{};
     bool diagnostic_report_failed_{};
+    bool diagnostic_recovery_requested_{};
+    bool diagnostic_overlap_requested_{};
+    core::MonotonicTimePoint next_diagnostic_progress_at_{};
     bool shutdown_started_{};
 };
 

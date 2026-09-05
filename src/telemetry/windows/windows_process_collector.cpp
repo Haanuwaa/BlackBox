@@ -114,13 +114,16 @@ struct WindowsProcessCollector::State {
     [[nodiscard]] MetricStatus collect(
         const bool collect_counters,
         const bool resolve_paths,
-        RawTelemetrySnapshot& destination) {
+        RawTelemetrySnapshot& destination, const bool refresh_metadata) {
         const bool emit_lifecycle = lifecycle_warmed;
         ++generation;
         last_diagnostics = {};
-        const auto enumeration_status = resolve_paths
+        const bool basic_snapshot = resolve_paths || refresh_metadata ||
+                                    metadata.empty() || metadata_refresh_requested;
+        metadata_refresh_requested = false;
+        const auto enumeration_status = basic_snapshot
             ? collect_metadata_enumeration(collect_counters, emit_lifecycle,
-                                           destination)
+                                           destination, resolve_paths)
             : collect_fast_enumeration(collect_counters, emit_lifecycle,
                                        destination);
         if (enumeration_status != MetricStatus::available) {
@@ -155,7 +158,7 @@ struct WindowsProcessCollector::State {
     [[nodiscard]] MetricStatus collect_metadata_enumeration(
         const bool collect_counters,
         const bool emit_lifecycle,
-        RawTelemetrySnapshot& destination) {
+        RawTelemetrySnapshot& destination, const bool resolve_paths) {
         HandleGuard snapshot{CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0U)};
         if (snapshot.value == INVALID_HANDLE_VALUE) return last_error_status();
         PROCESSENTRY32W entry{};
@@ -163,7 +166,7 @@ struct WindowsProcessCollector::State {
         BOOL has_entry = Process32FirstW(snapshot.value, &entry);
         while (has_entry != FALSE) {
             ++destination.process_diagnostics.enumerated;
-            collect_entry(entry, collect_counters, true, emit_lifecycle,
+            collect_entry(entry, collect_counters, resolve_paths, emit_lifecycle,
                           destination);
             entry.dwSize = sizeof(entry);
             has_entry = Process32NextW(snapshot.value, &entry);
@@ -299,8 +302,10 @@ struct WindowsProcessCollector::State {
                 value.process = std::move(opened);
                 ++cached_handles;
             }
-            value.info.parent_pid = MetricValue<ProcessId>::available(
-                ProcessId{static_cast<std::uint32_t>(entry.th32ParentProcessID)});
+            value.info.parent_pid = entry.szExeFile[0] != L'\0'
+                ? MetricValue<ProcessId>::available(ProcessId{
+                    static_cast<std::uint32_t>(entry.th32ParentProcessID)})
+                : MetricValue<ProcessId>::unavailable(MetricStatus::temporarily_unavailable);
             auto name = utf8(entry.szExeFile);
             value.info.name = name.empty()
                                   ? MetricValue<std::string>::unavailable(
@@ -322,7 +327,9 @@ struct WindowsProcessCollector::State {
         }
         cached->second.generation = generation;
 
-        if (resolve_paths) {
+        const bool has_basic_metadata = entry.szExeFile[0] != L'\0';
+        if (is_new && !has_basic_metadata) metadata_refresh_requested = true;
+        if (has_basic_metadata) {
             cached->second.info.parent_pid = MetricValue<ProcessId>::available(
                 ProcessId{static_cast<std::uint32_t>(entry.th32ParentProcessID)});
             auto name = utf8(entry.szExeFile);
@@ -353,8 +360,11 @@ struct WindowsProcessCollector::State {
             }
         }
 
-        if (is_new || resolve_paths) {
-            destination.process_metadata.push_back(cached->second.info);
+        if (is_new || has_basic_metadata) {
+            auto info = cached->second.info;
+            if (!resolve_paths) info.executable_path =
+                MetricValue<std::string>::unavailable(MetricStatus::unsupported);
+            destination.process_metadata.push_back(std::move(info));
         }
 
         if (collect_counters) {
@@ -405,6 +415,7 @@ struct WindowsProcessCollector::State {
     std::uint64_t generation{};
     std::size_t cached_handles{};
     bool lifecycle_warmed{};
+    bool metadata_refresh_requested{};
     WindowsProcessCollectorDiagnostics last_diagnostics{};
 };
 
@@ -416,9 +427,9 @@ WindowsProcessCollector::~WindowsProcessCollector() = default;
 MetricStatus WindowsProcessCollector::collect(
     const bool collect_counters,
     const bool resolve_paths,
-    RawTelemetrySnapshot& destination) {
+    RawTelemetrySnapshot& destination, const bool refresh_metadata) {
     return state_ != nullptr
-               ? state_->collect(collect_counters, resolve_paths, destination)
+               ? state_->collect(collect_counters, resolve_paths, destination, refresh_metadata)
                : MetricStatus::temporarily_unavailable;
 }
 

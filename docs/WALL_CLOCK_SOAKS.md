@@ -38,6 +38,14 @@ production parsers as startup and fails before elapsed work if a required field 
 or invalid. The mode cannot be combined with background/runtime arguments and does not construct the
 application, collector, shell, archive, analysis, or UI.
 
+Binary and fault-probe source revisions are checked before timed work. The runner copies the
+application and all adjacent runtime DLLs into an isolated `runtime/` directory and preserves their
+SHA-256 inventory. Settings preflight has a 30-second watchdog. During the run, `app-progress.ini`
+updates every five seconds; terminal collector/unexpected writer failures stop the run early.
+Collection progress must advance within 120 seconds, and app shutdown must complete by requested
+duration plus 60 seconds. `failure.txt` preserves the observed failure reason in partial evidence.
+Every five minutes the runner lists missing 72-hour operator attestations.
+
 Only smoke mode accepts a shortened `-DurationSeconds`. Overnight is fixed at 28,800 seconds and
 72-hour is fixed at 259,200 seconds so release evidence cannot silently substitute a shorter run.
 Their cadences are fixed too: overnight captures every 900 seconds with a 60-second process
@@ -52,15 +60,38 @@ To validate the real archive-fault path without claiming release soak evidence, 
 enough to include a failed capture and a later recovery:
 
 ```powershell
-./scripts/run-wall-clock-soak.ps1 -Mode smoke -DurationSeconds 40 `
-  -CaptureIntervalSeconds 5 -CheckpointSeconds 2 -ExerciseArchiveFault `
+./scripts/run-wall-clock-soak.ps1 -Mode smoke -DurationSeconds 60 `
+  -CaptureIntervalSeconds 10 -CheckpointSeconds 2 -ExerciseArchiveFault `
   -OutputDirectory ./out/soaks/archive-fault-smoke-20260821
 ```
 
+Fault injection waits for the app's first successful write and uses its heartbeat clock. Fault
+rehearsals require capture intervals of at least ten seconds and at least four scheduled captures;
+shorter intervals do not leave enough margin for startup, the post-window and bounded retries.
+
 The 72-hour runner automatically takes a write lock on its isolated archive across a scheduled
 capture. This must produce bounded writer retry exhaustion, retain the failed immutable incident,
-release the lock, and show a later writer recovery. The fault probe is never installed or shipped
+release the lock, export the failed incident, and explicitly retry it after a later normal write
+succeeds. The fault probe is never installed or shipped
 and cannot target the user's archive because the runner supplies its private campaign path.
+
+Qualification requires exactly one exhausted write, capture sequence 2, a failure timestamp inside
+the injected fault window, zero unretained incidents, one explicit recovery and an empty recovery
+slot at completion. The manifest includes `recovered-incident.sqlite3` for this campaign.
+
+## Separate product-default rehearsal
+
+```powershell
+./scripts/run-wall-clock-soak.ps1 -Mode smoke -Profile defaults `
+  -OutputDirectory ./out/hardening/default-profile
+```
+
+This 240-second rehearsal uses automatic detection, notifications, executable paths, 300-second
+history and 120/30-second windows. Optional context stays at product defaults. Its archive path,
+completed onboarding and nonconflicting qualification hotkey are isolated. After 130 seconds of
+warmup, an owned 20-second CPU workload uses up to 64 threads. The rehearsal requires an actual
+automatic capture, a merged manual trigger and visible/minimized/hidden transitions. Missing
+coverage fails rather than silently passing. This is separate from the elapsed-time release gates.
 
 ## Required 72-hour operator actions
 
@@ -98,6 +129,8 @@ A passed directory contains:
 - `app-report.ini`: path-free direct-v1 collector, capture, event, writer, archive, shell, and crash
   counters emitted after orderly drain, including the compiled source revision and effective
   automatic-detection/trigger/capture/event-request counters;
+- `app-progress.ini`: bounded live counters;
+- `runtime/` and `runtime-inventory.ini`: preserved executable/DLL inputs and hashes;
 - `process-samples.tsv`: UTC/elapsed resource checkpoints;
 - `operator-events.tsv`: bounded operator and automatic fault events;
 - `summary.ini`: duration, fixed cadence, coverage minimums, logical-processor count, independently
@@ -107,8 +140,9 @@ A passed directory contains:
 
 The runner requires completed duration, a healthy schema-v1 archive, sample coverage, internally
 consistent capture/writer/archive counts, no collector/event worker failures, no sample drops or
-deadline misses, no unexpected writer failures, and proof that automatic detection, detector
-triggers, automatic captures, and event-driven capture requests all remained disabled. Long modes
+deadline misses, no unexplained long gaps or unretained incidents, and no unexpected writer failures.
+The isolated profile requires automatic detection, detector triggers, automatic captures and
+event-driven requests to remain disabled; the defaults profile requires automatic capture. Long modes
 also enforce an 80 MiB maximum
 working set, 1% average total-machine CPU, and bounded first-to-last ten-checkpoint growth of 16 MiB
 working set, 16 MiB private memory, and 32 handles. Every recorded event must be accounted for by
@@ -123,12 +157,16 @@ collections, and 143 scheduled incidents. The 95% process/collection allowance a
 required real sleep/resume exercise while preventing a sparse journal from qualifying. Every
 sampling gap is still recomputed and published.
 
-Power suspend/resume is a cadence boundary, not permission to hide unrelated timing failures. A
-normalized native power transition resets cumulative-rate and lifecycle baselines and schedules the
-next observation from the completed transition. The monotonic-gap fallback covers a missing or late
-native notification. Device, audio, service, security, update, application, network, graphics,
-storage, and process events cannot reset cadence. Any ordinary in-flight collection or host-scheduler
-stall still increments the bounded drop/deadline diagnostics and fails the zero-drop gate.
+Native resume notifications reset scheduling and increment the resume counter independently of
+thread ordering. Suspend alone resets rate baselines without counting as resume or excusing missed
+deadlines. A long-gap fallback resets rates but remains unclassified until matching timestamped
+native resume evidence arrives. Unrelated events cannot excuse gaps. Unexplained gaps fail even
+when ordinary dropped-tick counters are zero. Keep physical sleep brief and between capture markers:
+the collection allowance permits at most 5% missing time and scheduled-capture coverage still applies.
+
+Timing percentiles and window maxima cover the last 256 observations, or fewer at startup.
+`timing_window_samples` states that count. Collection/jitter lifetime maxima retain spikes since
+the collector configuration epoch began; they are not whole-run percentiles.
 
 Windows process identity metadata is not equivalent to handle ownership. The collector may retain
 bounded metadata for every readable identity but keeps at most 16 live process handles; uncached

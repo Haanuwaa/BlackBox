@@ -573,6 +573,35 @@ endif()
 include(Catch)
 catch_discover_tests(blackbox_tests)
 
+if(WIN32)
+    # Avoid the legacy Windows bash.exe launcher, which requires a WSL distro.
+    find_program(BLACKBOX_BASH_EXECUTABLE NAMES bash.exe
+        PATHS "C:/Program Files/Git/bin" "C:/Program Files/Git/usr/bin"
+        NO_DEFAULT_PATH)
+else()
+    find_program(BLACKBOX_BASH_EXECUTABLE NAMES bash REQUIRED)
+endif()
+if(BLACKBOX_BASH_EXECUTABLE)
+    add_test(NAME macos_deployment_script_contracts
+        COMMAND "${BLACKBOX_BASH_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/macos_deployment_contract_tests.sh")
+    set_tests_properties(macos_deployment_script_contracts
+        PROPERTIES LABELS "macos;release;script" TIMEOUT 60)
+    add_test(NAME wayland_qualification_script_contracts
+        COMMAND "${BLACKBOX_BASH_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/wayland_qualification_contract_tests.sh")
+    set_tests_properties(wayland_qualification_script_contracts
+        PROPERTIES LABELS "linux;release;script" TIMEOUT 60)
+endif()
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME native_package_smoke_script_contracts
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/native_package_smoke_tests.py")
+    set_tests_properties(native_package_smoke_script_contracts
+        PROPERTIES LABELS "platform;release;script" TIMEOUT 30)
+endif()
+
 add_test(
     NAME architecture_platform_boundaries
     COMMAND ${CMAKE_COMMAND}

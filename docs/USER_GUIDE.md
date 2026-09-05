@@ -3,6 +3,15 @@
 BlackBox records a bounded telemetry history in RAM. It writes an incident to SQLite
 only after a manual or automatic capture; ordinary recording does not stream telemetry to disk.
 
+On **Explain**, expand **Export readable incident summary**, choose a new text file and export.
+The summary includes requested/recorded coverage, observed metric peaks, missing-value counts,
+confidence and uncertainty. Paths, process identities, raw events and raw samples are omitted;
+saved labels/notes are included only when selected. Review exported text before sharing it.
+Writes run in the viewer worker and refuse existing destinations.
+
+Settings offers native file pickers and a visible unsaved-changes message. Incident drafts survive
+page navigation and background refresh. Save or discard them before opening another incident.
+
 Windows is the only production target in this pre-release. Linux DEB/RPM/TGZ and macOS TGZ outputs
 are explicitly unsupported engineering previews used to exercise platform boundaries. Linux can
 collect native telemetry, publish bounded notifications through the XDG portal with a freedesktop

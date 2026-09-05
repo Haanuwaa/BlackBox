@@ -589,11 +589,20 @@ std::vector<std::size_t> filter_and_sort_processes(const std::vector<IncidentPro
     return indices;
 }
 
+bool incident_editor_dirty(const IncidentViewerState& state) noexcept {
+    return state.editor_incident_id != 0 &&
+        (state.saved_label != state.label_editor.data() || state.saved_note != state.note_editor.data() ||
+         state.saved_recurring_override != state.recurring_group_override_editor.data() ||
+         state.saved_category != state.category_editor);
+}
+
 void synchronize_incident_editor(IncidentViewerState& state) {
     if (!state.content || state.synchronized_generation == state.content->generation) return;
     state.synchronized_generation = state.content->generation;
     state.visible_process_indices.clear();
+    const bool keep_draft = incident_editor_dirty(state);
     if (!state.content->detail) {
+        if (keep_draft) return;
         state.editor_incident_id = 0;
         state.label_editor.fill('\0');
         state.note_editor.fill('\0');
@@ -602,16 +611,23 @@ void synchronize_incident_editor(IncidentViewerState& state) {
         return;
     }
     const auto& detail = *state.content->detail;
+    if (keep_draft && detail.id != state.editor_incident_id) return;
     state.editor_incident_id = detail.id;
     const auto copy = [](auto& destination, const std::string& source) {
         destination.fill('\0');
         const auto count = std::min(destination.size() - 1U, source.size());
         std::copy_n(source.begin(), count, destination.begin());
     };
-    copy(state.label_editor, detail.label);
-    copy(state.note_editor, detail.note);
-    copy(state.recurring_group_override_editor, detail.recurring_group_override);
-    state.category_editor = detail.category;
+    if (!keep_draft) {
+        copy(state.label_editor, detail.label);
+        copy(state.note_editor, detail.note);
+        copy(state.recurring_group_override_editor, detail.recurring_group_override);
+        state.category_editor = detail.category;
+    }
+    state.saved_label = detail.label;
+    state.saved_note = detail.note;
+    state.saved_recurring_override = detail.recurring_group_override;
+    state.saved_category = detail.category;
     state.visible_process_indices =
         filter_and_sort_processes(detail.processes, state.process_filter.data(), state.process_sort,
                                   state.process_sort_ascending);

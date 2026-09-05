@@ -1,3 +1,4 @@
+#include "ui/product_font.hpp"
 #include "storage/test_incident.hpp"
 #include "ui/dashboard.hpp"
 #include "ui/incident_viewer.hpp"
@@ -140,6 +141,10 @@ public:
                         const bool high_contrast,
                         const int logical_width = 1'100,
                         const int logical_height = 700) {
+        display_scale_ = framebuffer_scale;
+        if (physical_width != static_cast<int>(static_cast<float>(logical_width) * framebuffer_scale) ||
+            physical_height != static_cast<int>(static_cast<float>(logical_height) * framebuffer_scale))
+            throw std::runtime_error{"fixture viewport does not match its display scale"};
         surface_ = SDL_CreateSurface(physical_width, physical_height,
                                      SDL_PIXELFORMAT_RGBA32);
         if (surface_ == nullptr) {
@@ -149,21 +154,21 @@ public:
         if (renderer_ == nullptr) {
             throw std::runtime_error{SDL_GetError()};
         }
-        if (!SDL_SetRenderScale(renderer_, framebuffer_scale, framebuffer_scale)) {
+        if (!SDL_SetRenderScale(renderer_, 1.0F, 1.0F)) {
             throw std::runtime_error{SDL_GetError()};
         }
         ImGui::CreateContext();
         ImPlot::CreateContext();
         auto& io = ImGui::GetIO();
-        io.DisplaySize = ImVec2{static_cast<float>(logical_width),
-                                static_cast<float>(logical_height)};
-        io.DisplayFramebufferScale = ImVec2{framebuffer_scale, framebuffer_scale};
+        io.DisplaySize = ImVec2{static_cast<float>(physical_width),
+                                static_cast<float>(physical_height)};
+        io.DisplayFramebufferScale = ImVec2{1.0F, 1.0F};
         io.DeltaTime = 1.0F / 60.0F;
-        io.Fonts->AddFontDefault();
+        ui::load_product_font(io, display_scale_);
         if (!ImGui_ImplSDLRenderer3_Init(renderer_)) {
             throw std::runtime_error{"cannot initialize ImGui software renderer"};
         }
-        ui::apply_accessibility_style(high_contrast);
+        ui::apply_accessibility_style(high_contrast, display_scale_);
     }
     ~ImGuiContextFixture() {
         ImGui_ImplSDLRenderer3_Shutdown();
@@ -181,7 +186,9 @@ public:
                 ui::ProductUiState& product) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui::NewFrame();
-        static_cast<void>(ui::render_dashboard(dashboard, viewer, product));
+        auto scaled = std::make_unique<ui::DashboardState>(dashboard);
+        scaled->display_scale = display_scale_;
+        static_cast<void>(ui::render_dashboard(*scaled, viewer, product));
         ImGui::Render();
         if (!SDL_SetRenderDrawColor(renderer_, 18U, 20U, 24U, 255U) ||
             !SDL_RenderClear(renderer_)) {
@@ -197,11 +204,12 @@ public:
 
     void scroll_main_window(const float wheel_delta) {
         auto& io = ImGui::GetIO();
-        io.AddMousePosEvent(1'095.0F, 350.0F);
+        io.AddMousePosEvent(io.DisplaySize.x - 5.0F, io.DisplaySize.y * 0.5F);
         io.AddMouseWheelEvent(0.0F, wheel_delta);
     }
 
 private:
+    float display_scale_{1.0F};
     SDL_Surface* surface_{};
     SDL_Renderer* renderer_{};
 };
@@ -415,7 +423,9 @@ void render_fixture(const std::shared_ptr<const blackbox::core::IncidentSnapshot
                 REQUIRE(ui::set_timeline_cursor(
                     *product, -15.0, product->timeline_min, product->timeline_max));
             }
-            context.render(*dashboard, *viewer, *product);
+            // Settle child auto-sizing and scroll ranges after each page switch.
+            for (unsigned frame = 0U; frame < 3U; ++frame)
+                context.render(*dashboard, *viewer, *product);
             REQUIRE(ImGui::GetDrawData() != nullptr);
             INFO("display mode " << display_mode << ", product page " << page);
             CHECK(ImGui::GetDrawData()->TotalVtxCount > 0);

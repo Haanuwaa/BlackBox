@@ -16,11 +16,7 @@ inline constexpr std::size_t product_path_capacity = 1'024U;
 
 enum class ProductPage : std::uint8_t { live, incidents, detail, patterns, settings, diagnostics };
 
-struct ProductUiState {
-    ProductPage page{ProductPage::live};
-    bool onboarding_open{true};
-    bool keyboard_help_open{};
-    bool settings_initialized{};
+struct ProductPreferences {
     std::uint32_t hotkey_key{12U};
     bool hotkey_control{true};
     bool hotkey_shift{true};
@@ -44,6 +40,21 @@ struct ProductUiState {
     std::uint64_t incident_post_window_seconds{30U};
     std::uint64_t archive_maximum_mib{1'024U};
     std::array<char, product_path_capacity + 1U> archive_path{};
+    friend bool operator==(const ProductPreferences&, const ProductPreferences&) = default;
+};
+
+enum class PathField : std::uint8_t { archive, backup, restore, safety_backup, dataset, failed_export, support_bundle, summary };
+
+struct ProductUiState : ProductPreferences {
+    bool settings_dirty{};
+    bool file_dialog_pending{};
+    bool summary_include_annotations{};
+    std::string file_dialog_status{};
+    std::array<char, product_path_capacity + 1U> summary_path{};
+    ProductPage page{ProductPage::live};
+    bool onboarding_open{true};
+    bool keyboard_help_open{};
+    bool settings_initialized{};
     std::array<char, product_path_capacity + 1U> backup_path{};
     std::array<char, product_path_capacity + 1U> restore_path{};
     std::array<char, product_path_capacity + 1U> safety_backup_path{};
@@ -98,10 +109,13 @@ enum class DashboardAction : std::uint8_t {
     export_failed_incident,
     purge_archive,
     create_support_bundle,
+    browse_path,
+    export_summary,
 };
 
 struct DashboardCommand {
     DashboardAction action{DashboardAction::none};
+    PathField path_field{PathField::archive};
     std::int64_t incident_id{};
     std::size_t incident_offset{};
     IncidentListOrder incident_order{IncidentListOrder::newest_first};

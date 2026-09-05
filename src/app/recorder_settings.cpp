@@ -1,4 +1,5 @@
 #include "app/recorder_settings.hpp"
+#include "core/environment_path.hpp"
 
 #include <array>
 #include <charconv>
@@ -15,19 +16,6 @@
 namespace blackbox::app {
 namespace {
 
-[[nodiscard]] std::optional<std::string> environment_value(const char* name) {
-#if defined(_WIN32)
-    std::size_t required{};
-    if (getenv_s(&required, nullptr, 0U, name) != 0 || required == 0U) return std::nullopt;
-    std::string value(required - 1U, '\0');
-    if (getenv_s(&required, value.data(), required, name) != 0) return std::nullopt;
-    return value;
-#else
-    const auto* value = std::getenv(name);
-    return value == nullptr || *value == '\0' ? std::nullopt
-                                               : std::optional<std::string>{value};
-#endif
-}
 
 [[nodiscard]] RecorderSettingsError error(const RecorderSettingsErrorCode code,
                                           std::string message) {
@@ -43,16 +31,16 @@ namespace {
 } // namespace
 
 std::filesystem::path default_recorder_settings_path() {
-    if (const auto override_path = environment_value("BLACKBOX_SETTINGS_PATH")) {
+    if (const auto override_path = core::environment_path("BLACKBOX_SETTINGS_PATH")) {
         return std::filesystem::path{*override_path};
     }
-    if (const auto local_app_data = environment_value("LOCALAPPDATA")) {
+    if (const auto local_app_data = core::environment_path("LOCALAPPDATA")) {
         return std::filesystem::path{*local_app_data} / "BlackBox" / "settings.ini";
     }
-    if (const auto config_home = environment_value("XDG_CONFIG_HOME")) {
+    if (const auto config_home = core::environment_path("XDG_CONFIG_HOME")) {
         return std::filesystem::path{*config_home} / "blackbox" / "settings.ini";
     }
-    if (const auto home = environment_value("HOME")) {
+    if (const auto home = core::environment_path("HOME")) {
         return std::filesystem::path{*home} / ".config" / "blackbox" / "settings.ini";
     }
     return std::filesystem::current_path() / "blackbox-data" / "settings.ini";

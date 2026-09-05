@@ -84,6 +84,68 @@
         "BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS": "ON",
         "BLACKBOX_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "linux-gcc-release",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "g++-14"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-clang-release",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "clang++-18"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "macos-arm64-release",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "VCPKG_TARGET_TRIPLET": "arm64-osx-blackbox",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-x64-release",
+      "inherits": "base",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_TARGET_TRIPLET": "x64-osx-blackbox",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
     }
   ],
   "buildPresets": [
@@ -116,7 +178,26 @@
       "name": "windows-vs2026-static-analysis",
       "configurePreset": "windows-vs2026-static-analysis",
       "configuration": "Release",
-      "targets": ["blackbox", "blackbox_tests"]
+      "targets": [
+        "blackbox",
+        "blackbox_tests"
+      ]
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release"
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang-release"
+    },
+    {
+      "name": "macos-arm64-release",
+      "configurePreset": "macos-arm64-release"
+    },
+    {
+      "name": "macos-x64-release",
+      "configurePreset": "macos-x64-release"
     }
   ],
   "testPresets": [
@@ -124,25 +205,33 @@
       "name": "windows-msvc-debug",
       "configurePreset": "windows-msvc-debug",
       "configuration": "Debug",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
       "configuration": "Release",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "windows-vs2026-debug",
       "configurePreset": "windows-vs2026-debug",
       "configuration": "Debug",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "windows-vs2026-release",
       "configurePreset": "windows-vs2026-release",
       "configuration": "Release",
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
     },
     {
       "name": "windows-vs2026-address-sanitizer",
@@ -153,21 +242,59 @@
           "name": "Windows unhandled exception probe"
         }
       },
-      "output": { "outputOnFailure": true }
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-arm64-release",
+      "configurePreset": "macos-arm64-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-x64-release",
+      "configurePreset": "macos-x64-release",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ],
   "packagePresets": [
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
-      "generators": ["ZIP"],
-      "configurations": ["Release"]
+      "generators": [
+        "ZIP"
+      ],
+      "configurations": [
+        "Release"
+      ]
     },
     {
       "name": "windows-vs2026-release",
       "configurePreset": "windows-vs2026-release",
-      "generators": ["ZIP"],
-      "configurations": ["Release"]
+      "generators": [
+        "ZIP"
+      ],
+      "configurations": [
+        "Release"
+      ]
     }
   ]
 }

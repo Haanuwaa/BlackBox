@@ -1,5 +1,41 @@
 # Build, test, and release
 
+Linux presets `linux-gcc-release` and `linux-clang-release`, and macOS presets
+`macos-arm64-release` and `macos-x64-release`, use Ninja and the pinned vcpkg graph.
+Set `VCPKG_ROOT` and use the preset name with configure/build/test. Linux presets select
+GCC 14 (`g++-14`) or Clang 18 (`clang++-18`), matching the compiler families pinned in the
+repository's quality jobs; install the corresponding C++23 standard-library development package.
+macOS presets require the Xcode 26.2 command-line tools selected with `DEVELOPER_DIR`.
+A C++23 compiler and library are required;
+hosted matrix results establish compiler compatibility, not the existence of a preset.
+macOS CI selects Xcode 26.2 and explicitly targets 13.0 for the app and dependency overlay triplets.
+Run `bash scripts/verify-macos-deployment.sh <BlackBox.app> 13.0`, then test the oldest runtime
+on both architectures. A compile/link availability failure blocks that minimum-version claim.
+The verifier enumerates every architecture with `lipo` and requires one macOS deployment
+command per slice, including embedded libraries. A passing host slice cannot hide a newer
+foreign slice; unreadable traversal, missing metadata and non-macOS targets fail verification.
+
+Native macOS CI also extracts the TGZ and launches that extracted application using
+`python3 scripts/smoke-native-package.py <executable> <new-evidence-directory>
+--platform macOS --revision <revision>`. This five-second rehearsal uses fresh settings,
+requires completed collection and matching identity, and kills a hung application after
+30 seconds. It does not test Finder/Gatekeeper, the oldest runtime or physical permissions.
+The runner's Python standard-library contract tests and the Bash deployment/Wayland fixtures
+are registered with CTest when their interpreters are available (Git Bash on Windows).
+
+Linux/macOS jobs retain configuration logs, CTest logs/JUnit results and available runtime
+diagnostics even after failure. Wayland evidence includes the failing stage and application
+output, with bounded compositor cleanup. Reusing a Wayland evidence directory is an error.
+The hosted job limits are 45 minutes for native builds and 15 minutes for compositor runs;
+individual CTest cases have a 120-second default limit. These bounds do not turn failed
+qualification into success.
+
+Packages preserve the root README/architecture/roadmap files and the nested `docs/` tree.
+Project license and third-party overview accompany the docs; original resolved dependency notices
+are in `licenses/<package>/copyright`. macOS bundles also include them in
+`Contents/Resources/licenses`. Project rights are reserved pending an owner-selected open-source
+license; dependency terms remain separate. See [current candidate](CURRENT_CANDIDATE.md).
+
 ## Intended release target
 
 V0.27 is a pre-1.0 product build intended for x64 Windows desktop with Windows 10 22H2 or

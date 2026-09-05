@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <fstream>
 
 namespace blackbox::app {
 
@@ -48,6 +49,11 @@ void Application::shutdown() noexcept {
         hotkey_manager_->unregister_hotkey();
         hotkey_manager_.reset();
     }
+#if BLACKBOX_STORAGE_ENABLED
+    // Join archive boundaries before stopping producers: a boundary may restore
+    // their pre-operation running state while it completes.
+    if (archive_maintenance_service_ != nullptr) archive_maintenance_service_->stop();
+#endif
     if (system_event_collector_ != nullptr) {
         system_event_collector_->stop();
     }
@@ -55,9 +61,6 @@ void Application::shutdown() noexcept {
         collector_->stop();
     }
 #if BLACKBOX_STORAGE_ENABLED
-    if (archive_maintenance_service_ != nullptr) {
-        archive_maintenance_service_->stop();
-    }
     if (incident_viewer_service_ != nullptr) {
         incident_viewer_service_->stop();
     }
@@ -125,12 +128,19 @@ void Application::write_diagnostic_report() noexcept {
     report.capture_interval_seconds =
         static_cast<std::uint64_t>(diagnostic_options_.capture_interval.count());
 
+    const auto nanoseconds = [](const std::chrono::nanoseconds duration) {
+        return duration.count() > 0 ? static_cast<std::uint64_t>(duration.count()) : 0U;
+    };
     if (collector_ != nullptr) {
         const auto values = collector_->diagnostics();
-        const auto nanoseconds = [](const std::chrono::nanoseconds duration) {
-            return duration.count() > 0 ? static_cast<std::uint64_t>(duration.count()) : 0U;
-        };
         report.collections = values.collection_count;
+        report.incident_pre_window_seconds = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(values.configuration.incident_pre_window).count());
+        report.incident_post_window_seconds = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(values.configuration.incident_post_window).count());
+        report.history_duration_seconds = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::seconds>(values.configuration.history_duration).count());
+        report.collect_process_paths = values.configuration.collect_process_paths;
         report.sampling_thread_prepared = values.sampling_thread_prepared;
         report.partial_samples = values.partial_samples;
         report.failed_samples = values.failed_samples;
@@ -156,12 +166,23 @@ void Application::write_diagnostic_report() noexcept {
         }
         report.resume_events = values.resume_events;
         report.resume_skipped_samples = values.resume_skipped_samples;
+        report.unclassified_long_gaps = values.unclassified_long_gaps;
+        report.unclassified_skipped_samples = values.unclassified_skipped_samples;
         report.provider_recoveries = values.provider_recoveries;
         report.collector_worker_failures = values.worker_failures;
         report.collection_p99_nanoseconds = nanoseconds(values.collection_timing.p99);
         report.collection_maximum_nanoseconds = nanoseconds(values.collection_timing.maximum);
         report.jitter_p99_nanoseconds = nanoseconds(values.scheduling_jitter.p99);
         report.jitter_maximum_nanoseconds = nanoseconds(values.scheduling_jitter.maximum);
+        report.timing_window_samples = values.collection_timing.samples_in_window;
+        report.collection_lifetime_maximum_nanoseconds =
+            nanoseconds(values.collection_timing.lifetime_maximum);
+        report.jitter_lifetime_maximum_nanoseconds =
+            nanoseconds(values.scheduling_jitter.lifetime_maximum);
+        report.snapshot_timing_window_samples = values.incident_snapshot_timing.samples_in_window;
+        report.snapshot_p99_nanoseconds = nanoseconds(values.incident_snapshot_timing.p99);
+        report.snapshot_lifetime_maximum_nanoseconds =
+            nanoseconds(values.incident_snapshot_timing.lifetime_maximum);
         report.ring_capacity = values.ring.capacity;
         report.ring_size = values.ring.size;
         report.ring_total_appends = values.ring.total_appends;
@@ -208,12 +229,19 @@ void Application::write_diagnostic_report() noexcept {
     if (incident_writer_ != nullptr) {
         const auto values = incident_writer_->diagnostics();
         report.writer_attempts = values.attempts;
+        report.writer_timing_window_samples = values.write_timing.samples;
+        report.writer_p99_nanoseconds = nanoseconds(values.write_timing.p99);
+        report.writer_window_maximum_nanoseconds = nanoseconds(values.write_timing.maximum);
         report.writer_retry_attempts = values.retry_attempts;
         report.writer_retry_exhausted = values.retry_exhausted;
         report.writer_succeeded = values.succeeded;
         report.writer_failed = values.failed;
         report.writer_recoveries = values.recoveries;
         report.writer_cancelled = values.cancelled;
+        report.writer_failed_incidents_not_retained = values.failed_incidents_not_retained;
+        report.writer_last_failed_capture_sequence = values.last_failed_capture_sequence;
+        report.writer_last_failure_utc_nanoseconds = values.last_failure_utc_nanoseconds;
+        report.writer_explicit_recoveries = values.explicit_recoveries;
         report.recoverable_incident_available = values.recoverable_incident_available;
     }
     if (incident_archive_ != nullptr) {
@@ -244,9 +272,41 @@ void Application::write_diagnostic_report() noexcept {
 
     const auto result = write_wall_clock_report(diagnostic_options_.report_path, report);
     diagnostic_report_written_ = result.has_value();
-    diagnostic_report_failed_ = !result.has_value();
+    diagnostic_report_failed_ = diagnostic_report_failed_ || !result.has_value();
     if (!result) {
         core::Logger::write(core::LogLevel::error, result.error().message);
+    }
+}
+
+void Application::write_diagnostic_progress() noexcept {
+    try {
+        if (collector_ == nullptr) return;
+        const auto collector = collector_->diagnostics();
+        std::ofstream output{diagnostic_options_.report_path.parent_path() / "app-progress.ini",
+                             std::ios::binary | std::ios::trunc};
+        output << "format=1\nsource_revision=" << core::source_revision
+               << "\nelapsed_seconds=" << std::chrono::duration_cast<std::chrono::seconds>(
+                      telemetry_clock_.now() - diagnostic_monotonic_anchor_).count()
+               << "\ncollections=" << collector.collection_count
+               << "\ncollector_worker_failures=" << collector.worker_failures
+               << "\ndropped_samples=" << collector.dropped_samples
+               << "\nunclassified_long_gaps=" << collector.unclassified_long_gaps;
+#if BLACKBOX_STORAGE_ENABLED
+        if (incident_writer_ != nullptr) {
+            const auto writer = incident_writer_->diagnostics();
+            output << "\nwriter_attempts=" << writer.attempts
+                   << "\nwriter_succeeded=" << writer.succeeded
+                   << "\nwriter_failed=" << writer.failed
+                   << "\nwriter_explicit_recoveries=" << writer.explicit_recoveries
+                   << "\nwriter_last_failure_utc_nanoseconds=" << writer.last_failure_utc_nanoseconds;
+        }
+#endif
+        output << "\ncomplete=1\n";
+        output.flush();
+        if (!output) diagnostic_report_failed_ = true;
+        // Readers accept only a complete bounded snapshot and retry torn reads.
+    } catch (...) {
+        diagnostic_report_failed_ = true;
     }
 }
 

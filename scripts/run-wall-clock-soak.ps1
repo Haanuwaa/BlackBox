@@ -2,6 +2,8 @@
 param(
     [ValidateSet('smoke', 'overnight', '72-hour')]
     [string]$Mode = 'smoke',
+    [ValidateSet('isolated', 'defaults')]
+    [string]$Profile = 'isolated',
 
     [string]$ApplicationPath =
         (Join-Path $PSScriptRoot '..\out\build\windows-vs2026-release\src\Release\blackbox.exe'),
@@ -89,6 +91,13 @@ $defaults = @{
     overnight = @{ Duration = 28800; Capture = 900; Checkpoint = 60 }
     '72-hour' = @{ Duration = 259200; Capture = 1800; Checkpoint = 60 }
 }
+if ($Profile -eq 'defaults') {
+    if ($Mode -ne 'smoke' -or $ExerciseArchiveFault) { throw 'Default-profile rehearsal is a separate smoke campaign without fault injection.' }
+    if ($DurationSeconds -eq 0) { $DurationSeconds = 240 }
+    if ($DurationSeconds -lt 220) { throw 'Default-profile rehearsal requires at least 220 seconds.' }
+    if ($CaptureIntervalSeconds -eq 0) { $CaptureIntervalSeconds = 180 }
+    if ($CaptureIntervalSeconds -lt 150) { throw 'Default-profile captures need at least 150 seconds between markers.' }
+}
 if ($DurationSeconds -eq 0) { $DurationSeconds = $defaults[$Mode].Duration }
 if ($CaptureIntervalSeconds -eq 0) { $CaptureIntervalSeconds = $defaults[$Mode].Capture }
 if ($CheckpointSeconds -eq 0) { $CheckpointSeconds = $defaults[$Mode].Checkpoint }
@@ -127,6 +136,7 @@ $minimumProcessSamples = [uint64][math]::Max(
 # complete before diagnostic exit. Count only interval boundaries that satisfy that rule.
 $minimumScheduledCaptures = [uint64][math]::Max(
     0, [math]::Ceiling(($DurationSeconds - 2) / [double]$CaptureIntervalSeconds) - 1)
+if ($Profile -eq 'defaults') { $minimumScheduledCaptures = [uint64]1 }
 $logicalProcessors = [uint64][Environment]::ProcessorCount
 if ($logicalProcessors -lt 1) { throw 'The logical processor count is unavailable.' }
 
@@ -145,12 +155,30 @@ if (-not [IO.File]::Exists($application)) { throw 'The assembled application doe
 if ($faultRequired -and -not [IO.File]::Exists($faultProbe)) {
     throw 'This campaign requires the isolated archive-fault probe.'
 }
+if ($faultRequired) {
+    $probeIdentity = [Diagnostics.FileVersionInfo]::GetVersionInfo($faultProbe)
+    if ($probeIdentity.Comments -cne "source_revision=$SourceRevision" -or
+        $probeIdentity.OriginalFilename -cne 'blackbox_soak_archive_fault.exe') {
+        throw 'Preflight fault-probe source revision or binary identity mismatch.'
+    }
+}
 if (-not [IO.File]::Exists($runnerScript) -or -not [IO.File]::Exists($verifierScript)) {
     throw 'The wall-clock runner and verifier scripts must both exist.'
 }
 if ([IO.Directory]::Exists($output) -or [IO.File]::Exists($output) -or
     [IO.Directory]::Exists($staging) -or [IO.File]::Exists($staging)) {
     throw 'The campaign output and staging destinations must not already exist.'
+}
+# Reject a stale executable before creating evidence or starting any diagnostic clock.
+$identity = [Diagnostics.FileVersionInfo]::GetVersionInfo($application)
+if ($identity.Comments -cne "source_revision=$SourceRevision" -or
+    $identity.OriginalFilename -cne 'blackbox.exe') {
+    throw 'Preflight application source revision or binary identity mismatch.'
+}
+if ($faultRequired -and ($CaptureIntervalSeconds -lt 10 -or
+    $CheckpointSeconds -gt [math]::Floor($CaptureIntervalSeconds / 2) -or
+    $DurationSeconds -lt ($CaptureIntervalSeconds * 4 + 3))) {
+    throw 'Fault rehearsal needs at least four captures, a ten-second capture interval, and checkpoints at most half that interval.'
 }
 $applicationHash = (Get-FileHash -LiteralPath $application -Algorithm SHA256).Hash.ToLowerInvariant()
 $runnerHash = (Get-FileHash -LiteralPath $runnerScript -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -161,7 +189,7 @@ $faultProbeHash = if ($faultRequired) {
 $provenance = "source_revision=$SourceRevision`napplication_sha256=$applicationHash`n" +
               "runner_sha256=$runnerHash`nverifier_sha256=$verifierHash`n" +
               "archive_fault_probe_sha256=$faultProbeHash`n"
-$campaignContract = "capture_interval_seconds=$CaptureIntervalSeconds`n" +
+$campaignContract = "profile=$Profile`n" + "capture_interval_seconds=$CaptureIntervalSeconds`n" +
                     "checkpoint_interval_seconds=$CheckpointSeconds`n" +
                     "minimum_process_samples=$minimumProcessSamples`n" +
                     "minimum_collections=$minimumCollections`n" +
@@ -169,6 +197,37 @@ $campaignContract = "capture_interval_seconds=$CaptureIntervalSeconds`n" +
                     "logical_processor_count=$logicalProcessors`n"
 
 [IO.Directory]::CreateDirectory($staging) | Out-Null
+# Run an isolated immutable copy, including every adjacent runtime DLL.
+$runtime = Join-Path $staging 'runtime'
+[IO.Directory]::CreateDirectory($runtime) | Out-Null
+$runtimeSources = @($application) + @(Get-ChildItem -LiteralPath ([IO.Path]::GetDirectoryName($application)) -Filter '*.dll' -File | ForEach-Object { $_.FullName })
+if ($faultRequired) { $runtimeSources += $faultProbe }
+$workloadProbe = Join-Path ([IO.Path]::GetDirectoryName($application)) 'blackbox_default_profile_workload.exe'
+if ($Profile -eq 'defaults') {
+    $workloadIdentity = [Diagnostics.FileVersionInfo]::GetVersionInfo($workloadProbe)
+    if ($workloadIdentity.Comments -cne "source_revision=$SourceRevision") { throw 'Default workload identity mismatch.' }
+    $runtimeSources += $workloadProbe
+}
+if ($runtimeSources.Count -gt 32) { throw 'Runtime inventory exceeds 32 files.' }
+$runtimeHashes = [ordered]@{}
+foreach ($source in $runtimeSources) {
+    $item = Get-Item -LiteralPath $source -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        $item.Length -le 0 -or $item.Length -gt 200MB -or
+        $item.Name -notmatch '^[A-Za-z0-9_.-]+\.(exe|dll)$') {
+        throw 'Runtime files must be bounded regular executable or DLL files.'
+    }
+    $relative = 'runtime/' + $item.Name
+    if ($runtimeHashes.Contains($relative)) { throw 'Duplicate runtime filename.' }
+    [IO.File]::Copy($source, (Join-Path $staging $relative), $false)
+    $runtimeHashes[$relative] = (Get-FileHash -LiteralPath (Join-Path $staging $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+$inventory = @('format=1', "file_count=$($runtimeHashes.Count)")
+foreach ($relative in $runtimeHashes.Keys) { $inventory += "$relative=$($runtimeHashes[$relative])" }
+Write-AtomicText (Join-Path $staging 'runtime-inventory.ini') (($inventory -join "`n") + "`n")
+$application = Join-Path $runtime ([IO.Path]::GetFileName($application))
+if ($faultRequired) { $faultProbe = Join-Path $runtime ([IO.Path]::GetFileName($faultProbe)) }
+$workloadProbe = Join-Path $runtime 'blackbox_default_profile_workload.exe'
 $data = Join-Path $staging 'data'
 [IO.Directory]::CreateDirectory($data) | Out-Null
 $productSettings = Join-Path $data 'product-settings.ini'
@@ -215,6 +274,10 @@ incident_post_window_ms=1000
 resume_gap_threshold_ms=5000
 collect_process_paths=0
 "@
+if ($Profile -eq 'defaults') {
+    $productText = $productText.Replace('automatic_detection=0', 'automatic_detection=1').Replace('notifications=0', 'notifications=1').Replace('record_power_and_device_events=1', 'record_power_and_device_events=0').Replace('record_audio_device_events=1', 'record_audio_device_events=0')
+    $recorderText = $recorderText.Replace('history_duration_ms=60000', 'history_duration_ms=300000').Replace('incident_pre_window_ms=1000', 'incident_pre_window_ms=120000').Replace('incident_post_window_ms=1000', 'incident_post_window_ms=30000').Replace('collect_process_paths=0', 'collect_process_paths=1')
+}
 Write-AtomicText $productSettings $productText
 Write-AtomicText $recorderSettings $recorderText
 Write-AtomicText $campaign (
@@ -231,6 +294,39 @@ $process = $null
 $faultProcess = $null
 $faultStarted = $false
 $faultRecovered = $false
+$settingsProbe = $null
+$workloadProcess = $null
+$visibilityStep = 0
+$ownedWindow = [IntPtr]::Zero
+if ($Profile -eq 'defaults' -and -not ('BlackBoxRehearsalWindow' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class BlackBoxRehearsalWindow {
+    private delegate bool WindowCallback(IntPtr window, IntPtr data);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(WindowCallback callback, IntPtr data);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int count);
+    public static IntPtr Find(uint process) {
+        IntPtr result = IntPtr.Zero;
+        EnumWindows((window, data) => {
+            uint owner; GetWindowThreadProcessId(window, out owner);
+            var title = new System.Text.StringBuilder(256); GetWindowText(window, title, 256);
+            if (owner == process && title.ToString().StartsWith("BlackBox")) { result = window; return false; }
+            return true;
+        }, IntPtr.Zero);
+        return result;
+    }
+}
+'@
+}
+$lastProgressAt = 0.0
+$lastCollections = [uint64]0
+$nextSampleAt = [double]$CheckpointSeconds
+$nextStatusAt = 0.0
 $stopwatch = [Diagnostics.Stopwatch]::new()
 $lastCpu = 0.0
 $maximumWorkingSet = [uint64]0
@@ -248,7 +344,12 @@ try {
     [Environment]::SetEnvironmentVariable('BLACKBOX_SETTINGS_PATH', $recorderSettings, 'Process')
     $settingsProbe = Start-Process -FilePath $application `
                                    -ArgumentList @('--validate-settings-only') `
-                                   -WindowStyle Hidden -Wait -PassThru
+                                   -WindowStyle Hidden -PassThru
+    if (-not $settingsProbe.WaitForExit(30000)) {
+        Stop-Process -Id $settingsProbe.Id -Force -ErrorAction SilentlyContinue
+        throw 'Settings preflight exceeded its 30-second watchdog.'
+    }
+    $settingsProbe.Refresh()
     if ($settingsProbe.ExitCode -ne 0) {
         throw 'The assembled application rejected the generated direct-v1 settings.'
     }
@@ -257,16 +358,70 @@ try {
         ('"--diagnostic-report={0}"' -f $report),
         "--diagnostic-capture-interval-seconds=$CaptureIntervalSeconds"
     )
+    if ($faultRequired) { $arguments += '--diagnostic-recover-failed' }
+    if ($Profile -eq 'defaults') { $arguments += '--diagnostic-overlap-automatic' }
     $process = Start-Process -FilePath $application -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $stopwatch.Start()
     [Environment]::SetEnvironmentVariable('BLACKBOX_PRODUCT_SETTINGS_PATH', $oldProduct, 'Process')
     [Environment]::SetEnvironmentVariable('BLACKBOX_SETTINGS_PATH', $oldRecorder, 'Process')
 
     while (-not $process.HasExited) {
-        if ($process.WaitForExit($CheckpointSeconds * 1000)) { break }
+        if ($process.WaitForExit([math]::Min(5, $CheckpointSeconds) * 1000)) { break }
         $process.Refresh()
         if ($process.HasExited) { break }
         $elapsed = $stopwatch.Elapsed.TotalSeconds
+        if ($elapsed -gt ($DurationSeconds + 60)) {
+            throw 'Application exceeded the runtime plus 60-second drain watchdog.'
+        }
+        $progressPath = Join-Path $staging 'app-progress.ini'
+        $progress = $null
+        try {
+            if ((Get-Item -LiteralPath $progressPath -ErrorAction Stop).Length -le 1MB) {
+                $candidate = Read-DirectV1 $progressPath
+                if ($candidate['complete'] -eq '1') { $progress = $candidate }
+            }
+        } catch { } # A writer may be replacing a snapshot; retry at the next tick.
+        if ($null -ne $progress) {
+            if ($progress['source_revision'] -cne $SourceRevision) { throw 'Live progress has the wrong binary identity.' }
+            $collections = [uint64]$progress['collections']
+            if ($collections -gt $lastCollections) { $lastProgressAt = $elapsed; $lastCollections = $collections }
+            if ([uint64]$progress['collector_worker_failures'] -ne 0 -or
+                [uint64]$progress['dropped_samples'] -ne 0 -or
+                [uint64]$progress['writer_failed'] -gt $(if ($faultRequired) { 1 } else { 0 })) {
+                throw 'Live progress recorded a terminal collector or unexpected writer failure.'
+            }
+        }
+        if (($elapsed - $lastProgressAt) -gt 120) { throw 'Collection progress stalled for more than 120 seconds.' }
+        if ($elapsed -ge $nextStatusAt) {
+            Write-Host ("Elapsed {0:N0}/{1}s; collections {2}; evidence {3}" -f $elapsed, $DurationSeconds, $lastCollections, $staging)
+            if ($Mode -eq '72-hour') {
+                $journal = [IO.File]::ReadAllText($events)
+                $missing = @('sleep_resume', 'lock_unlock', 'device_churn') | Where-Object { $journal -notmatch "`t$_(?:`r?`n|$)" }
+                if ($missing) { Write-Host ('Operator events still needed: ' + ($missing -join ', ')) }
+            }
+            $nextStatusAt = $elapsed + 300
+        }
+        if ($Profile -eq 'defaults' -and $elapsed -ge 130 -and $null -eq $workloadProcess) {
+            Write-Host 'Starting the bounded 20-second CPU workload after the full pre-window warmup.'
+            $workloadProcess = Start-Process -FilePath $workloadProbe -WindowStyle Hidden -PassThru
+        }
+        if ($Profile -eq 'defaults' -and $visibilityStep -lt 3 -and $elapsed -ge (15 + $visibilityStep * 20)) {
+            if ($ownedWindow -eq [IntPtr]::Zero) { $ownedWindow = [BlackBoxRehearsalWindow]::Find([uint32]$process.Id) }
+            if ($ownedWindow -eq [IntPtr]::Zero) { throw 'Rehearsal could not find its own application window.' }
+            $visible = [BlackBoxRehearsalWindow]::IsWindowVisible($ownedWindow)
+            $minimized = [BlackBoxRehearsalWindow]::IsIconic($ownedWindow)
+            $matched = ($visibilityStep -eq 0 -and $visible -and -not $minimized) -or
+                       ($visibilityStep -eq 1 -and $minimized) -or
+                       ($visibilityStep -eq 2 -and -not $visible)
+            if ($matched) {
+                Add-JournalEvent $events @('ui_visible', 'ui_minimized', 'ui_hidden')[$visibilityStep]
+                $visibilityStep++
+            } else {
+                [void][BlackBoxRehearsalWindow]::ShowWindowAsync($ownedWindow, @(4, 6, 0)[$visibilityStep])
+            }
+        }
+        if ($elapsed -lt $nextSampleAt) { continue }
+        $nextSampleAt = $elapsed + $CheckpointSeconds
         $journalElapsed = [double]::Parse(
             $elapsed.ToString('F3', $invariant), $invariant)
         $cpu = $process.TotalProcessorTime.TotalSeconds
@@ -304,12 +459,14 @@ try {
         Write-AtomicText (Join-Path $staging 'checkpoint.ini') (
             "format=1`nstate=running`nelapsed_seconds=$([math]::Floor($elapsed))`n" +
             "process_samples=$sampleCount`nsampling_gaps=$samplingGaps`n")
-        if ($faultRequired -and -not $faultStarted -and
-            $elapsed -ge (($CaptureIntervalSeconds * 2) - $CheckpointSeconds)) {
+        if ($faultRequired -and -not $faultStarted -and $null -ne $progress -and
+            [uint64]$progress['writer_succeeded'] -eq 1 -and
+            [uint64]$progress['elapsed_seconds'] -ge
+                (($CaptureIntervalSeconds * 2) - [math]::Max(5, $CheckpointSeconds) - 5)) {
             $holdSeconds = if ($Mode -eq '72-hour') {
                 [math]::Max(20, $CheckpointSeconds * 2)
             } else {
-                20
+                $CaptureIntervalSeconds
             }
             $faultProcess = Start-Process -FilePath $faultProbe `
                                           -ArgumentList @(('"{0}"' -f $archive), $holdSeconds) `
@@ -351,12 +508,17 @@ try {
                             'collector_worker_failures', 'snapshot_failures',
                             'capture_queue_rejections', 'event_worker_failures',
                             'native_events_dropped', 'writer_cancelled',
-                            'automatic_detection_enabled',
-                            'automatic_detector_triggers',
-                            'automatic_captures_started',
-                            'automatic_event_requests')
+                            'unclassified_long_gaps', 'unclassified_skipped_samples',
+                            'writer_failed_incidents_not_retained')
+    if ($Profile -eq 'isolated') {
+        Require-Zero $fields @('automatic_detection_enabled', 'automatic_detector_triggers', 'automatic_captures_started', 'automatic_event_requests')
+    } elseif ($fields['automatic_detection_enabled'] -ne '1' -or
+              [uint64]$fields['automatic_detector_triggers'] -lt 1 -or
+              [uint64]$fields['automatic_captures_started'] -lt 1) {
+        throw 'The default-profile workload did not produce an actual automatic capture.'
+    }
     if (-not $faultRequired) {
-        Require-Zero $fields @('writer_retry_exhausted', 'writer_failed')
+        Require-Zero $fields @('writer_retry_exhausted', 'writer_failed', 'writer_explicit_recoveries')
     }
     if ($fields['archive_healthy'] -ne '1' -or $fields['archive_schema_version'] -ne '1') {
         throw 'The isolated direct-v1 archive did not finish healthy.'
@@ -374,7 +536,7 @@ try {
     if ($categorizedEvents -ne [uint64]$fields['system_events_recorded']) {
         throw 'Event-source counters do not account for every recorded event.'
     }
-    $accountedIncidents = [uint64]$fields['writer_succeeded'] + [uint64]$fields['writer_failed']
+    $accountedIncidents = [uint64]$fields['writer_succeeded'] + [uint64]$fields['writer_failed'] - [uint64]$fields['writer_explicit_recoveries']
     if ($accountedIncidents -ne [uint64]$fields['incidents_completed'] -or
         [uint64]$fields['archive_incidents'] -ne [uint64]$fields['writer_succeeded']) {
         throw 'Capture, writer, and archive counts do not agree.'
@@ -417,10 +579,12 @@ try {
 
     if ($faultRequired) {
         if ([uint64]$fields['writer_retry_attempts'] -lt 1 -or
-            [uint64]$fields['writer_retry_exhausted'] -lt 1 -or
-            [uint64]$fields['writer_failed'] -lt 1 -or
+            [uint64]$fields['writer_retry_exhausted'] -ne 1 -or
+            [uint64]$fields['writer_failed'] -ne 1 -or
             [uint64]$fields['writer_recoveries'] -lt 1 -or
-            $fields['recoverable_incident_available'] -ne '1') {
+            $fields['recoverable_incident_available'] -ne '0' -or
+            [uint64]$fields['writer_explicit_recoveries'] -ne 1 -or
+            [uint64]$fields['writer_last_failed_capture_sequence'] -ne 2) {
             throw 'Archive fault/recovery was not independently reflected by the writer.'
         }
     }
@@ -462,6 +626,7 @@ try {
 format=1
 state=passed
 mode=$Mode
+profile=$Profile
 requested_runtime_seconds=$DurationSeconds
 capture_interval_seconds=$CaptureIntervalSeconds
 checkpoint_interval_seconds=$CheckpointSeconds
@@ -498,6 +663,13 @@ steady_state_handle_growth=$handleGrowth
                        'process-samples.tsv', 'summary.ini',
                        'data/product-settings.ini', 'data/recorder-settings.ini',
                        'data/incidents.sqlite3')
+    $manifestFiles += @('runtime-inventory.ini', 'app-progress.ini') + @($runtimeHashes.Keys)
+    if ($faultRequired) { $manifestFiles += 'recovered-incident.sqlite3' }
+    foreach ($relative in $runtimeHashes.Keys) {
+        if ((Get-FileHash -LiteralPath (Join-Path $staging $relative) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $runtimeHashes[$relative]) {
+            throw "Runtime file changed during campaign: $relative"
+        }
+    }
     $manifestLines = @('format=1', 'algorithm=sha256', "file_count=$($manifestFiles.Count)")
     foreach ($relative in $manifestFiles) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $staging $relative) -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -509,16 +681,28 @@ steady_state_handle_growth=$handleGrowth
     [IO.Directory]::Move($staging, $output)
     Write-Host "Wall-clock $Mode campaign passed: $output"
 } catch {
+    $failure = $_
+    # Terminate owned children even when the output volume is full or unavailable.
+    if ($workloadProcess -ne $null -and -not $workloadProcess.HasExited) { Stop-Process -Id $workloadProcess.Id -Force -ErrorAction SilentlyContinue }
+    if ($settingsProbe -ne $null -and -not $settingsProbe.HasExited) {
+        Stop-Process -Id $settingsProbe.Id -Force -ErrorAction SilentlyContinue
+    }
     if ($process -ne $null -and -not $process.HasExited) {
         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     }
     if ($faultProcess -ne $null -and -not $faultProcess.HasExited) {
         Stop-Process -Id $faultProcess.Id -Force -ErrorAction SilentlyContinue
     }
-    Write-AtomicText $campaign (
-        "format=1`nstate=failed`nmode=$Mode`nrequested_runtime_seconds=$DurationSeconds`n" +
-        $campaignContract + $provenance)
-    throw
+    try {
+        Write-AtomicText (Join-Path $staging 'failure.txt') (
+            [DateTimeOffset]::UtcNow.ToString('O') + "`n" + $failure.Exception.Message + "`n" + $failure.ScriptStackTrace + "`n")
+        Write-AtomicText $campaign (
+            "format=1`nstate=failed`nmode=$Mode`nrequested_runtime_seconds=$DurationSeconds`n" +
+            $campaignContract + $provenance)
+    } catch {
+        Write-Warning ('Could not persist failure diagnostics: ' + $_.Exception.Message)
+    }
+    throw $failure
 } finally {
     [Environment]::SetEnvironmentVariable('BLACKBOX_PRODUCT_SETTINGS_PATH', $oldProduct, 'Process')
     [Environment]::SetEnvironmentVariable('BLACKBOX_SETTINGS_PATH', $oldRecorder, 'Process')

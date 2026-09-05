@@ -51,6 +51,13 @@ void IncidentWriter::start() {
 void IncidentWriter::stop(const WriterStopPolicy policy) noexcept {
     const std::scoped_lock lock{lifecycle_mutex_};
     if (!worker_.joinable()) {
+        // Purge must also empty a queue populated while the writer was stopped.
+        if (policy == WriterStopPolicy::cancel) {
+            while (source_.try_pop()) {
+                const std::scoped_lock diagnostics_lock{diagnostics_mutex_};
+                ++diagnostics_.cancelled;
+            }
+        }
         const std::scoped_lock diagnostics_lock{diagnostics_mutex_};
         diagnostics_.state = WriterState::stopped;
         return;
@@ -111,11 +118,13 @@ std::expected<std::int64_t, StorageError> IncidentWriter::retry_recoverable() no
     {
         const std::scoped_lock lock{diagnostics_mutex_};
         ++diagnostics_.recoveries;
+        ++diagnostics_.explicit_recoveries;
         ++diagnostics_.succeeded;
         diagnostics_.consecutive_failures = 0U;
         diagnostics_.last_stored_incident_id = *stored;
         diagnostics_.last_error_message.clear();
-        diagnostics_.state = WriterState::running;
+        if (diagnostics_.state != WriterState::stopped)
+            diagnostics_.state = WriterState::running;
     }
     return *stored;
 }
@@ -203,6 +212,10 @@ void IncidentWriter::process(
             diagnostics_.retrying = retry;
             if (!retry) {
                 ++diagnostics_.failed;
+                diagnostics_.last_failed_capture_sequence = incident->header().window.sequence;
+                diagnostics_.last_failure_utc_nanoseconds = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count());
                 if (is_retryable(stored.error().code) &&
                     attempt == configuration_.maximum_attempts) {
                     ++diagnostics_.retry_exhausted;

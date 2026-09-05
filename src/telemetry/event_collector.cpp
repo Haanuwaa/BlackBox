@@ -190,6 +190,11 @@ std::uint64_t SystemEventCollector::cadence_reset_generation() const noexcept {
     return cadence_reset_generation_.load(std::memory_order_acquire);
 }
 
+SamplingCadenceState SystemEventCollector::cadence_state() const noexcept {
+    const std::scoped_lock lock{cadence_mutex_};
+    return cadence_state_;
+}
+
 EventCollectorDiagnostics SystemEventCollector::diagnostics() const noexcept {
     const std::scoped_lock lock{diagnostics_mutex_};
     auto result = diagnostics_;
@@ -230,7 +235,16 @@ void SystemEventCollector::run(const std::stop_token stop_token) noexcept {
                 recorder_.append((*batch_)[index]);
                 record_source(source_counts, (*batch_)[index].source);
                 if (resets_sampling_cadence((*batch_)[index])) {
-                    cadence_reset_generation_.fetch_add(1U, std::memory_order_release);
+                    const std::scoped_lock lock{cadence_mutex_};
+                    ++cadence_state_.generation;
+                    const auto kind = (*batch_)[index].kind;
+                    if (kind == core::SystemEventKind::resume_automatic ||
+                        kind == core::SystemEventKind::resume_user) {
+                        ++cadence_state_.native_resumes;
+                        cadence_state_.last_resume_at = (*batch_)[index].observed_at;
+                    }
+                    cadence_reset_generation_.store(cadence_state_.generation,
+                                                     std::memory_order_release);
                 }
                 if (configuration_.automatic_system_event_capture &&
                     incident_capture_sink_ != nullptr) {

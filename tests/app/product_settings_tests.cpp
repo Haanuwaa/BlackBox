@@ -1,4 +1,7 @@
 #include "app/product_settings.hpp"
+#include "app/recorder_settings.hpp"
+#include "core/environment_path.hpp"
+#include "core/filesystem_text.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -12,6 +15,37 @@
 namespace app = blackbox::app;
 namespace platform = blackbox::platform;
 using namespace std::chrono_literals;
+
+#if defined(_WIN32)
+TEST_CASE("Windows settings overrides preserve native Unicode environment paths",
+          "[app][settings][unicode][environment]") {
+    struct RestoreVariable {
+        const wchar_t* name;
+        std::wstring original;
+        ~RestoreVariable() { static_cast<void>(_wputenv_s(name, original.c_str())); }
+    };
+    const auto old_product = blackbox::core::environment_path("BLACKBOX_PRODUCT_SETTINGS_PATH");
+    const auto old_recorder = blackbox::core::environment_path("BLACKBOX_SETTINGS_PATH");
+    const RestoreVariable product_restore{L"BLACKBOX_PRODUCT_SETTINGS_PATH",
+                                         old_product ? old_product->native() : L""};
+    const RestoreVariable recorder_restore{L"BLACKBOX_SETTINGS_PATH",
+                                          old_recorder ? old_recorder->native() : L""};
+    const auto path = std::filesystem::path{u8"C:/BlackBox/\u6d4b\u8bd5 \u00e9/settings.ini"};
+    REQUIRE(_wputenv_s(L"BLACKBOX_PRODUCT_SETTINGS_PATH", path.c_str()) == 0);
+    REQUIRE(_wputenv_s(L"BLACKBOX_SETTINGS_PATH", path.c_str()) == 0);
+    CHECK(app::default_product_settings_path() == path);
+    CHECK(app::default_recorder_settings_path() == path);
+    CHECK(app::default_product_settings().archive_path == path.parent_path() / "incidents.sqlite3");
+}
+#endif
+
+TEST_CASE("UTF-8 UI paths preserve native Unicode across settings round trips", "[app][settings][unicode]") {
+    const auto text = std::u8string{u8"C:/BlackBox/\u6d4b\u8bd5/\u00e9 space.sqlite3"};
+    const std::string utf8{reinterpret_cast<const char*>(text.data()), text.size()};
+    const auto path = blackbox::core::path_from_utf8(utf8);
+    CHECK(path == std::filesystem::path{text});
+    CHECK(blackbox::core::path_to_utf8(path) == utf8);
+}
 
 namespace {
 
@@ -57,7 +91,8 @@ TEST_CASE("product settings defaults and all user controls round trip",
     values.record_power_and_device_events = true;
     values.record_audio_device_events = true;
     values.record_system_event_evidence = true;
-    values.archive_path = temporary.directory / "archive" / "incidents.sqlite3";
+    values.archive_path = blackbox::core::path_from_utf8(blackbox::core::path_to_utf8(
+        temporary.directory / std::filesystem::path{u8"\u6d4b\u8bd5 \u00e9"} / "incidents.sqlite3"));
     values.archive_maximum_bytes = 512ULL << 20U;
     values.onboarding_completed = true;
 

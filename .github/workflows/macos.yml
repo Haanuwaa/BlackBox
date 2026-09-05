@@ -11,6 +11,7 @@ permissions:
 jobs:
   native-provider:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +21,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
       CC: clang
       CXX: clang++
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Bootstrap pinned vcpkg registry
@@ -37,8 +39,13 @@ jobs:
           printf '#include <stop_token>\nint main(){ std::stop_source source; return source.stop_possible() ? 0 : 1; }\n' \
             | "$CXX" -std=c++23 -x c++ - -o "$RUNNER_TEMP/blackbox-stop-token-probe"
           "$RUNNER_TEMP/blackbox-stop-token-probe"
+          triplet=arm64-osx-blackbox
+          if [ "$(uname -m)" = x86_64 ]; then triplet=x64-osx-blackbox; fi
           cmake -S . -B out/build/macos -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DVCPKG_OVERLAY_TRIPLETS="$(pwd)/cmake/triplets" \
+            -DVCPKG_TARGET_TRIPLET="$triplet" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DBLACKBOX_BUILD_APP=ON -DBLACKBOX_BUILD_TESTS=ON \
             -DBLACKBOX_SOURCE_REVISION="${{ github.sha }}" \
@@ -47,7 +54,8 @@ jobs:
         shell: bash
         run: |
           cmake --build out/build/macos --parallel
-          ctest --test-dir out/build/macos --output-on-failure
+          ctest --test-dir out/build/macos --output-on-failure --timeout 120 \
+            --output-junit test-results.xml
       - name: Verify native application bundle
         shell: bash
         run: |
@@ -59,6 +67,7 @@ jobs:
             "0.27.0"
           test "$(plutil -extract LSMinimumSystemVersion raw "$bundle/Contents/Info.plist")" = \
             "13.0"
+          bash scripts/verify-macos-deployment.sh "$bundle" 13.0
       - name: Measure native provider overhead
         shell: bash
         run: |
@@ -85,6 +94,15 @@ jobs:
             'BlackBox-[^/]+/BlackBox.app/Contents/MacOS/BlackBox$'
           tar -tzf "$package" | grep -Eq \
             'BlackBox-[^/]+/BlackBox.app/Contents/Info.plist$'
+          extract="out/build/macos/package-smoke"
+          mkdir -p "$extract"
+          tar -xzf "$package" -C "$extract"
+          extracted_bundle="$(find "$extract" -type d -name BlackBox.app -print -quit)"
+          test -n "$extracted_bundle"
+          bash scripts/verify-macos-deployment.sh "$extracted_bundle" 13.0
+          python3 scripts/smoke-native-package.py \
+            "$extracted_bundle/Contents/MacOS/BlackBox" \
+            out/build/macos/package-runtime --platform macOS --revision "$GITHUB_SHA"
           bash scripts/package-macos-engineering.sh \
           out/build/macos/src/BlackBox.app out/build/macos 0.27.0
           dmg="$(find out/build/macos -maxdepth 1 -type f -name 'BlackBox-0.27.0-macos-*-engineering-preview.dmg' -print -quit)"
@@ -100,4 +118,20 @@ jobs:
             out/build/macos/BlackBox-*-macos-*-engineering-preview.dmg
             out/build/macos/BlackBox-*-macos-*-engineering-preview.pkg
             out/build/macos/macos-provider-overhead.ini
+            out/build/macos/package-runtime/runtime.ini
+            out/build/macos/package-runtime/result.json
           if-no-files-found: error
+      - name: Retain native diagnostics even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-diagnostics-macos-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            out/build/macos/CMakeFiles/CMakeConfigureLog.yaml
+            out/build/macos/Testing/Temporary/*.log
+            out/build/macos/test-results.xml
+            out/build/macos/package-runtime/*.log
+            out/build/macos/package-runtime/*.ini
+            out/build/macos/package-runtime/*.json
+          if-no-files-found: warn
+          retention-days: 14

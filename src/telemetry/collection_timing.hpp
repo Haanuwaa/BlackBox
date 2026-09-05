@@ -15,6 +15,7 @@ struct CollectionTimingSummary {
     std::chrono::nanoseconds p95{};
     std::chrono::nanoseconds p99{};
     std::chrono::nanoseconds maximum{};
+    std::chrono::nanoseconds lifetime_maximum{};
     friend constexpr bool operator==(const CollectionTimingSummary&,
                                      const CollectionTimingSummary&) = default;
 };
@@ -32,6 +33,7 @@ private:
     std::size_t size_{};
     std::size_t next_{};
     std::uint64_t samples_recorded_{};
+    std::chrono::nanoseconds lifetime_maximum_{};
 };
 
 } // namespace blackbox::telemetry

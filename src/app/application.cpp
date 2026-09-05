@@ -3,9 +3,11 @@
 #include "app/visible_frame_scheduler.hpp"
 
 #include "core/logger.hpp"
+#include "core/filesystem_text.hpp"
 #include "core/version.hpp"
 #include "ui/dashboard.hpp"
 #include "ui/product_ui_model.hpp"
+#include "ui/product_font.hpp"
 
 #if defined(_WIN32)
 #include "platform/windows/windows_accessibility.hpp"
@@ -50,30 +52,6 @@ namespace blackbox::app {
 namespace {
 
 using namespace std::chrono_literals;
-
-void load_product_font(ImGuiIO& io, const float display_scale) {
-#if defined(_WIN32)
-    constexpr std::array candidates{"C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf"};
-#elif defined(__APPLE__)
-    constexpr std::array candidates{"/System/Library/Fonts/SFNS.ttf",
-                                    "/System/Library/Fonts/Helvetica.ttc"};
-#else
-    constexpr std::array candidates{
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"};
-#endif
-    for (const auto* candidate : candidates) {
-        std::error_code error{};
-        if (!std::filesystem::is_regular_file(candidate, error) || error) continue;
-        if (io.Fonts->AddFontFromFileTTF(
-                candidate, 17.0F * ui::normalize_display_scale(display_scale)) != nullptr) {
-            return;
-        }
-    }
-    ImFontConfig fallback{};
-    fallback.SizePixels = 13.0F * ui::normalize_display_scale(display_scale);
-    static_cast<void>(io.Fonts->AddFontDefault(&fallback));
-}
 
 [[nodiscard]] constexpr bool
 any_event_source_enabled(const telemetry::EventProviderConfiguration& configuration) noexcept {
@@ -126,7 +104,7 @@ command_bit(const platform::BackgroundShellCommand command) noexcept {
 } // namespace
 
 Application::Application(const bool start_hidden,
-                         ApplicationDiagnosticOptions diagnostic_options) noexcept
+                         ApplicationDiagnosticOptions diagnostic_options)
     : start_hidden_{start_hidden}, diagnostic_options_{std::move(diagnostic_options)} {}
 
 Application::~Application() { shutdown(); }
@@ -263,7 +241,7 @@ ApplicationInitializationResult Application::initialize() {
         configuration = *defaults;
     } else {
         configuration = *loaded_settings;
-        recorder_settings_status_text_ = "Loaded from " + recorder_settings_path_.string();
+        recorder_settings_status_text_ = "Loaded from " + core::path_to_utf8(recorder_settings_path_);
     }
     product_ui_state_.collect_process_paths = configuration.values.collect_process_paths;
     product_ui_state_.incident_pre_window_seconds = static_cast<std::uint64_t>(
@@ -272,6 +250,7 @@ ApplicationInitializationResult Application::initialize() {
     product_ui_state_.incident_post_window_seconds = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::seconds>(configuration.values.incident_post_window)
             .count());
+    saved_product_preferences_ = product_ui_state_;
 #if BLACKBOX_AUTOMATIC_DETECTION_ENABLED
     automatic_detector_ = std::make_unique<telemetry::AutomaticIncidentDetector>(
         detector_configuration(product_settings_));
@@ -319,6 +298,8 @@ ApplicationInitializationResult Application::initialize() {
     incident_viewer_service_ = std::make_unique<IncidentViewerService>(
         *incident_archive_, nullptr, nullptr, nullptr, incident_archive_.get());
 #endif
+    archive_maintenance_service_->attach_lifecycle(
+        collector_.get(), system_event_collector_.get(), incident_viewer_service_.get());
 #else
     auto disabled_viewer = std::make_shared<ui::IncidentViewerContent>();
     disabled_viewer->state = ui::IncidentViewerLoadState::disabled;
@@ -356,7 +337,7 @@ ApplicationInitializationResult Application::initialize() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
     display_scale_ = ui::normalize_display_scale(SDL_GetWindowDisplayScale(window_));
-    load_product_font(io, display_scale_);
+    ui::load_product_font(io, display_scale_);
 #if defined(_WIN32)
     const auto accessibility = platform::windows::accessibility_preferences();
 #elif defined(__APPLE__)
@@ -553,9 +534,31 @@ int Application::run() {
 
     while (running) {
         const auto now = telemetry_clock_.now();
+        if (diagnostic_started_ && !diagnostic_options_.report_path.empty() &&
+            now >= next_diagnostic_progress_at_) {
+            write_diagnostic_progress();
+            next_diagnostic_progress_at_ = now + 5s;
+        }
+#if BLACKBOX_STORAGE_ENABLED
+        if (diagnostic_options_.recover_failed_incident && !diagnostic_recovery_requested_ &&
+            incident_writer_ != nullptr && archive_maintenance_service_ != nullptr) {
+            const auto writer = incident_writer_->diagnostics();
+            if (writer.recoverable_incident_available && writer.recoveries > 0U) {
+                diagnostic_recovery_requested_ = true;
+                archive_maintenance_service_->export_failed(
+                    diagnostic_options_.report_path.parent_path() / "recovered-incident.sqlite3");
+                archive_maintenance_service_->retry_failed();
+            }
+        }
+#endif
         if (now >= diagnostic_exit_at) {
             diagnostic_completed_ = diagnostic_started_;
             break;
+        }
+        if (diagnostic_options_.overlap_automatic_capture && !diagnostic_overlap_requested_ &&
+            collector_ != nullptr && collector_->diagnostics().automatic_captures_started > 0U) {
+            diagnostic_overlap_requested_ = true;
+            request_incident_capture();
         }
         if (now >= next_diagnostic_capture) {
             const auto post_window =
@@ -611,9 +614,20 @@ int Application::run() {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        const auto command =
+        consume_file_dialog();
+        product_ui_state_.settings_dirty =
+            static_cast<const ui::ProductPreferences&>(product_ui_state_) != saved_product_preferences_;
+        product_ui_state_.file_dialog_pending = file_dialog_service_.pending();
+        auto command =
             ui::render_dashboard(dashboard_state_, incident_viewer_state_, product_ui_state_);
+#if BLACKBOX_STORAGE_ENABLED
+        if (archive_maintenance_service_ != nullptr && archive_maintenance_service_->boundary_pending())
+            command.action = ui::DashboardAction::none;
+#endif
         switch (command.action) {
+        case ui::DashboardAction::browse_path:
+            request_file_dialog(command.path_field);
+            break;
         case ui::DashboardAction::none:
             break;
         case ui::DashboardAction::capture_incident:
@@ -636,7 +650,7 @@ int Application::run() {
                     "Applied for this session; save failed: " + saved.error().message;
             } else {
                 recorder_settings_status_text_ =
-                    "Applied and saved to " + recorder_settings_path_.string();
+                    "Applied and saved to " + core::path_to_utf8(recorder_settings_path_);
             }
             break;
         }
@@ -661,6 +675,8 @@ int Application::run() {
                                                    command.incident_order);
             break;
         case ui::DashboardAction::select_incident:
+            if (ui::incident_editor_dirty(incident_viewer_state_) &&
+                command.incident_id != incident_viewer_state_.editor_incident_id) break;
             incident_viewer_service_->request_detail(command.incident_id);
             break;
         case ui::DashboardAction::select_incident_process:
@@ -703,19 +719,24 @@ int Application::run() {
             archive_maintenance_service_->retry_failed();
             break;
         case ui::DashboardAction::backup_archive:
-            archive_maintenance_service_->backup(command.backup_path);
+            archive_maintenance_service_->backup(core::path_from_utf8(command.backup_path));
             break;
         case ui::DashboardAction::restore_archive:
-            archive_maintenance_service_->restore(command.restore_path, command.safety_backup_path);
+            archive_maintenance_service_->restore(core::path_from_utf8(command.restore_path), core::path_from_utf8(command.safety_backup_path));
             break;
         case ui::DashboardAction::retain_incidents:
             archive_maintenance_service_->retain_newest(command.retention_incidents);
             break;
         case ui::DashboardAction::export_dataset:
-            archive_maintenance_service_->export_dataset(command.export_path);
+            archive_maintenance_service_->export_dataset(core::path_from_utf8(command.export_path));
             break;
         case ui::DashboardAction::export_failed_incident:
-            archive_maintenance_service_->export_failed(command.failed_export_path);
+            archive_maintenance_service_->export_failed(core::path_from_utf8(command.failed_export_path));
+            break;
+        case ui::DashboardAction::export_summary:
+            incident_viewer_service_->export_summary(incident_viewer_state_.content,
+                core::path_from_utf8(product_ui_state_.summary_path.data()),
+                product_ui_state_.summary_include_annotations);
             break;
         case ui::DashboardAction::purge_archive:
             archive_maintenance_service_->purge_all();
@@ -739,6 +760,7 @@ int Application::run() {
         case ui::DashboardAction::export_dataset:
         case ui::DashboardAction::export_failed_incident:
         case ui::DashboardAction::purge_archive:
+        case ui::DashboardAction::export_summary:
             break;
 #endif
         }
@@ -762,7 +784,7 @@ int Application::run() {
     return 0;
 }
 
-void Application::synchronize_product_ui() noexcept {
+void Application::synchronize_product_ui() {
     const auto copy = [](auto& destination, const std::string& source) {
         destination.fill('\0');
         const auto count = std::min(source.size(), destination.size() - 1U);
@@ -794,21 +816,22 @@ void Application::synchronize_product_ui() noexcept {
     product_ui_state_.record_audio_device_events = product_settings_.record_audio_device_events;
     product_ui_state_.record_system_event_evidence = product_settings_.record_system_event_evidence;
     product_ui_state_.archive_maximum_mib = product_settings_.archive_maximum_bytes >> 20U;
-    copy(product_ui_state_.archive_path, product_settings_.archive_path.string());
+    copy(product_ui_state_.archive_path, core::path_to_utf8(product_settings_.archive_path));
     const auto parent = product_settings_.archive_path.parent_path();
-    copy(product_ui_state_.backup_path, (parent / "incidents-backup.sqlite3").string());
-    copy(product_ui_state_.safety_backup_path, (parent / "incidents-pre-restore.sqlite3").string());
-    copy(product_ui_state_.export_path, (parent / "blackbox-evidence-dataset").string());
-    copy(product_ui_state_.failed_export_path, (parent / "recoverable-incident.sqlite3").string());
+    copy(product_ui_state_.backup_path, core::path_to_utf8(parent / "incidents-backup.sqlite3"));
+    copy(product_ui_state_.safety_backup_path, core::path_to_utf8(parent / "incidents-pre-restore.sqlite3"));
+    copy(product_ui_state_.export_path, core::path_to_utf8(parent / "blackbox-evidence-dataset"));
+    copy(product_ui_state_.failed_export_path, core::path_to_utf8(parent / "recoverable-incident.sqlite3"));
+    copy(product_ui_state_.summary_path, core::path_to_utf8(parent / "incident-summary.txt"));
     if (product_ui_state_.support_bundle_path.front() == '\0') {
-        copy(product_ui_state_.support_bundle_path, (parent / "blackbox-support-bundle").string());
+        copy(product_ui_state_.support_bundle_path, core::path_to_utf8(parent / "blackbox-support-bundle"));
     }
 }
 
 void Application::request_support_bundle(const ui::DashboardCommand& command) noexcept {
     try {
         SupportBundleRequest request{};
-        request.destination = command.support_bundle_path;
+        request.destination = core::path_from_utf8(command.support_bundle_path);
         auto& value = request.diagnostics;
         value.application_version = std::string{core::version};
         value.platform = BLACKBOX_PLATFORM_NAME;
@@ -939,7 +962,7 @@ void Application::refresh_hotkey_status() noexcept {
     dashboard_state_.hotkey_status = hotkey_status_;
 }
 
-void Application::apply_product_settings(const ui::DashboardCommand& command) noexcept {
+void Application::apply_product_settings(const ui::DashboardCommand& command) noexcept try {
     auto proposed = product_settings_;
     proposed.incident_hotkey = {static_cast<platform::HotkeyKey>(command.hotkey_key),
                                 command.hotkey_control, command.hotkey_shift, command.hotkey_alt,
@@ -957,7 +980,7 @@ void Application::apply_product_settings(const ui::DashboardCommand& command) no
     proposed.record_power_and_device_events = command.record_power_and_device_events;
     proposed.record_audio_device_events = command.record_audio_device_events;
     proposed.record_system_event_evidence = command.record_system_event_evidence;
-    proposed.archive_path = command.archive_path;
+    proposed.archive_path = core::path_from_utf8(command.archive_path);
     if (command.archive_maximum_mib > (maximum_archive_bytes >> 20U)) {
         recorder_settings_status_text_ = "Rejected: archive capacity exceeds 64 GiB";
         return;
@@ -1044,11 +1067,17 @@ void Application::apply_product_settings(const ui::DashboardCommand& command) no
         recorder_settings_status_text_ = "Applied for this session; one or more "
                                          "settings files could not be saved";
     } else {
+        saved_product_preferences_ = product_ui_state_;
         recorder_settings_status_text_ = "Applied and saved. Archive path/capacity "
                                          "changes take effect next launch.";
     }
     refresh_hotkey_status();
     next_dashboard_refresh_at_ = telemetry_clock_.now();
+}
+ catch (const std::exception& error) {
+    recorder_settings_status_text_ = "Settings could not be applied: " + std::string{error.what()};
+} catch (...) {
+    recorder_settings_status_text_ = "Settings could not be applied";
 }
 
 void Application::refresh_display_metrics(const bool force_style_refresh) {
@@ -1062,7 +1091,7 @@ void Application::refresh_display_metrics(const bool force_style_refresh) {
         if (scale_changed) {
             auto& io = ImGui::GetIO();
             io.Fonts->Clear();
-            load_product_font(io, display_scale_);
+            ui::load_product_font(io, display_scale_);
         }
         ui::apply_accessibility_style(high_contrast_enabled_, display_scale_);
     } else if (scale_changed) {
@@ -1224,6 +1253,10 @@ void Application::process_background_commands(bool& running) {
         running = false;
         return;
     }
+#if BLACKBOX_STORAGE_ENABLED
+    if (archive_maintenance_service_ != nullptr && archive_maintenance_service_->boundary_pending())
+        return;
+#endif
     if (requested(platform::BackgroundShellCommand::show_window)) {
         show_window();
     }
@@ -1308,6 +1341,9 @@ void Application::hide_window() noexcept {
 }
 
 void Application::request_incident_capture() noexcept {
+#if BLACKBOX_STORAGE_ENABLED
+    if (archive_maintenance_service_ != nullptr && archive_maintenance_service_->boundary_pending()) return;
+#endif
     if (collector_ == nullptr) {
         return;
     }

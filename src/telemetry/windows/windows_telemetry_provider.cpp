@@ -645,9 +645,9 @@ struct WindowsTelemetryProvider::NativeState {
     [[nodiscard]] MetricStatus read_processes(
         const bool collect_counters,
         const bool resolve_paths,
-        RawTelemetrySnapshot& destination) {
+        RawTelemetrySnapshot& destination, const bool refresh_metadata) {
         return process_collector.collect(
-            collect_counters, resolve_paths, destination);
+            collect_counters, resolve_paths, destination, refresh_metadata);
     }
 
     [[nodiscard]] bool gpu_available() const noexcept {
@@ -1344,7 +1344,8 @@ ProviderSampleResult WindowsTelemetryProvider::sample(
         if (native_state_ != nullptr) {
             ++attempted;
             const auto process_status = native_state_->read_processes(
-                true, request.tiers.contains(SamplingTier::slow), destination);
+                true, request.tiers.contains(SamplingTier::slow) && request.collect_process_paths,
+                destination, request.tiers.contains(SamplingTier::slow));
             if (process_status != MetricStatus::available) {
                 ++failed;
             }

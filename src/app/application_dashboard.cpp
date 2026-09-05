@@ -306,6 +306,8 @@ void Application::refresh_dashboard_if_due() {
         dashboard_state_.storage_retry_attempts = writer.retry_attempts;
         dashboard_state_.storage_retry_exhausted = writer.retry_exhausted;
         dashboard_state_.storage_write_successes = writer.succeeded;
+        if (dashboard_state_.storage_write_failures != writer.failed &&
+            archive_maintenance_service_ != nullptr) archive_maintenance_service_->refresh();
         dashboard_state_.storage_write_failures = writer.failed;
         dashboard_state_.storage_write_cancellations = writer.cancelled;
         dashboard_state_.stored_incident_count = stored_incidents_at_start_ + writer.succeeded;
@@ -340,7 +342,12 @@ void Application::refresh_dashboard_if_due() {
     }
     if (archive_maintenance_service_ != nullptr) {
         const auto maintenance = archive_maintenance_service_->snapshot();
-        dashboard_state_.archive_maintenance_busy = maintenance->busy;
+        if (archive_content_epoch_ != maintenance->content_epoch) {
+            archive_content_epoch_ = maintenance->content_epoch;
+            incident_viewer_state_ = ui::IncidentViewerState{};
+        }
+        dashboard_state_.archive_maintenance_busy = maintenance->busy ||
+            archive_maintenance_service_->boundary_pending();
         dashboard_state_.archive_healthy = maintenance->healthy;
         dashboard_state_.archive_recoverable_incident = maintenance->recoverable_incident;
         dashboard_state_.archive_recoverable_sequence = maintenance->recoverable_capture_sequence;

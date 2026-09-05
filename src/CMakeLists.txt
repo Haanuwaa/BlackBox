@@ -364,6 +364,11 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
     target_link_libraries(blackbox_soak_archive_fault PRIVATE
         BlackBox::StorageDependencies)
     blackbox_set_project_warnings(blackbox_soak_archive_fault)
+    add_executable(blackbox_default_profile_workload app/default_profile_workload.cpp)
+    blackbox_add_windows_version_resource(blackbox_default_profile_workload
+        "BlackBox Default Profile Rehearsal Workload")
+    target_compile_features(blackbox_default_profile_workload PRIVATE cxx_std_23)
+    blackbox_set_project_warnings(blackbox_default_profile_workload)
 
     if(BLACKBOX_ENABLE_ANALYSIS)
         add_executable(blackbox_dogfood_tool app/dogfood_tool.cpp)
@@ -436,6 +441,8 @@ if(BLACKBOX_BUILD_APP)
         ui/dashboard_settings.cpp
         ui/incident_viewer.cpp
         ui/product_ui_model.cpp
+        ui/product_font.cpp
+        ui/incident_summary.cpp
     )
     add_library(BlackBox::UI ALIAS blackbox_ui)
     target_include_directories(blackbox_ui PUBLIC ${PROJECT_SOURCE_DIR}/src)
@@ -450,6 +457,7 @@ if(BLACKBOX_BUILD_APP)
             app/incident_viewer_service.cpp
             app/incident_viewer_service_mutations.cpp
             app/incident_viewer_service_queue.cpp
+            app/incident_summary_export.cpp
         )
         add_library(BlackBox::IncidentViewerService ALIAS
             blackbox_incident_viewer_service)
@@ -474,6 +482,8 @@ if(BLACKBOX_BUILD_APP)
 
     add_executable(blackbox
         app/application.cpp
+        app/application_file_dialogs.cpp
+        app/file_dialog_service.cpp
         app/application_dashboard.cpp
         app/application_lifecycle.cpp
         app/main.cpp
@@ -544,24 +554,50 @@ if(BLACKBOX_BUILD_APP)
         endif()
     endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        install(FILES
-            ${PROJECT_SOURCE_DIR}/README.md
-            ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
-            ${PROJECT_SOURCE_DIR}/ROADMAP.md
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/blackbox")
-        install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/blackbox")
+        set(blackbox_documentation_root "${CMAKE_INSTALL_DATAROOTDIR}/doc/blackbox")
         install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.Haanuwaa.BlackBox.desktop
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
         install(FILES ${PROJECT_SOURCE_DIR}/packaging/linux/io.github.Haanuwaa.BlackBox.svg
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps")
     else()
-        install(FILES
-            ${PROJECT_SOURCE_DIR}/README.md
-            ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
-            ${PROJECT_SOURCE_DIR}/ROADMAP.md
-            DESTINATION docs)
-        install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/ DESTINATION docs)
+        set(blackbox_documentation_root "docs")
+    endif()
+    install(FILES
+        ${PROJECT_SOURCE_DIR}/README.md
+        ${PROJECT_SOURCE_DIR}/ARCHITECTURE.md
+        ${PROJECT_SOURCE_DIR}/ROADMAP.md
+        ${PROJECT_SOURCE_DIR}/LICENSE.txt
+        ${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
+        DESTINATION "${blackbox_documentation_root}")
+    # Preserve source-relative links and avoid overwriting the root README.
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/
+        DESTINATION "${blackbox_documentation_root}/docs")
+    file(GLOB blackbox_dependency_notices
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/*/copyright")
+    if(NOT blackbox_dependency_notices)
+        message(FATAL_ERROR "Dependency notices must be available before packaging BlackBox")
+    endif()
+    foreach(notice IN LISTS blackbox_dependency_notices)
+        get_filename_component(notice_directory "${notice}" DIRECTORY)
+        get_filename_component(notice_package "${notice_directory}" NAME)
+        install(FILES "${notice}" DESTINATION "${blackbox_documentation_root}/licenses/${notice_package}")
+        if(APPLE)
+            add_custom_command(TARGET blackbox POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/licenses/${notice_package}"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${notice}"
+                    "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/licenses/${notice_package}/copyright")
+        endif()
+    endforeach()
+    if(APPLE)
+        add_custom_command(TARGET blackbox POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/docs"
+                "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/docs/docs"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${PROJECT_SOURCE_DIR}/README.md" "${PROJECT_SOURCE_DIR}/ARCHITECTURE.md"
+                "${PROJECT_SOURCE_DIR}/ROADMAP.md" "${PROJECT_SOURCE_DIR}/LICENSE.txt"
+                "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+                "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/docs")
     endif()
 
     if(WIN32)

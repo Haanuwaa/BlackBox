@@ -1,5 +1,6 @@
 #include "storage/test_incident.hpp"
 #include "ui/incident_viewer.hpp"
+#include "ui/incident_summary.hpp"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -14,6 +15,54 @@ namespace core = blackbox::core;
 namespace storage = blackbox::storage;
 namespace ui = blackbox::ui;
 using namespace std::chrono_literals;
+
+TEST_CASE("incident drafts survive background refresh and clear only on a matching saved echo", "[ui][viewer][draft]") {
+    ui::IncidentViewerState state;
+    REQUIRE(state.saved_label.empty());
+    auto first = std::make_shared<ui::IncidentViewerContent>();
+    first->generation = 1;
+    first->detail.emplace();
+    first->detail->id = 42;
+    first->detail->label = "Original";
+    first->detail->note = "Saved";
+    state.content = first;
+    REQUIRE(first->detail->recurring_group_override.empty());
+    ui::synchronize_incident_editor(state);
+    const std::string edited = "Unsaved draft";
+    std::copy(edited.begin(), edited.end(), state.note_editor.begin());
+    state.note_editor[edited.size()] = '\0';
+    REQUIRE(ui::incident_editor_dirty(state));
+    auto refresh = std::make_shared<ui::IncidentViewerContent>(*first);
+    refresh->generation = 2;
+    state.content = refresh;
+    ui::synchronize_incident_editor(state);
+    CHECK(std::string{state.note_editor.data()} == edited);
+    auto page = std::make_shared<ui::IncidentViewerContent>();
+    page->generation = 3;
+    state.content = page;
+    ui::synchronize_incident_editor(state);
+    CHECK(state.editor_incident_id == 42);
+    CHECK(ui::incident_editor_dirty(state));
+    auto saved = std::make_shared<ui::IncidentViewerContent>(*first);
+    saved->generation = 4;
+    saved->detail->note = edited;
+    state.content = saved;
+    ui::synchronize_incident_editor(state);
+    CHECK_FALSE(ui::incident_editor_dirty(state));
+}
+
+TEST_CASE("readable summary retains missing evidence and excludes private details by default", "[ui][viewer][summary]") {
+    const auto incident = storage::test::representative_incident();
+    auto detail = ui::build_incident_detail(42, 0, "private label", "private note", *incident);
+    detail.network_receive_mib_per_second.values.clear();
+    detail.network_receive_mib_per_second.availability.by_status = {0, 2, 3, 4};
+    const auto text = ui::format_incident_summary(detail);
+    CHECK(text.find("Network receive: unavailable (available 0, unsupported 2, inaccessible 3, temporary 4)") != std::string::npos);
+    CHECK(text.find("statistical association does not establish cause") != std::string::npos);
+    CHECK(text.find("private label") == std::string::npos);
+    CHECK(text.find("private note") == std::string::npos);
+    CHECK(ui::format_incident_summary(detail, true).find("private note") != std::string::npos);
+}
 
 TEST_CASE("incident view model preserves ranges marker-relative time and missing states",
           "[ui][viewer][view-model]") {

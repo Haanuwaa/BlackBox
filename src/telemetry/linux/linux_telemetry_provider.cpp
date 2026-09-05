@@ -583,7 +583,8 @@ ProviderSampleResult LinuxTelemetryProvider::sample(const SamplingRequest reques
         }
         ++attempted;
         if (native_state_ == nullptr ||
-            native_state_->process_collector.collect(request.tiers.contains(SamplingTier::slow),
+            native_state_->process_collector.collect(request.tiers.contains(SamplingTier::slow) &&
+                                                     request.collect_process_paths,
                                                      destination) != MetricStatus::available) {
             ++failed;
         }

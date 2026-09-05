@@ -1,5 +1,19 @@
 # Recovery runbooks
 
+Live now warns at 80% of configured archive capacity and offers recovery when a capture cannot
+be saved. The recovery slot is memory-only and is lost on exit unless exported or retried.
+
+Purge stops capture input, joins writer/viewer work, discards pending captures and queued writes,
+clears recovery and rolling history, removes archive data/profiles, and invalidates viewer caches
+before recording resumes. Prior exports, backups, settings, logs and crash evidence remain outside
+the incident purge. Restore drains queued writes first and refuses to proceed while a failed
+incident remains unresolved. Recover it, or export it and explicitly purge before restoring.
+
+Ordinary backups and pre-restore safety copies are reopened read-only and checked for SQLite
+integrity and canonical schema before exclusive publication. Occupied destinations/staging files
+are refused. POSIX publication requires same-filesystem hard-link support; unsupported filesystems
+produce an error rather than an unverified success.
+
 These procedures preserve evidence first. Stop BlackBox before manually copying or moving its active
 files. Never rename an incompatible archive into the active location, edit SQLite/WAL files, or
 delete a `.partial` artifact until its role is understood.

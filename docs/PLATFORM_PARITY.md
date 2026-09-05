@@ -9,6 +9,38 @@ Windows is the only intended V1.0 product target. Linux and macOS rows below des
 coverage until their physical, packaging, reliability, privacy, and support gates are independently
 qualified.
 
+## September 2026 status
+
+The latest hosted spot-check on 5 September found passing Apple Silicon and Intel jobs in
+[macOS run 33950607057](https://github.com/Haanuwaa/BlackBox/actions/runs/33950607057).
+[Linux run 33950607028](https://github.com/Haanuwaa/BlackBox/actions/runs/33950607028) passed
+Ubuntu, Debian and Fedora native builds/packages, distribution comparison, and Weston, KWin
+and Sway runtime checks, but **failed the Mutter runtime check**. Its retained job log only
+reported exit code 1; the previous workflow skipped uploading compositor diagnostics on failure.
+The cause is unresolved, and that run is not a passing complete Linux matrix.
+
+Those runs use dependency-update branch head `30ee02a66282143f1be755b8a1cca4fd69cefd40`,
+whose only change from `ff69cc8` is the quality workflow's cache action. The Linux PR job
+executed merge revision `239ee63e4227043e58b59f53bbdfd42f2a751e1e`. They do not validate the
+uncommitted hardening candidate. The historical successful matrix below remains bound to its
+older revision.
+
+Current changes strengthen per-architecture macOS deployment verification, add a bounded
+launch from the extracted Mac package, retain native failure logs and test results, and report
+Wayland failures by stage. See [build instructions](BUILD_AND_RELEASE.md) and the
+[current candidate](CURRENT_CANDIDATE.md) for validation limits. No physical Mac is available
+in the current test setup. Oldest-runtime, sleep/resume, permission, accessibility and signing
+gates remain open.
+
+The current uncommitted candidate subsequently passed a local Ubuntu 24.04 native build,
+365 tests, extracted X11 launch, DEB install/launch/removal and an ordinary-user headless
+Mutter smoke. The exact earlier hosted Ubuntu artifact also passed the local Mutter
+reproduction. This does not explain the hosted failure or qualify physical GNOME behavior;
+the next hosted run must retain the new diagnostics. See the current candidate for evidence
+paths and the limited container workload.
+
+## Implemented capabilities
+
 | Outcome / boundary | Windows | Linux engineering preview | macOS engineering preview |
 | --- | --- | --- | --- |
 | Portable recorder, capture, schema-v1 archive, analysis, UI | Implemented | Same portable graph | Same portable graph |

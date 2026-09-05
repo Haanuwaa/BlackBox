@@ -1,5 +1,7 @@
 # BlackBox documentation
 
+- [Current hardening candidate](CURRENT_CANDIDATE.md): implementation, validation and external gates.
+
 BlackBox keeps detailed engineering contracts because telemetry, privacy, diagnostic claims, and
 release evidence must remain reviewable. This page is the entry point; most readers should not need
 to browse every file.

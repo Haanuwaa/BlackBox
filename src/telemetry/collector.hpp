@@ -120,6 +120,8 @@ struct CollectorDiagnostics {
     std::uint64_t deadline_misses{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};
+    std::uint64_t unclassified_long_gaps{};
+    std::uint64_t unclassified_skipped_samples{};
     std::chrono::nanoseconds last_resume_gap{};
     std::uint64_t provider_recoveries{};
     std::uint64_t consecutive_provider_failures{};

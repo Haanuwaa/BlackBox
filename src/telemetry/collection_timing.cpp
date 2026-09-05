@@ -12,12 +12,14 @@ void CollectionTimingWindow::record(std::chrono::nanoseconds duration) noexcept 
     next_ = (next_ + 1U) % capacity;
     size_ = std::min(size_ + 1U, capacity);
     ++samples_recorded_;
+    lifetime_maximum_ = std::max(lifetime_maximum_, duration);
 }
 
 CollectionTimingSummary CollectionTimingWindow::summary() const noexcept {
     CollectionTimingSummary result{};
     result.samples_recorded = samples_recorded_;
     result.samples_in_window = size_;
+    result.lifetime_maximum = lifetime_maximum_;
     if (size_ == 0U) {
         return result;
     }
@@ -50,6 +52,7 @@ void CollectionTimingWindow::reset() noexcept {
     size_ = 0U;
     next_ = 0U;
     samples_recorded_ = 0U;
+    lifetime_maximum_ = {};
 }
 
 } // namespace blackbox::telemetry

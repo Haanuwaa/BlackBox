@@ -500,7 +500,8 @@ ProviderSampleResult MacosTelemetryProvider::sample(const SamplingRequest reques
         if (native_state_ == nullptr || !native_state_->read_power(destination)) ++failed;
         ++attempted;
         if (native_state_ == nullptr || native_state_->process_collector.collect(
-                                            true, request.tiers.contains(SamplingTier::slow),
+                                            true, request.tiers.contains(SamplingTier::slow) &&
+                                                  request.collect_process_paths,
                                             destination) != MetricStatus::available) {
             ++failed;
         }

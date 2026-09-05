@@ -394,6 +394,10 @@ struct IncidentViewerState {
     std::vector<std::size_t> visible_process_indices{};
     std::uint64_t synchronized_generation{};
     std::int64_t editor_incident_id{};
+    std::string saved_label{};
+    std::string saved_note{};
+    std::string saved_recurring_override{};
+    IncidentCategory saved_category{IncidentCategory::unknown};
 };
 
 [[nodiscard]] std::string format_utc_milliseconds(std::int64_t milliseconds);
@@ -407,5 +411,6 @@ filter_and_sort_processes(const std::vector<IncidentProcessRow>& rows, const std
                           IncidentProcessSort sort, bool ascending,
                           std::size_t maximum_results = incident_process_visible_capacity);
 void synchronize_incident_editor(IncidentViewerState& state);
+[[nodiscard]] bool incident_editor_dirty(const IncidentViewerState& state) noexcept;
 
 } // namespace blackbox::ui

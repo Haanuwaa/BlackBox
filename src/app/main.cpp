@@ -2,6 +2,8 @@
 #include "app/product_settings.hpp"
 #include "app/recorder_settings.hpp"
 #include "core/logger.hpp"
+#include "core/filesystem_text.hpp"
+#include "core/environment_path.hpp"
 
 #include <SDL3/SDL_main.h>
 
@@ -54,6 +56,14 @@ int main(const int argc, char** argv) {
                         "Settings validation may be supplied only once");
                 }
                 validate_settings_only = true;
+            } else if (argument == "--diagnostic-recover-failed") {
+                if (diagnostic_options.recover_failed_incident)
+                    return invalid_argument("Diagnostic recovery may be supplied only once");
+                diagnostic_options.recover_failed_incident = true;
+            } else if (argument == "--diagnostic-overlap-automatic") {
+                if (diagnostic_options.overlap_automatic_capture)
+                    return invalid_argument("Diagnostic overlap may be supplied only once");
+                diagnostic_options.overlap_automatic_capture = true;
             } else if (argument.starts_with(diagnostic_prefix)) {
                 if (runtime_seen) {
                     return invalid_argument("Diagnostic duration may be supplied only once");
@@ -96,7 +106,7 @@ int main(const int argc, char** argv) {
                     value.find_first_of("\r\n=") != std::string_view::npos) {
                     return invalid_argument("Diagnostic report path is invalid");
                 }
-                auto path = std::filesystem::path{std::string{value}};
+                auto path = blackbox::core::path_from_utf8(value);
                 if (!path.is_absolute() || path.filename().empty() ||
                     path.extension() != ".ini") {
                     return invalid_argument(
@@ -129,6 +139,11 @@ int main(const int argc, char** argv) {
                 return invalid_argument(
                     "Settings validation cannot be combined with other arguments");
             }
+            for (const auto* name : {"BLACKBOX_PRODUCT_SETTINGS_PATH", "BLACKBOX_SETTINGS_PATH"}) {
+                const auto override_path = blackbox::core::environment_path(name);
+                if (override_path && !std::filesystem::is_regular_file(*override_path))
+                    return invalid_argument("Explicit settings override is missing or is not a file");
+            }
             const auto product = blackbox::app::load_product_settings(
                 blackbox::app::default_product_settings_path());
             if (!product) {
@@ -141,6 +156,9 @@ int main(const int argc, char** argv) {
             }
             return 0;
         }
+        if ((diagnostic_options.recover_failed_incident || diagnostic_options.overlap_automatic_capture) &&
+            (!report_seen || !runtime_seen))
+            return invalid_argument("Diagnostic recovery and overlap require a duration and report");
         if ((report_seen || capture_interval_seen) && !runtime_seen) {
             return invalid_argument(
                 "Diagnostic report and capture interval require a diagnostic duration");

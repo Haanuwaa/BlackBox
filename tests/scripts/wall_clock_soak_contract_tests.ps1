@@ -76,6 +76,9 @@ function Write-Manifest([string]$Directory) {
         'process-samples.tsv', 'summary.ini', 'data/product-settings.ini',
         'data/recorder-settings.ini', 'data/incidents.sqlite3'
     )
+    $files += @('runtime-inventory.ini', 'app-progress.ini')
+    $files += @(Get-ChildItem -LiteralPath (Join-Path $Directory 'runtime') -File | ForEach-Object { 'runtime/' + $_.Name })
+    if ([IO.File]::Exists((Join-Path $Directory 'recovered-incident.sqlite3'))) { $files += 'recovered-incident.sqlite3' }
     $manifest = @('format=1', 'algorithm=sha256', "file_count=$($files.Count)")
     foreach ($relative in $files) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $Directory $relative) `
@@ -95,10 +98,16 @@ function New-SoakFixture([string]$Directory) {
         'F6', [Globalization.CultureInfo]::InvariantCulture)
     [IO.Directory]::CreateDirectory((Join-Path $Directory 'data')) | Out-Null
     [IO.Directory]::CreateDirectory((Join-Path $Directory 'data\crashes')) | Out-Null
+    [IO.Directory]::CreateDirectory((Join-Path $Directory 'runtime')) | Out-Null
+    Write-Text (Join-Path $Directory 'runtime/blackbox.exe') 'contract fixture, never executable evidence'
+    $applicationHash = (Get-FileHash -LiteralPath (Join-Path $Directory 'runtime/blackbox.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Text (Join-Path $Directory 'runtime-inventory.ini') "format=1`nfile_count=1`nruntime/blackbox.exe=$applicationHash`n"
+    Write-Text (Join-Path $Directory 'app-progress.ini') "format=1`nsource_revision=local-uncommitted`ncomplete=1`ncollections=1`n"
     Write-Text (Join-Path $Directory 'campaign.ini') @"
 format=1
 state=passed
 mode=smoke
+profile=isolated
 requested_runtime_seconds=10
 capture_interval_seconds=5
 checkpoint_interval_seconds=2
@@ -107,7 +116,7 @@ minimum_collections=5
 minimum_scheduled_captures=1
 logical_processor_count=$logicalProcessors
 source_revision=local-uncommitted
-application_sha256=$('a' * 64)
+application_sha256=$applicationHash
 runner_sha256=$runnerHash
 verifier_sha256=$verifierHash
 archive_fault_probe_sha256=none
@@ -123,6 +132,7 @@ sampling_gaps=0
 format=1
 state=passed
 mode=smoke
+profile=isolated
 requested_runtime_seconds=10
 capture_interval_seconds=5
 checkpoint_interval_seconds=2
@@ -131,7 +141,7 @@ minimum_collections=5
 minimum_scheduled_captures=1
 logical_processor_count=$logicalProcessors
 source_revision=local-uncommitted
-application_sha256=$('a' * 64)
+application_sha256=$applicationHash
 runner_sha256=$runnerHash
 verifier_sha256=$verifierHash
 archive_fault_probe_sha256=none
@@ -154,6 +164,10 @@ source_revision=local-uncommitted
 completed=1
 requested_runtime_seconds=10
 capture_interval_seconds=5
+incident_pre_window_seconds=1
+incident_post_window_seconds=1
+history_duration_seconds=60
+collect_process_paths=0
 collections=10
 sampling_thread_prepared=1
 failed_samples=0
@@ -168,6 +182,15 @@ capture_queue_rejections=0
 event_worker_failures=0
 native_events_dropped=0
 writer_cancelled=0
+unclassified_long_gaps=0
+unclassified_skipped_samples=0
+writer_failed_incidents_not_retained=0
+writer_explicit_recoveries=0
+writer_last_failed_capture_sequence=0
+writer_last_failure_utc_nanoseconds=0
+writer_retry_attempts=0
+writer_recoveries=0
+recoverable_incident_available=0
 automatic_detection_enabled=0
 automatic_detector_triggers=0
 automatic_captures_started=0
@@ -320,6 +343,39 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw 'The soak verifier failed under Windows PowerShell 5.1.'
         }
+    }
+
+    # The formerly accepted extra-loss case must fail even after rehashing all evidence.
+    $validFault = Join-Path $root 'valid-fault'
+    Copy-Item -LiteralPath $valid -Destination $validFault -Recurse
+    Write-Text (Join-Path $validFault 'runtime/blackbox_soak_archive_fault.exe') 'isolated contract probe fixture'
+    $probeHash = (Get-FileHash -LiteralPath (Join-Path $validFault 'runtime/blackbox_soak_archive_fault.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+    $appHash = (Get-FileHash -LiteralPath (Join-Path $validFault 'runtime/blackbox.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Text (Join-Path $validFault 'runtime-inventory.ini') "format=1`nfile_count=2`nruntime/blackbox.exe=$appHash`nruntime/blackbox_soak_archive_fault.exe=$probeHash`n"
+    Copy-Item -LiteralPath (Join-Path $validFault 'data/incidents.sqlite3') -Destination (Join-Path $validFault 'recovered-incident.sqlite3')
+    foreach ($file in @('campaign.ini', 'summary.ini')) { Set-Field (Join-Path $validFault $file) 'archive_fault_probe_sha256' $probeHash }
+    Set-Field (Join-Path $validFault 'summary.ini') 'archive_fault_exercised' '1'
+    $faultReport = Join-Path $validFault 'app-report.ini'
+    foreach ($field in @('writer_failed', 'writer_explicit_recoveries', 'writer_retry_exhausted', 'writer_retry_attempts', 'writer_recoveries')) { Set-Field $faultReport $field '1' }
+    Set-Field $faultReport 'writer_last_failed_capture_sequence' '2'
+    Set-Field $faultReport 'writer_last_failure_utc_nanoseconds' '1767225605000000000'
+    Write-Text (Join-Path $validFault 'operator-events.tsv') "utc`tevent`n2026-01-01T00:00:04Z`tarchive_fault_started`n2026-01-01T00:00:06Z`tarchive_recovered`n"
+    Write-Manifest $validFault
+    & $verify -CampaignDirectory $validFault | Out-Null
+    foreach ($case in @('extra-loss', 'wrong-sequence', 'outside-fault', 'unretained-loss', 'unknown-gap', 'mutated-runtime')) {
+        $destination = Join-Path $root $case
+        Copy-Item -LiteralPath $validFault -Destination $destination -Recurse
+        $caseReport = Join-Path $destination 'app-report.ini'
+        switch ($case) {
+            'extra-loss' { Set-Field $caseReport 'writer_failed' '2'; Set-Field $caseReport 'incidents_completed' '2' }
+            'wrong-sequence' { Set-Field $caseReport 'writer_last_failed_capture_sequence' '3' }
+            'outside-fault' { Set-Field $caseReport 'writer_last_failure_utc_nanoseconds' '1767225607000000000' }
+            'unretained-loss' { Set-Field $caseReport 'writer_failed_incidents_not_retained' '1' }
+            'unknown-gap' { Set-Field $caseReport 'unclassified_long_gaps' '1' }
+            'mutated-runtime' { Write-Text (Join-Path $destination 'runtime/blackbox.exe') 'changed executable' }
+        }
+        Write-Manifest $destination
+        Expect-Failure { & $verify -CampaignDirectory $destination | Out-Null } $case
     }
 
     $validOvernight = Join-Path $root 'valid-overnight'

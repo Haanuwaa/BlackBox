@@ -1,4 +1,5 @@
 #include "telemetry/collector.hpp"
+#include "telemetry/sampling_gap_accounting.hpp"
 
 #include "core/logger.hpp"
 #include "telemetry/incident_snapshot_builder.hpp"
@@ -392,6 +393,17 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
     auto cadence_reset_generation = cadence_reset_signal_ != nullptr
                                         ? cadence_reset_signal_->cadence_reset_generation()
                                         : 0U;
+    SamplingGapAccounting gap_accounting{cadence_reset_signal_ != nullptr
+        ? cadence_reset_signal_->cadence_state() : SamplingCadenceState{}};
+    {
+        // A pause preserves the configuration epoch and its reliability totals.
+        // Native events while collection was stopped do not excuse earlier gaps.
+        const std::scoped_lock lock{diagnostics_mutex_};
+        gap_accounting.native_resumes = diagnostics_.resume_events;
+        gap_accounting.resume_skipped = diagnostics_.resume_skipped_samples;
+        gap_accounting.unclassified_gaps = diagnostics_.unclassified_long_gaps;
+        gap_accounting.unclassified_skipped = diagnostics_.unclassified_skipped_samples;
+    }
 
     const auto reset_rate_state = [this] {
         normalizer_.reset();
@@ -404,11 +416,22 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
 
     const auto consume_cadence_reset = [&] {
         if (cadence_reset_signal_ == nullptr) return false;
-        const auto observed = cadence_reset_signal_->cadence_reset_generation();
+        const auto state = cadence_reset_signal_->cadence_state();
+        const auto prior_resumes = gap_accounting.native_resumes;
+        gap_accounting.observe(state);
+        {
+            const std::scoped_lock lock{diagnostics_mutex_};
+            diagnostics_.resume_events = gap_accounting.native_resumes;
+            diagnostics_.resume_skipped_samples = gap_accounting.resume_skipped;
+            diagnostics_.unclassified_long_gaps = gap_accounting.unclassified_gaps;
+            diagnostics_.unclassified_skipped_samples = gap_accounting.unclassified_skipped;
+        }
+        const auto observed = state.generation;
         if (observed == cadence_reset_generation) return false;
         cadence_reset_generation = observed;
         reset_rate_state();
-        return true;
+        // Suspend alone resets rate baselines but cannot excuse lost deadlines.
+        return gap_accounting.native_resumes > prior_resumes;
     };
 
     while (!stop_token.stop_requested()) {
@@ -431,17 +454,18 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
             scheduled_start, actual_start, configuration_.values.sample_interval,
             configuration_.values.resume_gap_threshold);
         if (resume.detected) {
+            gap_accounting.note_gap(scheduled_start, actual_start, resume.skipped_ticks);
             reset_rate_state();
             scheduled_start = actual_start;
             next_metadata_collection = actual_start;
             {
                 const std::scoped_lock lock{diagnostics_mutex_};
-                ++diagnostics_.resume_events;
-                diagnostics_.resume_skipped_samples += resume.skipped_ticks;
+                diagnostics_.unclassified_long_gaps = gap_accounting.unclassified_gaps;
+                diagnostics_.unclassified_skipped_samples = gap_accounting.unclassified_skipped;
                 diagnostics_.last_resume_gap = resume.gap;
             }
             core::Logger::write(core::LogLevel::info, "telemetry",
-                                "Resume gap detected; telemetry baselines reset");
+                                "Long gap detected; baselines reset, native corroboration pending");
         }
         const auto jitter = nonnegative_duration(actual_start - scheduled_start);
         scheduling_jitter_.record(jitter);
@@ -451,17 +475,23 @@ void TelemetryCollector::run(const std::stop_token stop_token) {
         normalized_process_frame_ = ProcessFrame{};
         try {
             auto tiers = SamplingTier::fast | SamplingTier::normal;
-            if (configuration_.values.collect_process_paths &&
-                actual_start >= next_metadata_collection) {
+            if (actual_start >= next_metadata_collection) {
                 tiers = tiers | SamplingTier::slow;
                 do {
                     next_metadata_collection += configuration_.values.metadata_interval;
                 } while (next_metadata_collection <= actual_start);
             }
             auto request = SamplingRequest{tiers};
+            request.collect_process_paths = configuration_.values.collect_process_paths;
             request.collect_foreground_application =
                 foreground_application_enabled_.load();
             const auto result = provider_.sample(request, raw_snapshot_);
+            if (!request.collect_process_paths) {
+                for (auto& info : raw_snapshot_.process_metadata) {
+                    info.executable_path = MetricValue<std::string>::unavailable(
+                        MetricStatus::unsupported);
+                }
+            }
             status = result.status;
             cadence_reset_observed = consume_cadence_reset() ||
                                      cadence_reset_observed;

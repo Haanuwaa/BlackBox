@@ -1,3 +1,4 @@
+#include "ui/product_font.hpp"
 #include "storage/incident_archive.hpp"
 #include "storage/test_incident.hpp"
 #include "ui/dashboard.hpp"
@@ -89,7 +90,7 @@ public:
         auto& io = ImGui::GetIO();
         io.DisplaySize = ImVec2{1'920.0F, 1'080.0F};
         io.DeltaTime = 1.0F / 60.0F;
-        io.Fonts->AddFontDefault();
+        ui::load_product_font(io);
         unsigned char* pixels = nullptr;
         int width = 0;
         int height = 0;

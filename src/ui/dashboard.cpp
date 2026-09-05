@@ -41,11 +41,17 @@ void render_metric_unavailable(MetricDisplayStatus status);
 void render_product_header(const DashboardState& state, ProductUiState& product) {
     const auto visual = product_visual_style(state.accessibility_high_contrast);
     const auto available_width = ImGui::GetContentRegionAvail().x;
-    const auto columns = navigation_column_count(available_width);
+    const auto scale = normalize_display_scale(static_cast<float>(state.display_scale));
+    const auto columns = navigation_column_count(available_width / scale);
     const auto rows = (6U + columns - 1U) / columns;
-    const auto header_height = 72.0F + static_cast<float>(rows) * 38.0F;
+    const auto& style = ImGui::GetStyle();
+    const auto button_height = std::max(30.0F * scale, ImGui::GetFrameHeight());
+    const auto header_height = 2.0F * style.WindowPadding.y + ImGui::GetFontSize() * 2.28F +
+        2.0F * style.ItemSpacing.y + static_cast<float>(rows) * button_height +
+        static_cast<float>(rows - 1U) * style.ItemSpacing.y + 4.0F * scale;
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
-    if (ImGui::BeginChild("Product header", ImVec2{0.0F, header_height}, ImGuiChildFlags_Borders)) {
+    if (ImGui::BeginChild("Product header", ImVec2{0.0F, header_height}, ImGuiChildFlags_Borders,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImGui::SetWindowFontScale(1.28F);
         ImGui::TextColored(ui_color(visual.accent), "BLACKBOX");
         ImGui::SetWindowFontScale(1.0F);
@@ -73,7 +79,7 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
                                                          ? ui_color(visual.background)
                                                          : ImVec4{1.0F, 1.0F, 1.0F, 1.0F});
             }
-            if (ImGui::Button(page_names[index], ImVec2{button_width, 30.0F})) {
+            if (ImGui::Button(page_names[index], ImVec2{button_width, button_height})) {
                 product.page = static_cast<ProductPage>(index);
             }
             if (selected) ImGui::PopStyleColor(3);
@@ -95,7 +101,10 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
 
 void render_metric_card(const char* id, const char* title, const MetricDisplayStatus status,
                         const double fraction, const char* overlay) {
-    if (ImGui::BeginChild(id, ImVec2{0.0F, 86.0F}, ImGuiChildFlags_Borders)) {
+    const auto& style = ImGui::GetStyle();
+    const auto height = 2.0F * ImGui::GetTextLineHeightWithSpacing() +
+        2.0F * style.WindowPadding.y + ImGui::GetFrameHeight();
+    if (ImGui::BeginChild(id, ImVec2{0.0F, height}, ImGuiChildFlags_Borders)) {
         ImGui::TextDisabled("%s", title);
         ImGui::Spacing();
         if (status == MetricDisplayStatus::available) {
@@ -174,6 +183,29 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
     if (ImGui::Begin("BlackBox Dashboard", nullptr, flags)) {
         render_product_header(state, product);
         ImGui::Spacing();
+        if (incident_editor_dirty(incident_viewer)) {
+            ImGui::TextWrapped("Unsaved incident edits are kept while you browse pages. Save or discard them before opening another incident.");
+            if (ImGui::Button("Return to unsaved incident")) {
+                product.page = ProductPage::detail;
+                command.action = DashboardAction::select_incident;
+                command.incident_id = incident_viewer.editor_incident_id;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Discard unsaved incident edits")) {
+                incident_viewer.editor_incident_id = 0;
+                incident_viewer.synchronized_generation = 0;
+                synchronize_incident_editor(incident_viewer);
+            }
+        }
+        if (state.archive_recoverable_incident) {
+            ImGui::TextWrapped("A capture could not be saved. Its recovery copy is in memory and will be lost when BlackBox exits.");
+            if (ImGui::Button("Open recovery options")) product.page = ProductPage::settings;
+        } else if (state.archive_maximum_bytes != 0U &&
+                   static_cast<double>(state.archive_database_size_bytes) /
+                       static_cast<double>(state.archive_maximum_bytes) >= 0.8) {
+            ImGui::TextWrapped("Archive capacity is above 80%%. Review backups and retention before another capture needs space.");
+            if (ImGui::Button("Manage archive capacity")) product.page = ProductPage::settings;
+        }
 
         const auto& io = ImGui::GetIO();
         const auto control_down = io.KeyCtrl || ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ||
@@ -227,9 +259,11 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         }
 
         if (product.onboarding_open) ImGui::OpenPopup("Welcome to BlackBox");
-        const auto onboarding = onboarding_layout(viewport->WorkSize.x, viewport->WorkSize.y);
+        const auto scale = normalize_display_scale(static_cast<float>(state.display_scale));
+        const auto onboarding = onboarding_layout(viewport->WorkSize.x / scale,
+                                                   viewport->WorkSize.y / scale);
         ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Appearing, ImVec2{0.5F, 0.5F});
-        ImGui::SetNextWindowSize(ImVec2{onboarding.width, onboarding.height}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2{onboarding.width * scale, onboarding.height * scale}, ImGuiCond_Always);
         if (ImGui::BeginPopupModal("Welcome to BlackBox", nullptr,
                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings)) {
             ImGui::SetWindowFontScale(onboarding.compact ? 1.08F : 1.22F);
@@ -302,8 +336,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             const auto visual = product_visual_style(state.accessibility_high_contrast);
             const bool recording = state.recorder_status == "Recording";
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
-            if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 184.0F},
-                                  ImGuiChildFlags_Borders)) {
+            if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 0.0F},
+                                   ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY)) {
                 ImGui::TextDisabled("YOUR RECORDER");
                 if (recording && state.incident_capture_enabled) {
                     ImGui::TextColored(ui_color(visual.success),
@@ -322,7 +356,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 ImGui::PushStyleColor(ImGuiCol_Button, ui_color(visual.accent));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui_color(visual.accent_hovered));
                 if (ImGui::Button("Capture what just happened   Ctrl+Enter",
-                                  ImVec2{340.0F, 34.0F})) {
+                                  ImVec2{std::min(340.0F * scale, ImGui::GetContentRegionAvail().x),
+                                         34.0F * scale})) {
                     command.action = DashboardAction::capture_incident;
                 }
                 ImGui::PopStyleColor(2);
@@ -414,7 +449,6 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (product.page == ProductPage::settings) {
             ImGui::Spacing();
             ImGui::SeparatorText("Recorder settings");
-            ImGui::BeginChild("Recorder profiles", ImVec2{-1.0F, 118.0F}, ImGuiChildFlags_Borders);
             ImGui::TextUnformatted("Collection profile");
             ImGui::TextWrapped("Changing profile restarts the collector, "
                                "clears only rolling RAM "
@@ -438,7 +472,6 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             ImGui::SameLine();
             profile_button("Detailed: 250 ms / 2 min", 250U, 120U);
             ImGui::TextDisabled("%s", state.recorder_settings_status.data());
-            ImGui::EndChild();
             ImGui::Spacing();
             detail::render_product_settings(state, product, command);
         }
@@ -475,7 +508,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                   ImGuiTableFlags_BordersInnerH |
                                       ImGuiTableFlags_SizingStretchProp)) {
                 ImGui::TableSetupColumn("Metric", ImGuiTableColumnFlags_WidthFixed, 180.0F);
-                ImGui::TableSetupColumn("Rate");
+                ImGui::TableSetupColumn("Rate", ImGuiTableColumnFlags_WidthStretch, 1.0F);
                 render_rate_row("Storage read", state.disk_read_status,
                                 state.disk_read_mib_per_second);
                 render_rate_row("Storage write", state.disk_write_status,
@@ -767,8 +800,10 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             ImGui::TextDisabled("Bundles stay local and exclude incidents, "
                                 "process rows, settings, "
                                 "hotkeys, usernames, and absolute paths.");
-            ImGui::InputText("New support bundle directory", product.support_bundle_path.data(),
-                             product.support_bundle_path.size());
+            detail::render_path_input("New support bundle directory", product.support_bundle_path,
+                                      PathField::support_bundle, product, command);
+            if (!product.file_dialog_status.empty())
+                ImGui::TextWrapped("%s", product.file_dialog_status.c_str());
             if (!state.latest_crash_evidence_available) {
                 product.include_latest_crash_evidence = false;
                 product.crash_evidence_consent_confirmed = false;

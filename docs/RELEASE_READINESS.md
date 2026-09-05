@@ -1,5 +1,7 @@
 # V1.0 qualification plan
 
+The [current candidate record](CURRENT_CANDIDATE.md) tracks the pre-soak hardening work and open gates.
+
 The current application version is 0.27.0. V1.0 is reserved for the completed product and is not
 yet achieved. This document defines future release gates; it does not assert that an unsigned local
 package, an authored CI workflow, accelerated-time fixtures, or server-runner builds satisfy them.

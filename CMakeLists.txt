@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 
+# Set this before compiler and vcpkg dependency discovery, not only in Info.plist.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Oldest supported macOS runtime")
+    if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "13.0")
+        message(FATAL_ERROR "BlackBox requires a macOS deployment target of at least 13.0")
+    endif()
+endif()
+
 project(
     BlackBox
     VERSION 0.27.0

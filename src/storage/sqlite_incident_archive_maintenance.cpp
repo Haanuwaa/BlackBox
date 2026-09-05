@@ -6,64 +6,114 @@
 #include <filesystem>
 #include <string>
 #include <utility>
+#include <fstream>
+#include <memory>
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+#include "core/filesystem_text.hpp"
 
 namespace blackbox::storage {
 
 using namespace detail;
 
+namespace {
+
+using DatabaseHandle = std::unique_ptr<sqlite3, decltype(&sqlite3_close)>;
+
+std::expected<void, StorageError> verify_database(sqlite3* database) {
+  const auto integrity = scalar_text(database, "PRAGMA integrity_check", "verify archive copy");
+  if (!integrity || *integrity != "ok") {
+    return std::unexpected{simple_error(StorageErrorCode::corrupt,
+        "archive copy failed integrity verification")};
+  }
+  return validate_direct_schema_v1(database);
+}
+
+// Called with the archive mutex held, also for the mandatory pre-restore copy.
+std::expected<void, StorageError> verified_backup(sqlite3* source,
+                                                const std::filesystem::path& destination) {
+  if (!destination.parent_path().empty()) {
+    std::filesystem::create_directories(destination.parent_path());
+  }
+  auto staging = destination;
+  staging += ".partial";
+  // Exclusive creation also refuses dangling links and competing backup jobs.
+  std::ofstream reservation{staging, std::ios::binary | std::ios::out | std::ios::noreplace};
+  if (!reservation) {
+    return std::unexpected{simple_error(StorageErrorCode::invalid_data,
+        "backup staging file already exists or cannot be created")};
+  }
+  reservation.close();
+  struct StagingCleanup {
+    const std::filesystem::path& path;
+    ~StagingCleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); }
+  } cleanup{staging};
+  sqlite3* raw{};
+  const auto opened = sqlite3_open_v2(core::path_to_utf8(staging).c_str(), &raw,
+      SQLITE_OPEN_READWRITE, nullptr);
+  DatabaseHandle target{raw, sqlite3_close};
+  if (opened != SQLITE_OK) {
+    return std::unexpected{database_error(raw, "open backup destination", opened)};
+  }
+  auto* backup = sqlite3_backup_init(raw, "main", source, "main");
+  if (backup == nullptr) {
+    return std::unexpected{database_error(raw, "initialize archive backup")};
+  }
+  const auto stepped = sqlite3_backup_step(backup, -1);
+  const auto finished = sqlite3_backup_finish(backup);
+  target.reset();
+  if (stepped != SQLITE_DONE || finished != SQLITE_OK) {
+    return std::unexpected{simple_error(StorageErrorCode::io, "archive backup did not complete")};
+  }
+  const auto reopened = sqlite3_open_v2(core::path_to_utf8(staging).c_str(), &raw,
+      SQLITE_OPEN_READONLY, nullptr);
+  DatabaseHandle verification{raw, sqlite3_close};
+  if (reopened != SQLITE_OK) {
+    return std::unexpected{database_error(raw, "reopen archive backup", reopened)};
+  }
+  if (const auto verified = verify_database(raw); !verified) return verified;
+  verification.reset();
+#if defined(_WIN32)
+  // No REPLACE_EXISTING: supports NTFS and removable FAT/exFAT destinations.
+  if (!MoveFileExW(staging.c_str(), destination.c_str(), MOVEFILE_WRITE_THROUGH)) {
+    return std::unexpected{simple_error(StorageErrorCode::io,
+        "could not publish verified backup; destination must be a new writable file")};
+  }
+#else
+  // Same-directory link publication is atomic and refuses an existing destination.
+  std::error_code error;
+  std::filesystem::create_hard_link(staging, destination, error);
+  if (error) {
+    return std::unexpected{simple_error(StorageErrorCode::io,
+        "could not publish verified backup exclusively on this filesystem")};
+  }
+#endif
+  return {};
+}
+
+} // namespace
+
 std::expected<void, StorageError> SqliteIncidentArchive::backup_to(
-    const std::filesystem::path &destination) const noexcept {
+    const std::filesystem::path& destination) const noexcept {
   try {
     const std::scoped_lock lock{native_->mutex};
     if (native_->database == nullptr) {
-      return std::unexpected{simple_error(StorageErrorCode::not_open,
-                                          "incident archive is not open")};
+      return std::unexpected{simple_error(StorageErrorCode::not_open, "incident archive is not open")};
     }
     if (destination.empty() || destination == configuration_.path ||
-        std::filesystem::exists(destination)) {
-      return std::unexpected{simple_error(
-          StorageErrorCode::invalid_data,
+        std::filesystem::exists(std::filesystem::symlink_status(destination))) {
+      return std::unexpected{simple_error(StorageErrorCode::invalid_data,
           "backup destination must be a new file distinct from the archive")};
     }
-    if (!destination.parent_path().empty()) {
-      std::filesystem::create_directories(destination.parent_path());
-    }
-    sqlite3 *target{};
-#if defined(_WIN32)
-    const auto opened = sqlite3_open16(destination.native().c_str(), &target);
-#else
-    const auto opened = sqlite3_open(destination.string().c_str(), &target);
-#endif
-    if (opened != SQLITE_OK) {
-      auto error = database_error(target, "open backup destination", opened);
-      if (target != nullptr)
-        sqlite3_close(target);
-      return std::unexpected{std::move(error)};
-    }
-    auto *backup =
-        sqlite3_backup_init(target, "main", native_->database, "main");
-    if (backup == nullptr) {
-      auto error = database_error(target, "initialize archive backup");
-      sqlite3_close(target);
-      std::filesystem::remove(destination);
-      return std::unexpected{std::move(error)};
-    }
-    const auto stepped = sqlite3_backup_step(backup, -1);
-    const auto finished = sqlite3_backup_finish(backup);
-    const auto closed = sqlite3_close(target);
-    if ((stepped != SQLITE_DONE && stepped != SQLITE_OK) ||
-        finished != SQLITE_OK || closed != SQLITE_OK) {
-      std::filesystem::remove(destination);
-      return std::unexpected{simple_error(StorageErrorCode::io,
-                                          "archive backup did not complete")};
-    }
-    return {};
-  } catch (const std::exception &exception) {
-    return std::unexpected{
-        StorageError{StorageErrorCode::io, 0, exception.what()}};
+    return verified_backup(native_->database, destination);
+  } catch (const std::exception& exception) {
+    return std::unexpected{StorageError{StorageErrorCode::io, 0, exception.what()}};
   } catch (...) {
-    return std::unexpected{
-        simple_error(StorageErrorCode::io, "unknown archive backup failure")};
+    return std::unexpected{simple_error(StorageErrorCode::io, "unknown archive backup failure")};
   }
 }
 
@@ -86,78 +136,30 @@ std::expected<void, StorageError> SqliteIncidentArchive::restore_from(
                                           "incident archive is not open")};
     }
     sqlite3 *input{};
-    const auto source_native_utf8 = source.u8string();
-    const std::string source_utf8{source_native_utf8.begin(),
-                                  source_native_utf8.end()};
+    const auto source_utf8 = core::path_to_utf8(source);
     const auto opened = sqlite3_open_v2(source_utf8.c_str(), &input,
                                         SQLITE_OPEN_READONLY, nullptr);
+    DatabaseHandle source_handle{input, sqlite3_close};
     if (opened != SQLITE_OK) {
       auto error = database_error(input, "open restore source", opened);
-      if (input != nullptr)
-        sqlite3_close(input);
       return std::unexpected{std::move(error)};
     }
-    const auto integrity =
-        scalar_text(input, "PRAGMA integrity_check", "verify restore source");
-    const auto version = scalar_int64(input, "PRAGMA user_version",
-                                      "read restore schema version");
-    const auto direct_schema =
-        version && *version == current_schema_version
-            ? validate_direct_schema_v1(input)
-            : std::expected<void, StorageError>{std::unexpected{
-                  simple_error(StorageErrorCode::invalid_schema,
-                               "restore source is not direct schema v1")}};
-    if (!integrity || *integrity != "ok" || !version ||
-        *version != current_schema_version || !direct_schema) {
-      sqlite3_close(input);
-      return std::unexpected{
-          simple_error(StorageErrorCode::corrupt,
-                       "restore source failed integrity or schema validation")};
+    if (const auto verified = verify_database(input); !verified) {
+      return std::unexpected{simple_error(StorageErrorCode::corrupt,
+          "restore source failed integrity or schema validation")};
     }
-    if (!safety_backup.parent_path().empty()) {
-      std::filesystem::create_directories(safety_backup.parent_path());
+    if (const auto preserved = verified_backup(native_->database, safety_backup); !preserved) {
+      return std::unexpected{preserved.error()};
     }
-    sqlite3 *safety{};
-#if defined(_WIN32)
-    const auto safety_opened =
-        sqlite3_open16(safety_backup.native().c_str(), &safety);
-#else
-    const auto safety_opened =
-        sqlite3_open(safety_backup.string().c_str(), &safety);
-#endif
-    if (safety_opened != SQLITE_OK) {
-      auto error =
-          database_error(safety, "open restore safety backup", safety_opened);
-      if (safety != nullptr)
-        sqlite3_close(safety);
-      sqlite3_close(input);
-      return std::unexpected{std::move(error)};
-    }
-    auto *preserve =
-        sqlite3_backup_init(safety, "main", native_->database, "main");
-    const auto preserve_step =
-        preserve == nullptr ? SQLITE_ERROR : sqlite3_backup_step(preserve, -1);
-    const auto preserve_finish =
-        preserve == nullptr ? SQLITE_ERROR : sqlite3_backup_finish(preserve);
-    if (preserve == nullptr || preserve_step != SQLITE_DONE ||
-        preserve_finish != SQLITE_OK) {
-      sqlite3_close(safety);
-      sqlite3_close(input);
-      std::filesystem::remove(safety_backup);
-      return std::unexpected{simple_error(
-          StorageErrorCode::io, "could not create restore safety backup")};
-    }
-    sqlite3_close(safety);
     auto *restore =
         sqlite3_backup_init(native_->database, "main", input, "main");
     if (restore == nullptr) {
-      sqlite3_close(input);
       return std::unexpected{
           database_error(native_->database, "initialize archive restore")};
     }
     const auto stepped = sqlite3_backup_step(restore, -1);
     const auto finished = sqlite3_backup_finish(restore);
-    sqlite3_close(input);
+    source_handle.reset();
     if ((stepped != SQLITE_DONE && stepped != SQLITE_OK) ||
         finished != SQLITE_OK) {
       return std::unexpected{simple_error(StorageErrorCode::io,

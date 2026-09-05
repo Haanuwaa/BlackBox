@@ -10,7 +10,8 @@ param(
     [ValidateRange(10, 3600)]
     [int]$DurationSeconds = 30,
     [ValidateRange(1, 300)]
-    [int]$WarmupSeconds = 5
+    [int]$WarmupSeconds = 5,
+    [switch]$UseProductDefaults
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,14 +53,14 @@ $productLines = @(
     'hotkey_shift=1',
     'hotkey_alt=1',
     'hotkey_system_modifier=0',
-    'automatic_detection=0',
+    ('automatic_detection={0}' -f [int][bool]$UseProductDefaults),
     'detector_sensitivity=1',
     'detect_cpu=1',
     'detect_memory=1',
     'detect_disk=1',
     'detect_network=1',
     'detector_cooldown_seconds=120',
-    'notifications=0',
+    ('notifications={0}' -f [int][bool]$UseProductDefaults),
     'record_foreground_application=0',
     'record_process_lifecycle=0',
     'record_power_and_device_events=0',
@@ -78,7 +79,7 @@ $recorderLines = @(
     'incident_pre_window_ms=120000',
     'incident_post_window_ms=30000',
     'resume_gap_threshold_ms=5000',
-    'collect_process_paths=0'
+    ('collect_process_paths={0}' -f [int][bool]$UseProductDefaults)
 )
 [IO.File]::WriteAllText($productSettings, (($productLines -join "`n") + "`n"),
     [Text.UTF8Encoding]::new($false))
@@ -111,11 +112,15 @@ try {
         'BLACKBOX_SETTINGS_PATH', $recorderSettings, 'Process')
     $settingsProbe = Start-Process -FilePath $application `
                                    -ArgumentList @('--validate-settings-only') `
-                                   -WindowStyle Hidden -Wait -PassThru
+                                   -WindowStyle Hidden -PassThru
+    if (-not $settingsProbe.WaitForExit(30000)) {
+        Stop-Process -Id $settingsProbe.Id -Force -ErrorAction SilentlyContinue
+        throw 'Settings preflight exceeded its 30-second watchdog.'
+    }
     if ($settingsProbe.ExitCode -ne 0) {
         throw 'BlackBox rejected the isolated direct-v1 measurement settings.'
     }
-    $process = Start-Process -FilePath $application -ArgumentList $arguments -PassThru
+    $process = Start-Process -FilePath $application -ArgumentList $arguments -WindowStyle Hidden -PassThru
 } finally {
     [Environment]::SetEnvironmentVariable(
         'BLACKBOX_PRODUCT_SETTINGS_PATH', $oldProduct, 'Process')
@@ -146,6 +151,9 @@ try {
             }
         }
         $elapsed = $started.Elapsed
+        if ($elapsed.TotalSeconds -gt ($DurationSeconds + 60)) {
+            throw 'UI measurement exceeded its runtime plus 60-second drain watchdog.'
+        }
         $cpu = $process.TotalProcessorTime
         if ($elapsed.TotalSeconds -ge $WarmupSeconds -and
             $elapsed.TotalSeconds -le $DurationSeconds -and
@@ -187,7 +195,8 @@ try {
         ('process_lifetime_seconds={0:R}' -f [double]$started.Elapsed.TotalSeconds),
         "warmup_seconds=$WarmupSeconds",
         'isolated_settings=1',
-        'automatic_detection=0',
+        ('automatic_detection={0}' -f [int][bool]$UseProductDefaults),
+        ('collect_process_paths={0}' -f [int][bool]$UseProductDefaults),
         "samples=$($samples.Count)",
         ('average_total_machine_cpu_percent={0:R}' -f [double]$averageCpu),
         ('maximum_total_machine_cpu_percent={0:R}' -f [double]$maximumCpu),

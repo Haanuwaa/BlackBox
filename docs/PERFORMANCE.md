@@ -1,5 +1,15 @@
 # Performance and overhead
 
+The [product-default rehearsal](WALL_CLOCK_SOAKS.md#separate-product-default-rehearsal) measures
+working set, private bytes, handles and CPU around full-size captures. Final collection/jitter
+percentiles describe at most 256 recent observations; explicit lifetime maxima preserve earlier
+spikes within the configuration epoch. Snapshot timings include a lifetime maximum; writer
+P99/maximum fields explicitly describe the retained write-timing window, including failed attempts.
+Use `measure-ui-runtime.ps1 -UseProductDefaults` for separate visible, minimized, hidden and
+background measurements with automatic detection and process paths enabled. Preserve
+configuration and warmup. Short local
+runs do not replace controlled long runs or lower-end/battery-hardware qualification.
+
 BlackBox must measure its own cost. Targets below are engineering goals, not unverified claims.
 
 ## Initial targets

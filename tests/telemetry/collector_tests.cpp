@@ -1,5 +1,6 @@
 #include "core/clock.hpp"
 #include "telemetry/collector.hpp"
+#include "telemetry/sampling_gap_accounting.hpp"
 #include "telemetry/mock/mock_telemetry_provider.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -83,6 +84,10 @@ class ManualCadenceResetSignal final
 public:
     [[nodiscard]] std::uint64_t cadence_reset_generation() const noexcept override {
         return generation.load();
+    }
+    [[nodiscard]] telemetry::SamplingCadenceState cadence_state() const noexcept override {
+        const auto value = generation.load();
+        return {value, value, {}};
     }
     void notify() noexcept { generation.fetch_add(1U); }
     std::atomic<std::uint64_t> generation{};
@@ -334,6 +339,34 @@ TEST_CASE("resume gaps are separated from ordinary scheduling jitter",
                     .detected);
 }
 
+TEST_CASE("only timestamped native resumes explain late collection gaps",
+          "[telemetry][collector][resume]") {
+    telemetry::SamplingGapAccounting gaps;
+    gaps.note_gap(core::MonotonicTimePoint{10s}, core::MonotonicTimePoint{22s}, 12U);
+    CHECK(gaps.unclassified_gaps == 1U);
+    CHECK(gaps.native_resumes == 0U);
+    // Suspend generations and unrelated resumes cannot erase a scheduling stall.
+    gaps.observe({1U, 0U, {}});
+    CHECK(gaps.unclassified_gaps == 1U);
+    gaps.observe({2U, 1U, core::MonotonicTimePoint{40s}});
+    CHECK(gaps.unclassified_gaps == 1U);
+    CHECK(gaps.unclassified_skipped == 12U);
+
+    telemetry::SamplingGapAccounting late;
+    late.note_gap(core::MonotonicTimePoint{10s}, core::MonotonicTimePoint{22s}, 12U);
+    late.observe({2U, 1U, core::MonotonicTimePoint{21s}});
+    CHECK(late.native_resumes == 1U);
+    CHECK(late.unclassified_gaps == 0U);
+    CHECK(late.resume_skipped == 12U);
+    late.observe({2U, 1U, core::MonotonicTimePoint{21s}});
+    CHECK(late.native_resumes == 1U);
+
+    telemetry::SamplingGapAccounting native;
+    native.observe({1U, 1U, core::MonotonicTimePoint{22s}});
+    CHECK(native.native_resumes == 1U);
+    CHECK(native.unclassified_gaps == 0U);
+}
+
 TEST_CASE("power transition generation rebases an in-flight collection without drops",
           "[telemetry][collector][resume][schedule]") {
     core::SystemMonotonicClock clock;
@@ -353,6 +386,14 @@ TEST_CASE("power transition generation rebases an in-flight collection without d
         return event.collection_index == 1U;
     }));
     CHECK(signal.cadence_reset_generation() == 1U);
+    CHECK(collector.diagnostics().resume_events == 1U);
+    const auto collections = collector.diagnostics().collection_count;
+    collector.start();
+    REQUIRE(wait_until([&] {
+        return collector.diagnostics().collection_count > collections;
+    }));
+    collector.stop();
+    CHECK(collector.diagnostics().resume_events == 1U);
 }
 
 TEST_CASE("ordinary in-flight stalls still fail the zero-drop schedule contract",

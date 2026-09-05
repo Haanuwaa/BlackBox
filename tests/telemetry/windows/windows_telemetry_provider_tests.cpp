@@ -2,6 +2,7 @@
 #include "telemetry/normalizer.hpp"
 #include "telemetry/process_normalizer.hpp"
 #include "telemetry/windows/windows_telemetry_provider.hpp"
+#include "telemetry/windows/windows_process_collector.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -18,6 +19,27 @@ namespace core = blackbox::core;
 namespace telemetry = blackbox::telemetry;
 namespace windows = blackbox::telemetry::windows;
 using namespace std::chrono_literals;
+
+TEST_CASE("Windows basic process identity survives disabling path collection",
+          "[telemetry][windows][process][privacy]") {
+    windows::WindowsProcessCollector collector;
+    telemetry::RawTelemetrySnapshot raw;
+    static_cast<void>(collector.collect(true, false, raw));
+    const auto own = std::ranges::find_if(raw.process_metadata, [](const auto& info) {
+        return info.identity.pid.value == static_cast<std::uint32_t>(_getpid());
+    });
+    REQUIRE(own != raw.process_metadata.end());
+    CHECK(own->name.has_value());
+    REQUIRE(own->parent_pid.has_value());
+    CHECK(own->parent_pid.value.value != 0U);
+    CHECK_FALSE(own->executable_path.has_value());
+    raw.reset({}, telemetry::SamplingTierSet::all());
+    static_cast<void>(collector.collect(true, true, raw));
+    raw.reset({}, telemetry::SamplingTierSet::all());
+    static_cast<void>(collector.collect(true, false, raw, true));
+    REQUIRE_FALSE(raw.process_metadata.empty());
+    for (const auto& info : raw.process_metadata) CHECK_FALSE(info.executable_path.has_value());
+}
 
 namespace {
 

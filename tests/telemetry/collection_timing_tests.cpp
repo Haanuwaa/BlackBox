@@ -7,6 +7,16 @@
 namespace telemetry = blackbox::telemetry;
 using namespace std::chrono_literals;
 
+TEST_CASE("lifetime latency maximum survives a quiet final timing window", "[telemetry][timing]") {
+    telemetry::CollectionTimingWindow timing;
+    timing.record(2s);
+    for (std::size_t index = 0; index < timing.capacity; ++index) timing.record(1ms);
+    CHECK(timing.summary().maximum == 1ms);
+    CHECK(timing.summary().lifetime_maximum == 2s);
+    timing.reset();
+    CHECK(timing.summary().lifetime_maximum == 0ns);
+}
+
 TEST_CASE("collection timing reports bounded nearest-rank percentiles",
           "[telemetry][timing]") {
     telemetry::CollectionTimingWindow timing;

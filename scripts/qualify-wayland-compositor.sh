@@ -13,12 +13,14 @@ source_revision="$4"
 
 [[ -x "$executable" ]]
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]]
-mkdir -p "$evidence_dir"
+mkdir -p "$(dirname "$evidence_dir")"
+# Do not accept a prior smoke report if a new application launch produces none.
+mkdir "$evidence_dir"
 evidence_dir="$(cd "$evidence_dir" && pwd)"
 
-runtime="$RUNNER_TEMP/blackbox-$compositor-runtime"
-config="$RUNNER_TEMP/blackbox-$compositor-config"
-rm -rf "$runtime" "$config"
+session_root="$(mktemp -d "$RUNNER_TEMP/blackbox-$compositor.XXXXXX")"
+runtime="$session_root/runtime"
+config="$session_root/config"
 mkdir -p "$runtime" "$config"
 chmod 700 "$runtime"
 export XDG_RUNTIME_DIR="$runtime"
@@ -29,12 +31,38 @@ export SDL_RENDER_DRIVER=software
 export LIBGL_ALWAYS_SOFTWARE=1
 
 log="$evidence_dir/$compositor.log"
+application_log="$evidence_dir/$compositor-application.log"
 compositor_pid=""
+stage=launch_compositor
+completed=0
 cleanup() {
+  local result=$?
+  trap - EXIT
+  set +e
+  printf 'format=1\ncompositor=%s\nsource_revision=%s\nstage=%s\nexit_code=%s\ncompleted=%s\n' \
+    "$compositor" "$source_revision" "$stage" "$result" "$completed" \
+    > "$evidence_dir/$compositor-status.ini"
+  if [[ "$result" != 0 ]]; then
+    printf 'Wayland qualification failed: compositor=%s stage=%s exit=%s\n' \
+      "$compositor" "$stage" "$result" >&2
+    for diagnostic in "$log" "$application_log" "$evidence_dir/$compositor-smoke.ini"; do
+      if [[ -f "$diagnostic" ]]; then
+        printf '\n--- %s ---\n' "$diagnostic" >&2
+        tail -n 100 "$diagnostic" >&2
+      fi
+    done
+  fi
   if [[ -n "$compositor_pid" ]]; then
     kill "$compositor_pid" 2>/dev/null || true
+    # A compositor that ignores TERM must not leave the runner stuck in wait.
+    for _ in $(seq 1 50); do
+      kill -0 "$compositor_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -KILL "$compositor_pid" 2>/dev/null || true
     wait "$compositor_pid" 2>/dev/null || true
   fi
+  exit "$result"
 }
 trap cleanup EXIT
 
@@ -72,6 +100,7 @@ case "$compositor" in
 esac
 
 socket=""
+stage=wait_for_socket
 for _ in $(seq 1 100); do
   kill -0 "$compositor_pid"
   socket="$(find "$runtime" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' | sort | head -n 1)"
@@ -82,8 +111,10 @@ done
 export WAYLAND_DISPLAY="$socket"
 
 report="$evidence_dir/$compositor-smoke.ini"
+stage=launch_application
 timeout 30s "$executable" --background-diagnostic-seconds=2 \
-  --diagnostic-report="$report"
+  --diagnostic-report="$report" > "$application_log" 2>&1
+stage=verify_report
 grep -Fxq 'platform=Linux' "$report"
 grep -Fxq 'video_driver=wayland' "$report"
 grep -Fxq "source_revision=$source_revision" "$report"
@@ -101,3 +132,5 @@ visible="$(awk -F= '$1 == "window_visible" { print $2 }' "$report")"
   printf 'video_driver=wayland\n'
   printf 'completed=1\n'
 } >"$evidence_dir/$compositor-summary.ini"
+stage=complete
+completed=1

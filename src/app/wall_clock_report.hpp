@@ -41,6 +41,10 @@ struct WallClockReport {
     bool completed{};
     std::uint64_t requested_runtime_seconds{};
     std::uint64_t capture_interval_seconds{};
+    std::uint64_t incident_pre_window_seconds{};
+    std::uint64_t incident_post_window_seconds{};
+    std::uint64_t history_duration_seconds{};
+    bool collect_process_paths{};
 
     std::uint64_t collections{};
     bool sampling_thread_prepared{};
@@ -53,12 +57,23 @@ struct WallClockReport {
     std::uint64_t scheduling_drop_event_overflow{};
     std::uint64_t resume_events{};
     std::uint64_t resume_skipped_samples{};
+    std::uint64_t unclassified_long_gaps{};
+    std::uint64_t unclassified_skipped_samples{};
     std::uint64_t provider_recoveries{};
     std::uint64_t collector_worker_failures{};
     std::uint64_t collection_p99_nanoseconds{};
     std::uint64_t collection_maximum_nanoseconds{};
     std::uint64_t jitter_p99_nanoseconds{};
     std::uint64_t jitter_maximum_nanoseconds{};
+    std::uint64_t timing_window_samples{};
+    std::uint64_t collection_lifetime_maximum_nanoseconds{};
+    std::uint64_t jitter_lifetime_maximum_nanoseconds{};
+    std::uint64_t snapshot_timing_window_samples{};
+    std::uint64_t snapshot_p99_nanoseconds{};
+    std::uint64_t snapshot_lifetime_maximum_nanoseconds{};
+    std::uint64_t writer_timing_window_samples{};
+    std::uint64_t writer_p99_nanoseconds{};
+    std::uint64_t writer_window_maximum_nanoseconds{};
 
     std::uint64_t ring_capacity{};
     std::uint64_t ring_size{};
@@ -106,6 +121,10 @@ struct WallClockReport {
     std::uint64_t writer_failed{};
     std::uint64_t writer_recoveries{};
     std::uint64_t writer_cancelled{};
+    std::uint64_t writer_failed_incidents_not_retained{};
+    std::uint64_t writer_last_failed_capture_sequence{};
+    std::uint64_t writer_last_failure_utc_nanoseconds{};
+    std::uint64_t writer_explicit_recoveries{};
     bool recoverable_incident_available{};
     bool archive_healthy{};
     std::uint64_t archive_incidents{};

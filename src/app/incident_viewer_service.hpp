@@ -46,6 +46,8 @@ public:
 
     void start();
     void stop() noexcept;
+    // Requires a stopped worker; used by the archive replacement boundary.
+    void invalidate_archive();
     void request_page(std::size_t offset, std::string search, ui::IncidentListOrder order);
     void request_detail(std::int64_t incident_id);
     void request_process(std::int64_t incident_id, core::IncidentProcessIdentity identity);
@@ -61,6 +63,8 @@ public:
     bool update_recurring_group_override(std::int64_t incident_id, std::string override_group);
     bool reset_feedback_profile();
     bool rollback_feedback_profile_reset();
+    bool export_summary(std::shared_ptr<const ui::IncidentViewerContent> content,
+                        std::filesystem::path destination, bool include_annotations = false);
     [[nodiscard]] std::shared_ptr<const ui::IncidentViewerContent> snapshot() const;
     [[nodiscard]] IncidentViewerQueueDiagnostics queue_diagnostics() const noexcept;
 
@@ -74,7 +78,8 @@ private:
         recurring,
         recurring_override,
         feedback_reset,
-        feedback_rollback
+        feedback_rollback,
+        summary_export
     };
     struct Job {
         JobType type{JobType::page};
@@ -95,6 +100,9 @@ private:
         storage::ContributorFeedbackTemporalRelationship contributor_temporal_relationship{
             storage::ContributorFeedbackTemporalRelationship::preceding_activity};
         std::string recurring_group_override{};
+        std::shared_ptr<const ui::IncidentViewerContent> export_content{};
+        std::filesystem::path destination{};
+        bool include_annotations{};
     };
 
     bool enqueue(Job job);
@@ -109,6 +117,7 @@ private:
     [[nodiscard]] bool handle_recurring_override(const Job& job);
     [[nodiscard]] bool handle_feedback_reset();
     [[nodiscard]] bool handle_feedback_rollback();
+    [[nodiscard]] bool handle_summary_export(const Job& job);
     void publish(ui::IncidentViewerContent content);
     void publish_error(std::string message);
     [[nodiscard]] storage::IncidentListQuery storage_query(const Job& job) const;

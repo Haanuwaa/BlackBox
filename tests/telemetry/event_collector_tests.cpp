@@ -134,6 +134,9 @@ TEST_CASE("system event collector is independently bounded and reports recovery"
     CHECK(diagnostics.provider_recoveries == 1U);
     CHECK(diagnostics.native_events_dropped == 7U);
     CHECK(collector.cadence_reset_generation() >= 6U);
+    const auto cadence = collector.cadence_state();
+    CHECK(cadence.native_resumes == cadence.generation / 2U);
+    CHECK(cadence.last_resume_at != core::MonotonicTimePoint{});
     CHECK(provider.starts == 1U);
     CHECK(provider.stops == 1U);
 }

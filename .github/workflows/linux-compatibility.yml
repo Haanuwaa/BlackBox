@@ -11,6 +11,7 @@ permissions:
 jobs:
   distro-package-telemetry:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     container:
       image: ${{ matrix.image }}
     strategy:
@@ -85,7 +86,8 @@ jobs:
         shell: bash
         run: |
           cmake --build out/build/linux-${{ matrix.id }} --parallel
-          ctest --test-dir out/build/linux-${{ matrix.id }} --output-on-failure
+          ctest --test-dir out/build/linux-${{ matrix.id }} --output-on-failure --timeout 120 \
+            --output-junit test-results.xml
       - name: Measure provider overhead
         shell: bash
         run: |
@@ -207,9 +209,23 @@ jobs:
             out/build/linux-${{ matrix.id }}/linux-${{ matrix.id }}-compatibility.ini
           if-no-files-found: error
 
+      - name: Retain native diagnostics even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-diagnostics-linux-${{ matrix.id }}-${{ github.sha }}
+          path: |
+            out/build/linux-${{ matrix.id }}/CMakeFiles/CMakeConfigureLog.yaml
+            out/build/linux-${{ matrix.id }}/Testing/Temporary/*.log
+            out/build/linux-${{ matrix.id }}/test-results.xml
+            out/build/linux-${{ matrix.id }}/linux-*.ini
+          if-no-files-found: warn
+          retention-days: 14
+
   wayland-session:
     needs: [distro-package-telemetry]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -251,17 +267,20 @@ jobs:
           dbus-run-session -- bash scripts/qualify-wayland-compositor.sh \
             '${{ matrix.compositor }}' "$executable" "$evidence" "$GITHUB_SHA"
       - name: Upload ${{ matrix.compositor }} qualification evidence
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlackBox-linux-wayland-${{ matrix.compositor }}-${{ github.sha }}
           path: |
             out/linux-wayland/${{ matrix.compositor }}/*.ini
             out/linux-wayland/${{ matrix.compositor }}/*.log
-          if-no-files-found: error
+          if-no-files-found: warn
+          retention-days: 14
 
   compare-distributions:
     needs: [distro-package-telemetry]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:

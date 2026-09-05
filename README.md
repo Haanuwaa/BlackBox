@@ -1,5 +1,9 @@
 # BlackBox
 
+See the [current hardening candidate](docs/CURRENT_CANDIDATE.md) for validation and remaining gates.
+BlackBox reserves all rights under [LICENSE.txt](LICENSE.txt); dependency terms are described in
+[Third-party notices](THIRD_PARTY_NOTICES.md).
+
 BlackBox is a lightweight, native computer flight recorder for answering a simple question: **what caused the short-lived performance problem that just happened?** It retains a bounded history of system behavior in memory, then saves a focused pre/post-incident window only when an incident is captured.
 
 The long-term product will help diagnose freezes, game and audio stutter, disk spikes, hangs, network latency, and unexpected CPU/GPU changes. The recorder comes first; statistical and machine-learning analysis will consume recorded data later and will never be required for collection.

@@ -86,10 +86,19 @@ public:
 // A power callback can arrive while the ordinary telemetry provider is already
 // sampling. This tiny generation boundary lets the collector rebase its next
 // deadline without polling the native event provider or copying event history.
+struct SamplingCadenceState {
+    std::uint64_t generation{};
+    std::uint64_t native_resumes{};
+    core::MonotonicTimePoint last_resume_at{};
+};
+
 class ISamplingCadenceResetSignal {
 public:
     virtual ~ISamplingCadenceResetSignal() = default;
     [[nodiscard]] virtual std::uint64_t cadence_reset_generation() const noexcept = 0;
+    [[nodiscard]] virtual SamplingCadenceState cadence_state() const noexcept {
+        return {cadence_reset_generation()};
+    }
 };
 
 class SystemEventCollector final : public ISystemEventHistory,
@@ -114,6 +123,7 @@ public:
     snapshot(std::size_t maximum_events) const override;
     [[nodiscard]] bool record_external_event(const core::SystemEvent& event) noexcept override;
     [[nodiscard]] std::uint64_t cadence_reset_generation() const noexcept override;
+    [[nodiscard]] SamplingCadenceState cadence_state() const noexcept override;
     [[nodiscard]] EventCollectorDiagnostics diagnostics() const noexcept;
 
 private:
@@ -135,6 +145,8 @@ private:
     std::jthread worker_{};
     core::IIncidentCaptureRequestSink* incident_capture_sink_{};
     std::atomic<std::uint64_t> cadence_reset_generation_{};
+    mutable std::mutex cadence_mutex_{};
+    SamplingCadenceState cadence_state_{};
 };
 
 } // namespace blackbox::telemetry

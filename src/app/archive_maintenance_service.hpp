@@ -12,8 +12,15 @@
 #include <stop_token>
 #include <string>
 #include <thread>
+#include <atomic>
+
+namespace blackbox::telemetry {
+class TelemetryCollector;
+class SystemEventCollector;
+} // namespace blackbox::telemetry
 
 namespace blackbox::app {
+class IncidentViewerService;
 
 struct ArchiveMaintenanceSnapshot {
     bool busy{};
@@ -27,6 +34,7 @@ struct ArchiveMaintenanceSnapshot {
     std::string archive_path{};
     std::string status{"Waiting for archive health check"};
     std::uint64_t generation{};
+    std::uint64_t content_epoch{};
 };
 
 class ArchiveMaintenanceService final {
@@ -39,18 +47,27 @@ public:
     void refresh();
     void retry_failed();
     void backup(std::filesystem::path destination);
-    void restore(std::filesystem::path source,
-                 std::filesystem::path safety_backup);
+    void restore(std::filesystem::path source, std::filesystem::path safety_backup);
     void retain_newest(std::size_t maximum_incidents);
     void export_dataset(std::filesystem::path destination);
     void export_failed(std::filesystem::path destination);
     void purge_all();
+    void attach_lifecycle(telemetry::TelemetryCollector* collector,
+                          telemetry::SystemEventCollector* events,
+                          IncidentViewerService* viewer) noexcept;
+    [[nodiscard]] bool boundary_pending() const noexcept { return boundaries_pending_.load() != 0; }
     [[nodiscard]] std::shared_ptr<const ArchiveMaintenanceSnapshot> snapshot() const;
 
 private:
     enum class JobType : std::uint8_t {
-        refresh, retry, backup, restore, retention, export_dataset,
-        export_failed, purge
+        refresh,
+        retry,
+        backup,
+        restore,
+        retention,
+        export_dataset,
+        export_failed,
+        purge
     };
     struct Job {
         JobType type{JobType::refresh};
@@ -61,6 +78,7 @@ private:
     void enqueue(Job job);
     void run(std::stop_token stop_token) noexcept;
     void execute(const Job& job);
+    void execute_job(const Job& job);
     void publish_health(std::string status, bool operation_succeeded);
 
     storage::SqliteIncidentArchive& archive_;
@@ -72,6 +90,11 @@ private:
     std::shared_ptr<const ArchiveMaintenanceSnapshot> snapshot_{
         std::make_shared<const ArchiveMaintenanceSnapshot>()};
     std::uint64_t generation_{};
+    std::uint64_t content_epoch_{};
+    std::atomic<std::uint32_t> boundaries_pending_{};
+    telemetry::TelemetryCollector* collector_{};
+    telemetry::SystemEventCollector* events_{};
+    IncidentViewerService* viewer_{};
 };
 
 } // namespace blackbox::app

@@ -369,6 +369,7 @@ private:
 struct SamplingRequest {
     SamplingTierSet tiers{SamplingTierSet::all()};
     bool collect_foreground_application{true};
+    bool collect_process_paths{true};
     friend constexpr bool operator==(const SamplingRequest&, const SamplingRequest&) = default;
 };
 

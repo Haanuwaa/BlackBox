@@ -58,6 +58,9 @@ struct IncidentWriterDiagnostics {
     bool recoverable_incident_available{};
     std::uint64_t recoverable_capture_sequence{};
     std::uint64_t failed_incidents_not_retained{};
+    std::uint64_t last_failed_capture_sequence{};
+    std::uint64_t last_failure_utc_nanoseconds{};
+    std::uint64_t explicit_recoveries{};
     std::uint64_t current_capture_sequence{};
     std::uint32_t current_attempt{};
     std::int64_t last_stored_incident_id{};
