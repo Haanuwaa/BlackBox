@@ -1,3 +1,4 @@
+#include "ui/accessible_widgets.hpp"
 #include "ui/dashboard.hpp"
 #include "ui/dashboard_incidents.hpp"
 #include "ui/dashboard_pressure.hpp"
@@ -53,11 +54,11 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
     if (ImGui::BeginChild("Product header", ImVec2{0.0F, header_height}, ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
         ImGui::SetWindowFontScale(1.28F);
-        ImGui::TextColored(ui_color(visual.accent), "BLACKBOX");
+        accessible::TextColored(ui_color(visual.accent), "BLACKBOX");
         ImGui::SetWindowFontScale(1.0F);
         ImGui::SameLine();
-        ImGui::TextDisabled("Computer Flight Recorder");
-        ImGui::TextDisabled("Private system history that helps explain slowdowns.  |  F1 shortcuts");
+        accessible::TextDisabled("Computer Flight Recorder");
+        accessible::TextDisabled("Private system history that helps explain slowdowns.  |  F1 shortcuts");
 
         constexpr const char* page_names[]{"Live",     "Incidents", "Explain",
                                            "Patterns", "Settings",  "Diagnostics"};
@@ -79,7 +80,7 @@ void render_product_header(const DashboardState& state, ProductUiState& product)
                                                          ? ui_color(visual.background)
                                                          : ImVec4{1.0F, 1.0F, 1.0F, 1.0F});
             }
-            if (ImGui::Button(page_names[index], ImVec2{button_width, button_height})) {
+            if (accessible::Button(page_names[index], ImVec2{button_width, button_height})) {
                 product.page = static_cast<ProductPage>(index);
             }
             if (selected) ImGui::PopStyleColor(3);
@@ -105,7 +106,7 @@ void render_metric_card(const char* id, const char* title, const MetricDisplaySt
     const auto height = 2.0F * ImGui::GetTextLineHeightWithSpacing() +
         2.0F * style.WindowPadding.y + ImGui::GetFrameHeight();
     if (ImGui::BeginChild(id, ImVec2{0.0F, height}, ImGuiChildFlags_Borders)) {
-        ImGui::TextDisabled("%s", title);
+        accessible::TextDisabled("%s", title);
         ImGui::Spacing();
         if (status == MetricDisplayStatus::available) {
             ImGui::ProgressBar(static_cast<float>(std::clamp(fraction, 0.0, 1.0)),
@@ -134,16 +135,16 @@ void render_metric_card(const char* id, const char* title, const MetricDisplaySt
 }
 
 void render_metric_unavailable(const MetricDisplayStatus status) {
-    ImGui::TextDisabled("%s", status_text(status));
+    accessible::TextDisabled("%s", status_text(status));
 }
 
 void render_rate_row(const char* label, const MetricDisplayStatus status, const double value) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted(label);
+    accessible::TextUnformatted(label);
     ImGui::TableSetColumnIndex(1);
     if (status == MetricDisplayStatus::available) {
-        ImGui::Text("%.2f MiB/s", value);
+        accessible::Text("%.2f MiB/s", value);
     } else {
         render_metric_unavailable(status);
     }
@@ -184,27 +185,27 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         render_product_header(state, product);
         ImGui::Spacing();
         if (incident_editor_dirty(incident_viewer)) {
-            ImGui::TextWrapped("Unsaved incident edits are kept while you browse pages. Save or discard them before opening another incident.");
-            if (ImGui::Button("Return to unsaved incident")) {
+            accessible::TextWrapped("Unsaved incident edits are kept while you browse pages. Save or discard them before opening another incident.");
+            if (accessible::Button("Return to unsaved incident")) {
                 product.page = ProductPage::detail;
                 command.action = DashboardAction::select_incident;
                 command.incident_id = incident_viewer.editor_incident_id;
             }
             ImGui::SameLine();
-            if (ImGui::Button("Discard unsaved incident edits")) {
+            if (accessible::Button("Discard unsaved incident edits")) {
                 incident_viewer.editor_incident_id = 0;
                 incident_viewer.synchronized_generation = 0;
                 synchronize_incident_editor(incident_viewer);
             }
         }
         if (state.archive_recoverable_incident) {
-            ImGui::TextWrapped("A capture could not be saved. Its recovery copy is in memory and will be lost when BlackBox exits.");
-            if (ImGui::Button("Open recovery options")) product.page = ProductPage::settings;
+            accessible::TextWrapped("A capture could not be saved. Its recovery copy is in memory and will be lost when BlackBox exits.");
+            if (accessible::Button("Open recovery options")) product.page = ProductPage::settings;
         } else if (state.archive_maximum_bytes != 0U &&
                    static_cast<double>(state.archive_database_size_bytes) /
                        static_cast<double>(state.archive_maximum_bytes) >= 0.8) {
-            ImGui::TextWrapped("Archive capacity is above 80%%. Review backups and retention before another capture needs space.");
-            if (ImGui::Button("Manage archive capacity")) product.page = ProductPage::settings;
+            accessible::TextWrapped("Archive capacity is above 80%%. Review backups and retention before another capture needs space.");
+            if (accessible::Button("Manage archive capacity")) product.page = ProductPage::settings;
         }
 
         const auto& io = ImGui::GetIO();
@@ -231,16 +232,16 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (ImGui::BeginPopupModal("Keyboard shortcuts", &product.keyboard_help_open,
                                    ImGuiWindowFlags_AlwaysAutoResize |
                                        ImGuiWindowFlags_NoSavedSettings)) {
-            ImGui::TextWrapped("Every primary workflow is available without a mouse.");
+            accessible::TextWrapped("Every primary workflow is available without a mouse.");
             if (ImGui::BeginTable("Keyboard shortcut list", 2,
                                   ImGuiTableFlags_BordersInnerH |
                                       ImGuiTableFlags_SizingStretchProp)) {
                 const auto shortcut = [](const char* keys, const char* action) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(keys);
+                    accessible::TextUnformatted(keys);
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted(action);
+                    accessible::TextUnformatted(action);
                 };
                 shortcut("Tab / Shift+Tab", "Move between controls");
                 shortcut("Enter / Space", "Activate the focused control");
@@ -251,7 +252,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 shortcut("Escape", "Close this guide");
                 ImGui::EndTable();
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::Button("Close")) {
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape) || accessible::Button("Close")) {
                 product.keyboard_help_open = false;
                 ImGui::CloseCurrentPopup();
             }
@@ -267,23 +268,23 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (ImGui::BeginPopupModal("Welcome to BlackBox", nullptr,
                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings)) {
             ImGui::SetWindowFontScale(onboarding.compact ? 1.08F : 1.22F);
-            ImGui::TextUnformatted("Record first. Explain after the slowdown.");
+            accessible::TextUnformatted("Record first. Explain after the slowdown.");
             ImGui::SetWindowFontScale(1.0F);
-            ImGui::TextDisabled("A private flight recorder for the computer you already use.");
+            accessible::TextDisabled("A private flight recorder for the computer you already use.");
             ImGui::Separator();
 
             const float footer_height = ImGui::GetFrameHeightWithSpacing() * 2.2F;
             if (ImGui::BeginChild("Onboarding steps", ImVec2{0.0F, -footer_height},
                                   ImGuiChildFlags_None, ImGuiWindowFlags_AlwaysVerticalScrollbar)) {
                 ImGui::SeparatorText("1  Keep a rolling history");
-                ImGui::TextWrapped("BlackBox quietly keeps a short resource history in memory. "
+                accessible::TextWrapped("BlackBox quietly keeps a short resource history in memory. "
                                    "Recording continues when this window is minimized or hidden.");
                 ImGui::SeparatorText("2  Capture the moment");
-                ImGui::TextWrapped("When something feels wrong, select Capture what just "
+                accessible::TextWrapped("When something feels wrong, select Capture what just "
                                    "happened or press Ctrl+Enter. A global shortcut can also be "
                                    "configured in Settings.");
                 ImGui::SeparatorText("3  Review local evidence");
-                ImGui::TextWrapped("Saved incidents stay on this computer unless you "
+                accessible::TextWrapped("Saved incidents stay on this computer unless you "
                                    "explicitly "
                                    "export them. BlackBox shows likely contributors and "
                                    "uncertainty; "
@@ -297,9 +298,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     const auto row = [](const char* label, const char* value) {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextDisabled("%s", label);
+                        accessible::TextDisabled("%s", label);
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::TextWrapped("%s", value);
+                        accessible::TextWrapped("%s", value);
                     };
                     row("Recorder", state.recorder_status.c_str());
                     row("Capture",
@@ -310,8 +311,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     row("Privacy", "Local unless you export");
                     ImGui::EndTable();
                 }
-                if (ImGui::CollapsingHeader("Warming up and unavailable")) {
-                    ImGui::TextWrapped("Warming up means a counter needs an "
+                if (accessible::CollapsingHeader("Warming up and unavailable")) {
+                    accessible::TextWrapped("Warming up means a counter needs an "
                                        "earlier observation. "
                                        "Unavailable means the operating system "
                                        "did not provide a "
@@ -319,12 +320,12 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                        "states explicit instead of "
                                        "silently treating them as zero.");
                 }
-                ImGui::TextDisabled("Keyboard: Tab moves focus, Ctrl+Enter captures, Ctrl+1 "
+                accessible::TextDisabled("Keyboard: Tab moves focus, Ctrl+Enter captures, Ctrl+1 "
                                     "through Ctrl+6 changes pages, and F1 shows all shortcuts.");
             }
             ImGui::EndChild();
             ImGui::Separator();
-            if (ImGui::Button("Continue to live recorder", ImVec2{-FLT_MIN, 0.0F})) {
+            if (accessible::Button("Continue to live recorder", ImVec2{-FLT_MIN, 0.0F})) {
                 product.onboarding_open = false;
                 command.action = DashboardAction::complete_onboarding;
                 ImGui::CloseCurrentPopup();
@@ -338,24 +339,24 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ui_color(visual.surface));
             if (ImGui::BeginChild("Recorder summary", ImVec2{0.0F, 0.0F},
                                    ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY)) {
-                ImGui::TextDisabled("YOUR RECORDER");
+                accessible::TextDisabled("YOUR RECORDER");
                 if (recording && state.incident_capture_enabled) {
-                    ImGui::TextColored(ui_color(visual.success),
+                    accessible::TextColored(ui_color(visual.success),
                                        "Ready - quietly recording recent activity");
                 } else if (recording) {
-                    ImGui::TextColored(ui_color(visual.warning), "Recording; incident capture is "
+                    accessible::TextColored(ui_color(visual.warning), "Recording; incident capture is "
                                                                  "temporarily unavailable");
                 } else {
-                    ImGui::TextColored(ui_color(visual.warning), "Recorder is stopped");
+                    accessible::TextColored(ui_color(visual.warning), "Recorder is stopped");
                 }
-                ImGui::TextDisabled("Global shortcut: %s", state.hotkey_status.c_str());
-                ImGui::TextDisabled("Background: %s", state.background_status.c_str());
-                ImGui::TextDisabled("When the tray is active, closing this window hides it; "
+                accessible::TextDisabled("Global shortcut: %s", state.hotkey_status.c_str());
+                accessible::TextDisabled("Background: %s", state.background_status.c_str());
+                accessible::TextDisabled("When the tray is active, closing this window hides it; "
                                     "recording continues.");
                 if (!state.incident_capture_enabled) ImGui::BeginDisabled();
                 ImGui::PushStyleColor(ImGuiCol_Button, ui_color(visual.accent));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui_color(visual.accent_hovered));
-                if (ImGui::Button("Capture what just happened   Ctrl+Enter",
+                if (accessible::Button("Capture what just happened   Ctrl+Enter",
                                   ImVec2{std::min(340.0F * scale, ImGui::GetContentRegionAvail().x),
                                          34.0F * scale})) {
                     command.action = DashboardAction::capture_incident;
@@ -363,15 +364,15 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 ImGui::PopStyleColor(2);
                 if (!state.incident_capture_enabled) ImGui::EndDisabled();
                 ImGui::SameLine();
-                ImGui::TextUnformatted(state.incident_capture_status.c_str());
-                ImGui::TextDisabled("Saved locally: %llu incident%s",
+                accessible::TextUnformatted(state.incident_capture_status.c_str());
+                accessible::TextDisabled("Saved locally: %llu incident%s",
                                     static_cast<unsigned long long>(state.stored_incident_count),
                                     state.stored_incident_count == 1U ? "" : "s");
             }
             ImGui::EndChild();
             ImGui::PopStyleColor();
 
-            if (ImGui::CollapsingHeader("Technical status and capture details")) {
+            if (accessible::CollapsingHeader("Technical status and capture details")) {
                 if (ImGui::BeginTable("Status", 2,
                                       ImGuiTableFlags_BordersInnerH |
                                           ImGuiTableFlags_SizingStretchProp)) {
@@ -381,9 +382,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     const auto row = [](const char* label, const char* value) {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextUnformatted(label);
+                        accessible::TextUnformatted(label);
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::TextUnformatted(value);
+                        accessible::TextUnformatted(value);
                     };
 
                     row("Recorder", state.recorder_status.data());
@@ -400,43 +401,43 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                                  : "Reduced by desktop preference");
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Display scale");
+                    accessible::TextUnformatted("Display scale");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.0f%% | %u display%s | %ux%u px", state.display_scale * 100.0,
+                    accessible::Text("%.0f%% | %u display%s | %ux%u px", state.display_scale * 100.0,
                                 state.display_count, state.display_count == 1U ? "" : "s",
                                 state.window_pixel_width, state.window_pixel_height);
                     row("Version", core::version.data());
                     ImGui::EndTable();
                 }
-                ImGui::TextWrapped("Unavailable metrics retain their reason (unsupported, "
+                accessible::TextWrapped("Unavailable metrics retain their reason (unsupported, "
                                    "inaccessible, or temporary). Cold-start values require a "
                                    "previous "
                                    "counter observation. Analysis is post-capture and "
                                    "correlation "
                                    "never establishes causation.");
-                ImGui::Text("Window: %.0f s before / %.0f s after",
+                accessible::Text("Window: %.0f s before / %.0f s after",
                             state.incident_pre_window_seconds, state.incident_post_window_seconds);
                 if (state.incident_post_remaining_seconds > 0.0) {
-                    ImGui::Text("Post-window remaining: %.1f s",
+                    accessible::Text("Post-window remaining: %.1f s",
                                 state.incident_post_remaining_seconds);
                 }
-                ImGui::Text("Writer handoff: %zu / %zu immutable incidents",
+                accessible::Text("Writer handoff: %zu / %zu immutable incidents",
                             state.incident_queue_size, state.incident_queue_capacity);
-                ImGui::Text(
+                accessible::Text(
                     "Automatic detection: %s | %llu triggers | %llu cooldown "
                     "suppressions | %llu rejected",
                     state.automatic_detection_enabled ? "enabled" : "disabled",
                     static_cast<unsigned long long>(state.automatic_detector_triggers),
                     static_cast<unsigned long long>(state.automatic_detector_cooldown_suppressions),
                     static_cast<unsigned long long>(state.automatic_capture_rejections));
-                ImGui::TextWrapped(
+                accessible::TextWrapped(
                     "System-event symptom capture: %s | %llu event request%s",
                     state.automatic_event_capture_status.c_str(),
                     static_cast<unsigned long long>(state.automatic_event_capture_requests),
                     state.automatic_event_capture_requests == 1U ? "" : "s");
-                ImGui::TextDisabled("Frame pacing capture: %s",
+                accessible::TextDisabled("Frame pacing capture: %s",
                                     state.automatic_frame_capture_status.c_str());
-                ImGui::TextDisabled("Audio glitch capture: %s",
+                accessible::TextDisabled("Audio glitch capture: %s",
                                     state.automatic_audio_capture_status.c_str());
             }
         }
@@ -449,8 +450,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (product.page == ProductPage::settings) {
             ImGui::Spacing();
             ImGui::SeparatorText("Recorder settings");
-            ImGui::TextUnformatted("Collection profile");
-            ImGui::TextWrapped("Changing profile restarts the collector, "
+            accessible::TextUnformatted("Collection profile");
+            accessible::TextWrapped("Changing profile restarts the collector, "
                                "clears only rolling RAM "
                                "history, and never deletes saved incidents.");
             const auto profile_button = [&](const char* label, const std::uint64_t interval_ms,
@@ -459,7 +460,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     static_cast<std::uint64_t>(state.sample_interval_milliseconds) == interval_ms &&
                     static_cast<std::uint64_t>(state.history_duration_seconds) == history_seconds;
                 if (selected) ImGui::BeginDisabled();
-                if (ImGui::Button(label)) {
+                if (accessible::Button(label)) {
                     command.action = DashboardAction::apply_recorder_settings;
                     command.sample_interval_milliseconds = interval_ms;
                     command.history_duration_seconds = history_seconds;
@@ -471,7 +472,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             profile_button("Balanced: 500 ms / 5 min", 500U, 300U);
             ImGui::SameLine();
             profile_button("Detailed: 250 ms / 2 min", 250U, 120U);
-            ImGui::TextDisabled("%s", state.recorder_settings_status.data());
+            accessible::TextDisabled("%s", state.recorder_settings_status.data());
             ImGui::Spacing();
             detail::render_product_settings(state, product, command);
         }
@@ -479,7 +480,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (product.page == ProductPage::live) {
             ImGui::Spacing();
             ImGui::SeparatorText("What your computer is doing now");
-            ImGui::TextDisabled("A quick local view of current resource activity. Missing values "
+            accessible::TextDisabled("A quick local view of current resource activity. Missing values "
                                 "stay marked instead of being shown as zero.");
             char cpu_overlay[32]{"Unavailable"};
             if (state.cpu_status == MetricDisplayStatus::available) {
@@ -519,8 +520,8 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                 state.network_transmit_mib_per_second);
                 ImGui::EndTable();
             }
-            if (ImGui::CollapsingHeader("More system details")) {
-                ImGui::TextWrapped("Physical storage quality is separate from process I/O. "
+            if (accessible::CollapsingHeader("More system details")) {
+                accessible::TextWrapped("Physical storage quality is separate from process I/O. "
                                    "Network "
                                    "quality is passive host-wide transport/connectivity "
                                    "evidence; no "
@@ -534,10 +535,10 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                               const char* format, const double value) {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextUnformatted(label);
+                        accessible::TextUnformatted(label);
                         ImGui::TableSetColumnIndex(1);
                         if (status == MetricDisplayStatus::available)
-                            ImGui::Text(format, value);
+                            accessible::Text(format, value);
                         else
                             render_metric_unavailable(status);
                     };
@@ -550,10 +551,10 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                               state.disk_service_concurrency);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Connectivity");
+                    accessible::TextUnformatted("Connectivity");
                     ImGui::TableSetColumnIndex(1);
                     if (state.network_connectivity_status == MetricDisplayStatus::available) {
-                        ImGui::Text(
+                        accessible::Text(
                             "%s | %llu active interface%s | %llu transition%s",
                             connectivity_text(state.network_connectivity_level),
                             static_cast<unsigned long long>(state.network_active_interfaces),
@@ -572,10 +573,10 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                               state.gpu_dedicated_memory_mib);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("GPU inventory / renderer");
+                    accessible::TextUnformatted("GPU inventory / renderer");
                     ImGui::TableSetColumnIndex(1);
                     if (state.gpu_inventory_status == MetricDisplayStatus::available) {
-                        ImGui::Text("%u device%s (%u integrated, %u discrete, %u type "
+                        accessible::Text("%u device%s (%u integrated, %u discrete, %u type "
                                     "unknown) | "
                                     "public render device %s | %s backend %s",
                                     state.gpu_device_count, state.gpu_device_count == 1U ? "" : "s",
@@ -585,15 +586,15 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                     state.renderer_active ? "active" : "inactive",
                                     state.renderer_backend.c_str());
                     } else {
-                        ImGui::Text("Inventory unavailable | %s backend %s",
+                        accessible::Text("Inventory unavailable | %s backend %s",
                                     state.renderer_active ? "active" : "inactive",
                                     state.renderer_backend.c_str());
                     }
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("BlackBox renderer health");
+                    accessible::TextUnformatted("BlackBox renderer health");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%llu frames | %llu hitches | %.2f ms p95 | %.2f ms max | "
+                    accessible::Text("%llu frames | %llu hitches | %.2f ms p95 | %.2f ms max | "
                                 "%llu present failures",
                                 static_cast<unsigned long long>(state.renderer_frames),
                                 static_cast<unsigned long long>(state.renderer_hitches),
@@ -602,9 +603,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                 static_cast<unsigned long long>(state.renderer_present_failures));
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Delayed app diagnostics");
+                    accessible::TextUnformatted("Delayed app diagnostics");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::TextWrapped("%s | %llu metric / %llu diagnostic payloads | "
+                    accessible::TextWrapped("%s | %llu metric / %llu diagnostic payloads | "
                                        "%.1f s app CPU | %.1f s app GPU | %llu hangs (%.1f s)",
                                        state.app_performance_report_status.c_str(),
                                        static_cast<unsigned long long>(state.app_metric_payloads),
@@ -617,9 +618,9 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                                        state.app_hang_duration_seconds);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("GPU capability boundary");
+                    accessible::TextUnformatted("GPU capability boundary");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::TextWrapped("%s", state.gpu_usage_support.c_str());
+                    accessible::TextWrapped("%s", state.gpu_usage_support.c_str());
                     value_row("DPC processor time", state.dpc_status, "%.2f%%",
                               state.dpc_usage * 100.0);
                     value_row("Interrupt processor time", state.dpc_status, "%.2f%%",
@@ -631,16 +632,16 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     detail::render_pressure_rows(state);
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Foreground application");
+                    accessible::TextUnformatted("Foreground application");
                     ImGui::TableSetColumnIndex(1);
                     if (state.foreground_status == MetricDisplayStatus::available) {
                         if (state.foreground_application_opaque) {
-                            ImGui::Text("Private application %06llX | process/GPU correlation "
+                            accessible::Text("Private application %06llX | process/GPU correlation "
                                         "unavailable",
                                         static_cast<unsigned long long>(
                                             state.foreground_application_token & 0xFFFFFFU));
                         } else {
-                            ImGui::Text("PID %u | foreground GPU %.1f%%", state.foreground_pid,
+                            accessible::Text("PID %u | foreground GPU %.1f%%", state.foreground_pid,
                                         state.foreground_gpu_usage * 100.0);
                         }
                     } else {
@@ -648,14 +649,14 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                     }
                     ImGui::EndTable();
                 }
-                ImGui::TextDisabled("System-event recorder: %s | %zu / %zu "
+                accessible::TextDisabled("System-event recorder: %s | %zu / %zu "
                                     "events | %llu recorded | "
                                     "%llu dropped/overwritten",
                                     state.event_collector_running ? "running" : "disabled/stopped",
                                     state.system_event_ring_size, state.system_event_ring_capacity,
                                     static_cast<unsigned long long>(state.system_events_recorded),
                                     static_cast<unsigned long long>(state.system_events_dropped));
-                ImGui::TextDisabled(
+                accessible::TextDisabled(
                     "Process lifecycle: %llu provider observations | "
                     "%llu opt-in events recorded",
                     static_cast<unsigned long long>(state.process_lifecycle_observations),
@@ -665,11 +666,11 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
 
         if (product.page == ProductPage::live) {
             ImGui::Spacing();
-            if (ImGui::CollapsingHeader("Recent activity", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::TextDisabled("The newest sample is at 0 seconds. Hover a graph to inspect "
+            if (accessible::CollapsingHeader("Recent activity", ImGuiTreeNodeFlags_DefaultOpen)) {
+                accessible::TextDisabled("The newest sample is at 0 seconds. Hover a graph to inspect "
                                     "values; gaps mean the metric was unavailable.");
                 if (state.history_size == 0U) {
-                    ImGui::TextDisabled("Waiting for recorder samples");
+                    accessible::TextDisabled("Waiting for recorder samples");
                 } else if (ImPlot::BeginPlot("##system-history", ImVec2{-1.0F, 220.0F})) {
                     ImPlot::SetupAxes("Seconds from now", "Utilization (%)");
                     const auto oldest_sample = std::min(-1.0, state.history_oldest_seconds);
@@ -715,7 +716,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                         ImPlot::EndPlot();
                     }
                 } else {
-                    ImGui::TextDisabled("Disk throughput history is warming up");
+                    accessible::TextDisabled("Disk throughput history is warming up");
                 }
 
                 if (state.network_receive_history_points != 0U ||
@@ -735,14 +736,14 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                         ImPlot::EndPlot();
                     }
                 } else {
-                    ImGui::TextDisabled("Network throughput history is warming up");
+                    accessible::TextDisabled("Network throughput history is warming up");
                 }
             }
 
             ImGui::Spacing();
-            if (ImGui::CollapsingHeader("Apps using resources (highest CPU first)")) {
+            if (accessible::CollapsingHeader("Apps using resources (highest CPU first)")) {
                 if (state.process_count == 0U) {
-                    ImGui::TextDisabled("Process telemetry is warming up");
+                    accessible::TextDisabled("Process telemetry is warming up");
                 } else if (ImGui::BeginTable("Active processes", 6,
                                              ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
                                                  ImGuiTableFlags_ScrollY |
@@ -761,27 +762,27 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                         const auto& process = state.processes[index];
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextUnformatted(process.name.c_str());
+                        accessible::TextUnformatted(process.name.c_str());
                         if (!process.executable_path.empty() && ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("%s", process.executable_path.c_str());
                         }
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%u", process.pid);
+                        accessible::Text("%u", process.pid);
                         ImGui::TableSetColumnIndex(2);
                         process.cpu_status == MetricDisplayStatus::available
-                            ? ImGui::Text("%.1f%%", process.cpu_percent)
+                            ? accessible::Text("%.1f%%", process.cpu_percent)
                             : render_metric_unavailable(process.cpu_status);
                         ImGui::TableSetColumnIndex(3);
                         process.memory_status == MetricDisplayStatus::available
-                            ? ImGui::Text("%.1f MiB", process.working_set_mib)
+                            ? accessible::Text("%.1f MiB", process.working_set_mib)
                             : render_metric_unavailable(process.memory_status);
                         ImGui::TableSetColumnIndex(4);
                         process.disk_read_status == MetricDisplayStatus::available
-                            ? ImGui::Text("%.2f MiB/s", process.disk_read_mib_per_second)
+                            ? accessible::Text("%.2f MiB/s", process.disk_read_mib_per_second)
                             : render_metric_unavailable(process.disk_read_status);
                         ImGui::TableSetColumnIndex(5);
                         process.disk_write_status == MetricDisplayStatus::available
-                            ? ImGui::Text("%.2f MiB/s", process.disk_write_mib_per_second)
+                            ? accessible::Text("%.2f MiB/s", process.disk_write_mib_per_second)
                             : render_metric_unavailable(process.disk_write_status);
                     }
                     ImGui::EndTable();
@@ -792,31 +793,31 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         if (product.page == ProductPage::diagnostics) {
             ImGui::Spacing();
             ImGui::SeparatorText("Support and crash recovery");
-            ImGui::TextWrapped("%s", state.crash_diagnostics_status.data());
-            ImGui::Text("Completed local crash evidence: %llu | handler: %s",
+            accessible::TextWrapped("%s", state.crash_diagnostics_status.data());
+            accessible::Text("Completed local crash evidence: %llu | handler: %s",
                         static_cast<unsigned long long>(state.previous_crash_evidence),
                         state.crash_diagnostics_armed ? "armed" : "not armed");
-            ImGui::TextWrapped("%s", state.support_bundle_status.data());
-            ImGui::TextDisabled("Bundles stay local and exclude incidents, "
+            accessible::LiveTextWrapped("%s", state.support_bundle_status.data());
+            accessible::TextDisabled("Bundles stay local and exclude incidents, "
                                 "process rows, settings, "
                                 "hotkeys, usernames, and absolute paths.");
             detail::render_path_input("New support bundle directory", product.support_bundle_path,
                                       PathField::support_bundle, product, command);
             if (!product.file_dialog_status.empty())
-                ImGui::TextWrapped("%s", product.file_dialog_status.c_str());
+                accessible::TextWrapped("%s", product.file_dialog_status.c_str());
             if (!state.latest_crash_evidence_available) {
                 product.include_latest_crash_evidence = false;
                 product.crash_evidence_consent_confirmed = false;
                 ImGui::BeginDisabled();
             }
-            ImGui::Checkbox("Include latest raw crash evidence",
+            accessible::Checkbox("Include latest raw crash evidence",
                             &product.include_latest_crash_evidence);
             if (!state.latest_crash_evidence_available) ImGui::EndDisabled();
             if (product.include_latest_crash_evidence) {
-                ImGui::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
+                accessible::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
                                    "Depending on platform, crash evidence can contain "
                                    "memory, addresses, and module paths.");
-                ImGui::Checkbox("I consent to place the latest raw evidence in "
+                accessible::Checkbox("I consent to place the latest raw evidence in "
                                 "this local bundle",
                                 &product.crash_evidence_consent_confirmed);
             } else {
@@ -826,7 +827,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 state.support_bundle_busy || (product.include_latest_crash_evidence &&
                                               !product.crash_evidence_consent_confirmed);
             if (support_disabled) ImGui::BeginDisabled();
-            if (ImGui::Button("Create local support bundle")) {
+            if (accessible::Button("Create local support bundle")) {
                 command.action = DashboardAction::create_support_bundle;
                 command.support_bundle_path = product.support_bundle_path.data();
                 command.include_latest_crash_evidence = product.include_latest_crash_evidence;
@@ -846,17 +847,17 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 const auto count_row = [](const char* label, const std::uint64_t value) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label);
+                    accessible::TextUnformatted(label);
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%llu", static_cast<unsigned long long>(value));
+                    accessible::Text("%llu", static_cast<unsigned long long>(value));
                 };
                 const auto text_row = [](const char* label, const char* format,
                                          const double value) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label);
+                    accessible::TextUnformatted(label);
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text(format, value);
+                    accessible::Text(format, value);
                 };
 
                 count_row("Collections", state.collection_count);
@@ -910,17 +911,17 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 if (state.resume_events != 0U) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted("Last resume gap");
+                    accessible::TextUnformatted("Last resume gap");
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.3f s", state.last_resume_gap_seconds);
+                    accessible::Text("%.3f s", state.last_resume_gap_seconds);
                 }
                 count_row("Ring overwrites", state.ring_overwrites);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted("Ring utilization");
+                accessible::TextUnformatted("Ring utilization");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%zu / %zu (%.1f%%)", state.ring_size, state.ring_capacity,
+                accessible::Text("%zu / %zu (%.1f%%)", state.ring_size, state.ring_capacity,
                             state.ring_utilization * 100.0);
                 text_row("Sample interval", "%.0f ms", state.sample_interval_milliseconds);
                 text_row("History duration", "%.0f s", state.history_duration_seconds);
@@ -930,7 +931,7 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
             ImGui::Spacing();
             ImGui::SeparatorText("Collection timing");
             if (state.timing_samples == 0U) {
-                ImGui::TextDisabled("No samples collected");
+                accessible::TextDisabled("No samples collected");
             } else if (ImGui::BeginTable("Collection timing", 2,
                                          ImGuiTableFlags_BordersInnerH |
                                              ImGuiTableFlags_SizingStretchProp)) {
@@ -940,16 +941,16 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
                 const auto timing_row = [](const char* label, const double microseconds) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label);
+                    accessible::TextUnformatted(label);
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.2f us", microseconds);
+                    accessible::Text("%.2f us", microseconds);
                 };
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted("Samples");
+                accessible::TextUnformatted("Samples");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%llu", static_cast<unsigned long long>(state.timing_samples));
+                accessible::Text("%llu", static_cast<unsigned long long>(state.timing_samples));
                 timing_row("Average", state.timing_average_microseconds);
                 timing_row("P50", state.timing_p50_microseconds);
                 timing_row("P95", state.timing_p95_microseconds);
@@ -973,6 +974,25 @@ DashboardCommand render_dashboard(const DashboardState& state, IncidentViewerSta
         }
     }
     ImGui::End();
+    if (product.exit_confirmation_open) ImGui::OpenPopup("Finish before exiting");
+    if (ImGui::BeginPopupModal("Finish before exiting", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        accessible::LiveTextWrapped("%s", product.exit_status.c_str());
+        if (state.archive_recoverable_incident) accessible::TextWrapped("Failed captures are held in memory. Recover or export them in Settings before exiting.");
+        accessible::TextWrapped("Exit without saving discards drafts, unfinished capture windows and any unrecovered captures. Accepted archive jobs still finish.");
+        if (accessible::Button("Keep working")) {
+            command.action = DashboardAction::cancel_exit;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(product.exit_waiting);
+        if (accessible::Button("Save and exit")) command.action = DashboardAction::save_and_exit;
+        ImGui::EndDisabled();
+        if (accessible::Button("Exit without saving")) {
+            command.action = DashboardAction::discard_and_exit;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
     return command;
 }
 

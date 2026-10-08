@@ -1,6 +1,7 @@
 #include "app/application.hpp"
 #include "app/dashboard_projection.hpp"
 #include "app/visible_frame_scheduler.hpp"
+#include "app/settings_change_plan.hpp"
 
 #include "core/logger.hpp"
 #include "core/filesystem_text.hpp"
@@ -8,9 +9,11 @@
 #include "ui/dashboard.hpp"
 #include "ui/product_ui_model.hpp"
 #include "ui/product_font.hpp"
+#include "ui/accessible_widgets.hpp"
 
 #if defined(_WIN32)
 #include "platform/windows/windows_accessibility.hpp"
+#include "platform/windows/windows_ui_automation.hpp"
 #include "platform/windows/windows_background_shell.hpp"
 #include "platform/windows/windows_crash_diagnostics.hpp"
 #include "platform/windows/windows_global_hotkey_manager.hpp"
@@ -47,6 +50,7 @@
 #include <filesystem>
 #include <memory>
 #include <utility>
+#include <stdexcept>
 
 namespace blackbox::app {
 namespace {
@@ -326,6 +330,12 @@ ApplicationInitializationResult Application::initialize() {
         return ApplicationInitializationResult::failed;
     }
     SDL_SetRenderVSync(renderer_, 1);
+#if defined(_WIN32)
+    windows_ui_automation_ = std::make_unique<platform::windows::WindowsUiAutomation>();
+    if (!windows_ui_automation_->attach(SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
+            SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr), accessibility_tree_))
+        core::Logger::write(core::LogLevel::warning, "Windows accessibility provider could not attach");
+#endif
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -486,6 +496,21 @@ ApplicationInitializationResult Application::initialize() {
     return ApplicationInitializationResult::ready;
 }
 
+namespace {
+class CaptureAdmissionGuard {
+public:
+    CaptureAdmissionGuard(telemetry::TelemetryCollector& collector, bool restore, bool active = true)
+        : collector_{collector}, restore_{restore}, active_{active} {
+        if (active_) collector_.set_capture_requests_enabled(false);
+    }
+    ~CaptureAdmissionGuard() { if (active_) collector_.set_capture_requests_enabled(restore_); }
+private:
+    telemetry::TelemetryCollector& collector_;
+    bool restore_;
+    bool active_;
+};
+}
+
 int Application::run() {
     bool running = true;
     VisibleFrameScheduler visible_frames;
@@ -508,15 +533,15 @@ int Application::run() {
             visible_frames.note_interaction(telemetry_clock_.now());
         }
         if (event.type == SDL_EVENT_QUIT) {
-            running = false;
+            request_exit(running);
             return;
         }
         if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
             event.window.windowID == SDL_GetWindowID(window_)) {
             if (background_shell_started_ && background_shell_->diagnostics().tray_available) {
-                hide_window();
+                if (!product_ui_state_.exit_confirmation_open) hide_window();
             } else {
-                running = false;
+                request_exit(running);
             }
         }
         const bool display_window_event = event.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED ||
@@ -540,13 +565,16 @@ int Application::run() {
             next_diagnostic_progress_at_ = now + 5s;
         }
 #if BLACKBOX_STORAGE_ENABLED
-        if (diagnostic_options_.recover_failed_incident && !diagnostic_recovery_requested_ &&
+        if (diagnostic_options_.recover_failed_incident && now >= next_diagnostic_recovery_at_ &&
             incident_writer_ != nullptr && archive_maintenance_service_ != nullptr) {
             const auto writer = incident_writer_->diagnostics();
-            if (writer.recoverable_incident_available && writer.recoveries > 0U) {
+            if (writer.recoverable_incident_available && !archive_maintenance_service_->snapshot()->busy) {
+                next_diagnostic_recovery_at_ = now + 5s;
+                if (!diagnostic_recovery_requested_) {
                 diagnostic_recovery_requested_ = true;
                 archive_maintenance_service_->export_failed(
                     diagnostic_options_.report_path.parent_path() / "recovered-incident.sqlite3");
+                }
                 archive_maintenance_service_->retry_failed();
             }
         }
@@ -560,7 +588,15 @@ int Application::run() {
             diagnostic_overlap_requested_ = true;
             request_incident_capture();
         }
-        if (now >= next_diagnostic_capture) {
+        bool diagnostic_recovery_pending = false;
+#if BLACKBOX_STORAGE_ENABLED
+        diagnostic_recovery_pending = diagnostic_options_.recover_failed_incident &&
+            incident_writer_ && incident_writer_->diagnostics().recoverable_incident_available;
+#endif
+        // The fault rehearsal retains its next scheduled trigger while recovering
+        // the deliberately failed write. Ordinary/manual requests still exercise
+        // normal backpressure, and minimum completed-capture checks stay strict.
+        if (now >= next_diagnostic_capture && !diagnostic_recovery_pending) {
             const auto post_window =
                 collector_ != nullptr ? collector_->diagnostics().configuration.incident_post_window
                                       : std::chrono::nanoseconds{};
@@ -585,8 +621,14 @@ int Application::run() {
             break;
         }
 
+        // Exit must progress even if the user minimizes the window while work drains.
+        if (exit_when_ready_ || exit_cancel_requested_) refresh_dashboard_if_due();
+        advance_exit(running);
+        if (!running) break;
         const auto window_flags = SDL_GetWindowFlags(window_);
         if ((window_flags & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) != 0U) {
+            if (accessibility_tree_->enabled() && accessibility_tree_->snapshot()->available)
+                accessibility_tree_->publish({}, false);
             // Hidden operation avoids dashboard snapshots, process-table
             // copies, and rendering. The lightweight shell refresh remains
             // bounded at 4 Hz.
@@ -610,9 +652,11 @@ int Application::run() {
         const auto target_frame_interval = visible_frames.target_interval(visible_now);
         refresh_dashboard_if_due();
 
+        ui::load_requested_product_fonts(ImGui::GetIO(), display_scale_);
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+        ui::accessible::begin_frame(accessibility_tree_.get());
 
         consume_file_dialog();
         product_ui_state_.settings_dirty =
@@ -621,10 +665,23 @@ int Application::run() {
         auto command =
             ui::render_dashboard(dashboard_state_, incident_viewer_state_, product_ui_state_);
 #if BLACKBOX_STORAGE_ENABLED
-        if (archive_maintenance_service_ != nullptr && archive_maintenance_service_->boundary_pending())
+        if (archive_maintenance_service_ != nullptr && archive_maintenance_service_->boundary_pending() &&
+            command.action != ui::DashboardAction::cancel_exit &&
+            command.action != ui::DashboardAction::cancel_maintenance &&
+            command.action != ui::DashboardAction::discard_and_exit)
             command.action = ui::DashboardAction::none;
 #endif
         switch (command.action) {
+        case ui::DashboardAction::cancel_exit:
+            cancel_exit();
+            break;
+        case ui::DashboardAction::save_and_exit:
+            exit_drafts_submitted_ = false;
+            save_before_exit();
+            break;
+        case ui::DashboardAction::discard_and_exit:
+            running = false;
+            break;
         case ui::DashboardAction::browse_path:
             request_file_dialog(command.path_field);
             break;
@@ -634,6 +691,12 @@ int Application::run() {
             request_incident_capture();
             break;
         case ui::DashboardAction::apply_recorder_settings: {
+            const CaptureAdmissionGuard admission{*collector_, !product_ui_state_.exit_confirmation_open};
+            const auto pending = collector_->incident_capture_status();
+            if (pending.has_pending_window || pending.phase == core::IncidentCapturePhase::constructing_snapshot) {
+                recorder_settings_status_text_ = "Capture in progress. Wait before changing recorder timing.";
+                break;
+            }
             auto values = collector_->diagnostics().configuration;
             values.sample_interval =
                 std::chrono::milliseconds{command.sample_interval_milliseconds};
@@ -670,6 +733,9 @@ int Application::run() {
             request_support_bundle(command);
             break;
 #if BLACKBOX_STORAGE_ENABLED
+        case ui::DashboardAction::cancel_maintenance:
+            archive_maintenance_service_->cancel_pending();
+            break;
         case ui::DashboardAction::refresh_incidents:
             incident_viewer_service_->request_page(command.incident_offset, command.search,
                                                    command.incident_order);
@@ -765,6 +831,10 @@ int Application::run() {
 #endif
         }
 
+        ui::accessible::end_frame();
+#if defined(_WIN32)
+        if (windows_ui_automation_) windows_ui_automation_->notify_changes();
+#endif
         ImGui::Render();
         SDL_SetRenderDrawColor(renderer_, 18, 20, 24, 255);
         SDL_RenderClear(renderer_);
@@ -992,7 +1062,8 @@ void Application::apply_product_settings(const ui::DashboardCommand& command) no
         return;
     }
 
-    auto recorder = collector_->diagnostics().configuration;
+    const auto previous_recorder = collector_->diagnostics().configuration;
+    auto recorder = previous_recorder;
     recorder.incident_pre_window = std::chrono::seconds{command.incident_pre_window_seconds};
     recorder.incident_post_window = std::chrono::seconds{command.incident_post_window_seconds};
     recorder.collect_process_paths = command.collect_process_paths;
@@ -1003,35 +1074,53 @@ void Application::apply_product_settings(const ui::DashboardCommand& command) no
         return;
     }
 
+    const auto change = settings_change_plan(product_settings_, *validated_product,
+                                            previous_recorder, recorder);
+    const CaptureAdmissionGuard admission{*collector_, !product_ui_state_.exit_confirmation_open, change.interrupts_capture()};
+    const auto capture = collector_->incident_capture_status();
+    if (change.interrupts_capture() &&
+        (capture.has_pending_window ||
+         capture.phase == core::IncidentCapturePhase::constructing_snapshot)) {
+        recorder_settings_status_text_ =
+            "Capture in progress. Wait for it to finish, then apply these recording changes.";
+        return;
+    }
+
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
     if (proposed.incident_hotkey != product_settings_.incident_hotkey) {
         hotkey_manager_->unregister_hotkey();
         if (!register_configured_hotkey(proposed.incident_hotkey)) {
             const auto failure = hotkey_status_;
-            static_cast<void>(register_configured_hotkey(product_settings_.incident_hotkey));
-            recorder_settings_status_text_ = "Rejected: " + failure + "; previous hotkey restored";
+            const bool restored = register_configured_hotkey(product_settings_.incident_hotkey);
+            recorder_settings_status_text_ = "Rejected: " + failure +
+                (restored ? "; previous hotkey restored" :
+                            "; previous hotkey could not be restored. Use the capture button.");
             return;
         }
     }
 #endif
 
     const bool restart = collector_->running();
-    if (system_event_collector_ != nullptr) system_event_collector_->stop();
-    collector_->stop();
+    const bool events_running = system_event_collector_ != nullptr && system_event_collector_->running();
+    const auto old_events = system_event_collector_ != nullptr
+        ? system_event_collector_->diagnostics().configuration : telemetry::EventCollectorConfiguration{};
+    try {
+    if (change.events && system_event_collector_ != nullptr) system_event_collector_->stop();
+    if (change.interrupts_capture()) collector_->stop();
 #if BLACKBOX_AUTOMATIC_DETECTION_ENABLED
-    if (const auto reconfigured =
+    if (change.detector) {
+      if (const auto reconfigured =
             automatic_detector_->reconfigure(detector_configuration(*validated_product));
         !reconfigured) {
-        if (restart) collector_->start();
-        recorder_settings_status_text_ = "Rejected: detector configuration is invalid";
-        return;
+        throw std::runtime_error{"detector configuration is invalid"};
+      }
     }
 #endif
-    collector_->reconfigure(*validated_recorder);
-    collector_->set_foreground_application_enabled(
+    if (change.recorder) collector_->reconfigure(*validated_recorder, true);
+    if (change.foreground) collector_->set_foreground_application_enabled(
         validated_product->record_foreground_application);
-    collector_->set_process_lifecycle_enabled(validated_product->record_process_lifecycle);
-    if (system_event_collector_ != nullptr) {
+    if (change.lifecycle) collector_->set_process_lifecycle_enabled(validated_product->record_process_lifecycle);
+    if (change.events && system_event_collector_ != nullptr) {
         auto event_configuration = telemetry::EventCollectorConfiguration{};
         event_configuration.provider = event_provider_configuration(*validated_product);
 #if defined(_WIN32)
@@ -1045,12 +1134,47 @@ void Application::apply_product_settings(const ui::DashboardCommand& command) no
         system_event_collector_->reconfigure(event_configuration);
     }
     collector_->set_automatic_detection_enabled(validated_product->automatic_detection_enabled);
-    if (restart) {
+    if (restart && change.interrupts_capture()) {
         collector_->start();
-        if (system_event_collector_ != nullptr &&
+        if (change.events && system_event_collector_ != nullptr &&
             any_event_source_enabled(event_provider_configuration(*validated_product))) {
             system_event_collector_->start();
         }
+    }
+    } catch (...) {
+        bool restored = true;
+        try {
+        collector_->stop();
+        collector_->reconfigure(*telemetry::validate_recorder_configuration(previous_recorder), true);
+#if BLACKBOX_AUTOMATIC_DETECTION_ENABLED
+        static_cast<void>(automatic_detector_->reconfigure(detector_configuration(product_settings_)));
+#endif
+        collector_->set_automatic_detection_enabled(product_settings_.automatic_detection_enabled);
+        collector_->set_foreground_application_enabled(product_settings_.record_foreground_application);
+        collector_->set_process_lifecycle_enabled(product_settings_.record_process_lifecycle);
+        if (change.events && system_event_collector_ != nullptr) {
+            system_event_collector_->stop();
+            system_event_collector_->reconfigure(old_events);
+            if (events_running) system_event_collector_->start();
+        }
+        if (restart) collector_->start();
+        } catch (...) {
+            restored = false;
+            if (system_event_collector_) system_event_collector_->stop();
+            collector_->stop();
+            recorder_paused_ = true;
+        }
+        bool hotkey_restored = true;
+        if (proposed.incident_hotkey != product_settings_.incident_hotkey) {
+            hotkey_manager_->unregister_hotkey();
+            hotkey_restored = register_configured_hotkey(product_settings_.incident_hotkey);
+        }
+        recorder_settings_status_text_ = restored
+            ? "Settings could not be applied; previous recording configuration restored."
+            : "Settings recovery failed. Recording is paused; restart BlackBox before capturing.";
+        if (!hotkey_restored) recorder_settings_status_text_ += " Previous hotkey unavailable; use the capture button.";
+        next_dashboard_refresh_at_ = telemetry_clock_.now();
+        return;
     }
     if (background_shell_ != nullptr) {
         background_shell_->set_notifications_enabled(validated_product->notifications_enabled);
@@ -1184,7 +1308,8 @@ void Application::refresh_background_shell_if_due() {
         const auto writer = incident_writer_->diagnostics();
         if (writer.retrying) {
             status = platform::BackgroundShellStatus::retrying_storage;
-        } else if (writer.state == storage::WriterState::degraded) {
+        } else if (writer.state == storage::WriterState::degraded ||
+                   writer.recoverable_incident_available || writer.failed_incidents_not_retained != 0U) {
             status = platform::BackgroundShellStatus::error;
         }
         if (writer.succeeded > background_last_writer_successes_) {
@@ -1249,8 +1374,16 @@ void Application::process_background_commands(bool& running) {
         return (commands & command_bit(command)) != 0U;
     };
 
+    if (requested(platform::BackgroundShellCommand::session_ending)) {
+        request_exit(running, true);
+        return;
+    }
     if (requested(platform::BackgroundShellCommand::exit_application)) {
-        running = false;
+        request_exit(running);
+        return;
+    }
+    if (product_ui_state_.exit_confirmation_open) {
+        if (requested(platform::BackgroundShellCommand::show_window)) show_window();
         return;
     }
 #if BLACKBOX_STORAGE_ENABLED

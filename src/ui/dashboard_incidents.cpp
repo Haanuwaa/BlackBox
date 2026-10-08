@@ -1,3 +1,4 @@
+#include "ui/accessible_widgets.hpp"
 #include "ui/dashboard_incidents.hpp"
 
 #include "ui/dashboard.hpp"
@@ -17,16 +18,16 @@ namespace {
 
 void render_disabled_wrapped(const char* const text) {
     ImGui::BeginDisabled();
-    ImGui::TextWrapped("%s", text);
+    accessible::TextWrapped("%s", text);
     ImGui::EndDisabled();
 }
 
 void render_compact_decimal(const double value, const char* ordinary_format) {
     if (std::abs(value) >= 0.01) {
-        ImGui::Text(ordinary_format, value);
+        accessible::Text(ordinary_format, value);
         return;
     }
-    ImGui::Text("%.2e", value);
+    accessible::Text("%.2e", value);
 }
 
 void render_series(const char* label, const IncidentPlotSeries& series) {
@@ -62,7 +63,7 @@ void render_timeline_references(ProductUiState& product, const double incident_s
 
 void render_missing_summary(const char* label, const IncidentPlotSeries& series) {
     if (series.values.empty()) {
-        ImGui::TextDisabled("%s unavailable (unsupported %zu, inaccessible %zu, temporary %zu)",
+        accessible::TextDisabled("%s unavailable (unsupported %zu, inaccessible %zu, temporary %zu)",
                             label, series.availability.by_status[1],
                             series.availability.by_status[2], series.availability.by_status[3]);
     }
@@ -129,34 +130,34 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     synchronize_incident_editor(state);
     ImGui::Spacing();
     if (!state.content) {
-        ImGui::TextDisabled("Viewer unavailable");
+        accessible::TextDisabled("Viewer unavailable");
         return;
     }
     const auto& content = *state.content;
     if (product.page == ProductPage::incidents) {
         ImGui::SeparatorText("Saved incidents");
-        ImGui::TextDisabled("Each capture preserves the activity around a moment you want to "
+        accessible::TextDisabled("Each capture preserves the activity around a moment you want to "
                             "understand. Select one to see the explanation.");
-        ImGui::BeginChild("Incident archive surface", ImVec2{-1.0F, 304.0F},
-                          ImGuiChildFlags_Borders);
+        ImGui::BeginChild("Incident archive surface", ImVec2{-1.0F, 0.0F},
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar);
         ImGui::SetNextItemWidth(260.0F);
-        ImGui::InputTextWithHint("##incident-search", "Search labels and notes",
+        accessible::InputTextWithHint("##incident-search", "Search labels and notes",
                                  state.search.data(), state.search.size());
         ImGui::SameLine();
-        if (ImGui::Button("Search")) request_page(command, state, 0U);
+        if (accessible::Button("Search")) request_page(command, state, 0U);
         ImGui::SameLine();
         constexpr const char* order_names[]{"Newest",   "Oldest",    "Longest",
                                             "Shortest", "Label A-Z", "Label Z-A"};
         auto order_index = static_cast<int>(state.order);
         ImGui::SetNextItemWidth(130.0F);
-        if (ImGui::Combo("##incident-order", &order_index, order_names,
+        if (accessible::Combo("##incident-order", &order_index, order_names,
                          static_cast<int>(std::size(order_names)))) {
             state.order = static_cast<IncidentListOrder>(order_index);
             request_page(command, state, 0U);
         }
-        ImGui::TextDisabled("%s  |  Ctrl+R refreshes", content.status.c_str());
-        if (ImGui::CollapsingHeader("Archive query details")) {
-            ImGui::TextDisabled("Query %.2f ms | view %.2f ms | analysis %.2f ms",
+        accessible::TextDisabled("%s  |  Ctrl+R refreshes", content.status.c_str());
+        if (accessible::CollapsingHeader("Archive query details")) {
+            accessible::TextDisabled("Query %.2f ms | view %.2f ms | analysis %.2f ms",
                                 content.last_query_milliseconds, content.last_build_milliseconds,
                                 content.last_analysis_milliseconds);
         }
@@ -167,38 +168,38 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
             ImGui::Spacing();
             switch (presentation) {
             case IncidentArchivePresentation::loading:
-                ImGui::TextUnformatted("Loading saved incidents...");
-                ImGui::TextDisabled("The recorder continues while the archive "
+                accessible::TextUnformatted("Loading saved incidents...");
+                accessible::TextDisabled("The recorder continues while the archive "
                                     "view is prepared.");
                 break;
             case IncidentArchivePresentation::empty:
-                ImGui::TextUnformatted("No incidents saved yet");
-                ImGui::TextWrapped("BlackBox is still recording its bounded history. After a "
+                accessible::TextUnformatted("No incidents saved yet");
+                accessible::TextWrapped("BlackBox is still recording its bounded history. After a "
                                    "slowdown, use the configured hotkey or the Live page "
                                    "capture "
                                    "button to save what just happened.");
-                if (ImGui::Button("Go to Live capture")) product.page = ProductPage::live;
+                if (accessible::Button("Go to Live capture")) product.page = ProductPage::live;
                 break;
             case IncidentArchivePresentation::no_matches:
-                ImGui::TextUnformatted("No incidents match this search");
-                ImGui::TextWrapped("Saved evidence has not been removed. Clear the "
+                accessible::TextUnformatted("No incidents match this search");
+                accessible::TextWrapped("Saved evidence has not been removed. Clear the "
                                    "search to return to the complete local archive.");
-                if (ImGui::Button("Clear search")) {
+                if (accessible::Button("Clear search")) {
                     state.search.fill('\0');
                     request_page(command, state, 0U);
                 }
                 break;
             case IncidentArchivePresentation::unavailable:
-                ImGui::TextUnformatted("Incident archive unavailable");
-                ImGui::TextWrapped("Recording can continue in memory, but saved "
+                accessible::TextUnformatted("Incident archive unavailable");
+                accessible::TextWrapped("Recording can continue in memory, but saved "
                                    "incidents cannot be listed right now. Check "
                                    "Settings for archive health and guided recovery.");
-                ImGui::TextDisabled("%s", content.status.c_str());
-                if (ImGui::Button("Open archive recovery")) {
+                accessible::TextDisabled("%s", content.status.c_str());
+                if (accessible::Button("Open archive recovery")) {
                     product.page = ProductPage::settings;
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Retry archive view")) request_page(command, state, 0U);
+                if (accessible::Button("Retry archive view")) request_page(command, state, 0U);
                 break;
             case IncidentArchivePresentation::results:
                 break;
@@ -223,35 +224,35 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 ImGui::TableSetColumnIndex(0);
                 const auto selected = content.detail && content.detail->id == row.id;
                 const auto identity = row.created_utc + "##incident-" + std::to_string(row.id);
-                if (ImGui::Selectable(identity.c_str(), selected,
+                if (accessible::Selectable(identity.c_str(), selected,
                                       ImGuiSelectableFlags_SpanAllColumns)) {
                     command.action = DashboardAction::select_incident;
                     command.incident_id = row.id;
                     product.page = ProductPage::detail;
                 }
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.2f s", row.duration_seconds);
+                accessible::Text("%.2f s", row.duration_seconds);
                 ImGui::TableSetColumnIndex(2);
-                ImGui::TextUnformatted(row.label.empty() ? "(unlabeled)" : row.label.c_str());
+                accessible::TextUnformatted(row.label.empty() ? "(unlabeled)" : row.label.c_str());
                 ImGui::TableSetColumnIndex(3);
-                ImGui::TextUnformatted(row.note_preview.c_str());
+                accessible::TextUnformatted(row.note_preview.c_str());
                 ImGui::TableSetColumnIndex(4);
-                ImGui::Text("%zu / %zu", row.system_sample_count, row.process_sample_count);
+                accessible::Text("%zu / %zu", row.system_sample_count, row.process_sample_count);
             }
             ImGui::EndTable();
         }
         const auto page_size = incident_list_page_size;
-        if (content.offset != 0U && ImGui::Button("Previous page")) {
+        if (content.offset != 0U && accessible::Button("Previous page")) {
             request_page(command, state,
                          content.offset > page_size ? content.offset - page_size : 0U);
         }
         if (content.offset != 0U) ImGui::SameLine();
         if (content.offset + content.incidents.size() < content.total_matching &&
-            ImGui::Button("Next page")) {
+            accessible::Button("Next page")) {
             request_page(command, state, content.offset + page_size);
         }
 
-        ImGui::TextDisabled("Saved incidents are immutable evidence; labels, "
+        accessible::TextDisabled("Saved incidents are immutable evidence; labels, "
                             "notes, and classifications are separate annotations.");
         ImGui::EndChild();
         return;
@@ -259,15 +260,15 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
 
     if (product.page == ProductPage::patterns) {
         ImGui::SeparatorText("Recurring incident discovery");
-        if (ImGui::Button("Refresh recurring groups")) {
+        if (accessible::Button("Refresh recurring groups")) {
             command.action = DashboardAction::refresh_recurring_incidents;
         }
         ImGui::SameLine();
         const auto& recurring = content.recurring;
-        ImGui::TextDisabled("%s | %.2f ms", recurring.status.c_str(),
+        accessible::TextDisabled("%s | %.2f ms", recurring.status.c_str(),
                             recurring.elapsed_milliseconds);
         if (recurring.state == RecurringIncidentViewState::ready) {
-            ImGui::TextDisabled("Feature v%d | %zu incidents | %zu cached | %zu recomputed | "
+            accessible::TextDisabled("Feature v%d | %zu incidents | %zu cached | %zu recomputed | "
                                 "%zu "
                                 "noise",
                                 recurring.feature_version, recurring.incidents_considered,
@@ -279,8 +280,8 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 const auto heading = group.name + " (" + std::to_string(group.members.size()) +
                                      " occurrences)##recurring-" + std::to_string(group_index);
                 if (!ImGui::TreeNode(heading.c_str())) continue;
-                ImGui::TextWrapped("Shared evidence: %s", group.shared_evidence.c_str());
-                ImGui::TextDisabled("%s grouping | maximum member distance %.3f",
+                accessible::TextWrapped("Shared evidence: %s", group.shared_evidence.c_str());
+                accessible::TextDisabled("%s grouping | maximum member distance %.3f",
                                     group.manually_overridden ? "User-overridden" : "Automatic",
                                     group.maximum_pair_distance);
                 for (const auto& member : group.members) {
@@ -292,7 +293,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                         product.page = ProductPage::detail;
                     }
                     ImGui::SameLine();
-                    ImGui::TextUnformatted((member.created_utc + " | " +
+                    accessible::TextUnformatted((member.created_utc + " | " +
                                             (member.label.empty() ? "(unlabeled)" : member.label))
                                                .c_str());
                     ImGui::PopID();
@@ -309,7 +310,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                         product.page = ProductPage::detail;
                     }
                     ImGui::SameLine();
-                    ImGui::TextUnformatted((member.created_utc + " | " +
+                    accessible::TextUnformatted((member.created_utc + " | " +
                                             (member.label.empty() ? "(unlabeled)" : member.label))
                                                .c_str());
                     ImGui::PopID();
@@ -318,7 +319,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
             }
         }
 
-        ImGui::TextWrapped("Groups describe similar recorded evidence. They do "
+        accessible::TextWrapped("Groups describe similar recorded evidence. They do "
                            "not prove that one "
                            "process or resource caused each incident.");
         return;
@@ -326,14 +327,14 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
 
     if (!content.detail) {
         ImGui::SeparatorText("No incident selected");
-        ImGui::TextWrapped("Choose a saved incident to inspect its timeline, "
+        accessible::TextWrapped("Choose a saved incident to inspect its timeline, "
                            "likely contributors, "
                            "and the uncertainty attached to each explanation.");
-        if (ImGui::Button("Browse saved incidents")) {
+        if (accessible::Button("Browse saved incidents")) {
             product.page = ProductPage::incidents;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Return to live recorder")) {
+        if (accessible::Button("Return to live recorder")) {
             product.page = ProductPage::live;
         }
         return;
@@ -344,101 +345,103 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         if (ImGui::BeginTable("Evidence reading guide", 3,
                               ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchSame)) {
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("What was recorded");
-            ImGui::TextWrapped("Measurements and event timing saved by the recorder.");
+            accessible::TextUnformatted("What was recorded");
+            accessible::TextWrapped("Measurements and event timing saved by the recorder.");
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("What may explain it");
-            ImGui::TextWrapped("A local statistical explanation that fits the evidence.");
+            accessible::TextUnformatted("What may explain it");
+            accessible::TextWrapped("A local statistical explanation that fits the evidence.");
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted("What remains uncertain");
-            ImGui::TextWrapped("Missing evidence and plausible alternatives stay visible.");
+            accessible::TextUnformatted("What remains uncertain");
+            accessible::TextWrapped("Missing evidence and plausible alternatives stay visible.");
             ImGui::EndTable();
         }
         ImGui::TreePop();
     }
-    ImGui::BeginChild("Incident explanation", ImVec2{-1.0F, 218.0F}, ImGuiChildFlags_Borders);
+    ImGui::BeginChild("Incident explanation", ImVec2{-1.0F, 0.0F},
+                      ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar);
     const auto& headline_analysis = detail.analysis;
     if (headline_analysis.pressure.available) {
-        ImGui::TextWrapped(
+        accessible::TextWrapped(
             "Observed pressure: %s via %s (%.0f%%)", headline_analysis.pressure.resource.c_str(),
             headline_analysis.pressure.metric.c_str(), headline_analysis.pressure.score * 100.0);
     } else {
-        ImGui::TextWrapped("Observed pressure: No resource cleared the "
+        accessible::TextWrapped("Observed pressure: No resource cleared the "
                            "practical-effect floor");
     }
     if (headline_analysis.diagnosis.available) {
-        ImGui::TextWrapped("Likely symptom: %s",
+        accessible::TextWrapped("Likely symptom: %s",
                            headline_analysis.diagnosis.incident_type.c_str());
-        ImGui::TextWrapped("Possible contributor: %s",
+        accessible::TextWrapped("Possible contributor: %s",
                            headline_analysis.diagnosis.primary_contributor.empty()
                                ? "No process cleared the evidence threshold"
                                : headline_analysis.diagnosis.primary_contributor.c_str());
-        ImGui::Text("Confidence: %s (%.0f%% calibrated; %.0f%% evidence coverage)",
+        accessible::Text("Confidence: %s (%.0f%% calibrated; %.0f%% evidence coverage)",
                     headline_analysis.diagnosis.confidence.c_str(),
                     headline_analysis.diagnosis.calibrated_confidence * 100.0,
                     headline_analysis.diagnosis.evidence_coverage * 100.0);
         if (!headline_analysis.diagnosis.evidence.empty()) {
-            ImGui::TextWrapped("Key evidence: %s",
+            accessible::TextWrapped("Key evidence: %s",
                                headline_analysis.diagnosis.evidence.front().c_str());
         }
-        ImGui::TextDisabled("Basis: %s. Pressure and contributors remain "
+        accessible::TextDisabled("Basis: %s. Pressure and contributors remain "
                             "correlation, not proof of cause.",
                             headline_analysis.diagnosis.basis.c_str());
     } else {
-        ImGui::TextWrapped(headline_analysis.diagnosis.suppressed_by_feedback
+        accessible::TextWrapped(headline_analysis.diagnosis.suppressed_by_feedback
                                ? "Likely symptom: Unknown - repeated matching triggers "
                                  "were "
                                  "not noticed"
                                : "Likely symptom: Unknown - no independent alignment");
-        ImGui::TextWrapped("Possible contributor: Not enough evidence to rank reliably");
-        ImGui::TextWrapped("Confidence: Low - inspect the timelines and "
+        accessible::TextWrapped("Possible contributor: Not enough evidence to rank reliably");
+        accessible::TextWrapped("Confidence: Low - inspect the timelines and "
                            "availability notes below");
     }
     if (!headline_analysis.contributors.empty()) {
         ImGui::Spacing();
-        ImGui::TextUnformatted("What stood out");
+        accessible::TextUnformatted("What stood out");
         const auto visible = std::min<std::size_t>(3U, headline_analysis.contributors.size());
         for (std::size_t index = 0U; index < visible; ++index) {
             const auto& contributor = headline_analysis.contributors[index];
             ImGui::BulletText("%s - %s", contributor.name.c_str(), contributor.assessment.c_str());
         }
     }
-    ImGui::Text("Captured %s | requested %.2f to %.2f s | actual %.2f to %.2f s "
+    accessible::Text("Captured %s | requested %.2f to %.2f s | actual %.2f to %.2f s "
                 "| triggers %u",
                 detail.created_utc.c_str(), detail.requested_start_seconds,
                 detail.requested_end_seconds, detail.actual_start_seconds,
                 detail.actual_end_seconds, detail.trigger_count);
     ImGui::EndChild();
     ImGui::Spacing();
-    if (ImGui::CollapsingHeader("Export readable incident summary")) {
+    if (accessible::CollapsingHeader("Export readable incident summary")) {
         detail::render_path_input("New summary text file", product.summary_path,
                                   PathField::summary, product, command);
-        ImGui::Checkbox("Include saved label and note", &product.summary_include_annotations);
-        ImGui::TextWrapped("Exports coverage, observed metrics, and explanation uncertainty. Review the text before sharing it.");
-        if (ImGui::Button("Export summary")) command.action = DashboardAction::export_summary;
-        if (!product.file_dialog_status.empty()) ImGui::TextWrapped("%s", product.file_dialog_status.c_str());
+        accessible::Checkbox("Include saved label and note", &product.summary_include_annotations);
+        accessible::TextWrapped("Exports coverage, observed metrics, and explanation uncertainty. Review the text before sharing it.");
+        if (accessible::Button("Export summary")) command.action = DashboardAction::export_summary;
+        if (!product.file_dialog_status.empty()) accessible::TextWrapped("%s", product.file_dialog_status.c_str());
     }
-    ImGui::BeginChild("Incident annotations", ImVec2{-1.0F, 300.0F}, ImGuiChildFlags_Borders);
-    ImGui::TextUnformatted("Annotation and recurring group");
-    ImGui::TextDisabled("Annotations are editable metadata; the captured "
+    ImGui::BeginChild("Incident annotations", ImVec2{-1.0F, 0.0F},
+                      ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_NoScrollbar);
+    accessible::TextUnformatted("Annotation and recurring group");
+    accessible::TextDisabled("Annotations are editable metadata; the captured "
                         "evidence remains immutable.");
-    ImGui::TextUnformatted("Label");
+    accessible::TextUnformatted("Label");
     ImGui::SetNextItemWidth(-1.0F);
-    ImGui::InputText("##incident-label", state.label_editor.data(), state.label_editor.size());
-    ImGui::TextUnformatted("Note");
-    ImGui::InputTextMultiline("##incident-note", state.note_editor.data(), state.note_editor.size(),
+    accessible::InputText("##incident-label", state.label_editor.data(), state.label_editor.size());
+    accessible::TextUnformatted("Note");
+    accessible::InputTextMultiline("##incident-note", state.note_editor.data(), state.note_editor.size(),
                               ImVec2{-1.0F, 70.0F});
     constexpr const char* category_names[] = {"Unknown",      "System freeze",
                                               "Game stutter", "Application slowdown/hang",
                                               "Network",      "Audio"};
     auto category_index = static_cast<int>(state.category_editor);
-    ImGui::TextUnformatted("Incident category");
+    accessible::TextUnformatted("Incident category");
     ImGui::SetNextItemWidth(260.0F);
-    if (ImGui::Combo("##incident-category", &category_index, category_names,
+    if (accessible::Combo("##incident-category", &category_index, category_names,
                      static_cast<int>(std::size(category_names)))) {
         state.category_editor = static_cast<IncidentCategory>(category_index);
     }
-    if (ImGui::Button("Save incident details")) {
+    if (accessible::Button("Save incident details")) {
         command.action = DashboardAction::save_incident_annotation;
         command.incident_id = detail.id;
         command.label = state.label_editor.data();
@@ -446,41 +449,41 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         command.incident_feedback = detail.user_feedback;
         command.incident_category = state.category_editor;
     }
-    ImGui::TextUnformatted("Recurring group override");
+    accessible::TextUnformatted("Recurring group override");
     ImGui::SetNextItemWidth(260.0F);
-    ImGui::InputTextWithHint("##recurring-group-override", "Optional user group name",
+    accessible::InputTextWithHint("##recurring-group-override", "Optional user group name",
                              state.recurring_group_override_editor.data(),
                              state.recurring_group_override_editor.size());
-    if (ImGui::Button("Save recurring override")) {
+    if (accessible::Button("Save recurring override")) {
         command.action = DashboardAction::save_recurring_group_override;
         command.incident_id = detail.id;
         command.recurring_group_override = state.recurring_group_override_editor.data();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Return to automatic grouping")) {
+    if (accessible::Button("Return to automatic grouping")) {
         state.recurring_group_override_editor.fill('\0');
         command.action = DashboardAction::save_recurring_group_override;
         command.incident_id = detail.id;
         command.recurring_group_override.clear();
     }
-    ImGui::TextDisabled("Matching non-empty names force incidents into one "
+    accessible::TextDisabled("Matching non-empty names force incidents into one "
                         "user-overridden group.");
     ImGui::EndChild();
 
     if (detail.automatic_trigger_count != 0U) {
-        ImGui::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
+        accessible::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
                            "Automatically captured for %s: %s (%u automatic, "
                            "%u manual trigger%s)",
                            automatic_resource_text(detail.automatic_resource),
                            automatic_signal_text(detail.automatic_signal),
                            detail.automatic_trigger_count, detail.manual_trigger_count,
                            detail.manual_trigger_count == 1U ? "" : "s");
-        ImGui::TextDisabled("Observed %.3g | baseline %.3g | detector score %.2f",
+        accessible::TextDisabled("Observed %.3g | baseline %.3g | detector score %.2f",
                             detail.automatic_observed_value, detail.automatic_baseline_value,
                             detail.automatic_score);
         if (detail.user_feedback == IncidentFeedback::unanswered) {
-            ImGui::TextUnformatted("Did you notice a problem at this time?");
-            if (ImGui::Button("Yes, I noticed a problem")) {
+            accessible::TextUnformatted("Did you notice a problem at this time?");
+            if (accessible::Button("Yes, I noticed a problem")) {
                 command.action = DashboardAction::save_incident_feedback;
                 command.incident_id = detail.id;
                 command.label = state.label_editor.data();
@@ -489,7 +492,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 command.incident_category = state.category_editor;
             }
             ImGui::SameLine();
-            if (ImGui::Button("No, I did not notice one")) {
+            if (accessible::Button("No, I did not notice one")) {
                 command.action = DashboardAction::save_incident_feedback;
                 command.incident_id = detail.id;
                 command.label = state.label_editor.data();
@@ -498,7 +501,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 command.incident_category = state.category_editor;
             }
         } else {
-            ImGui::TextDisabled("Feedback retained: %s",
+            accessible::TextDisabled("Feedback retained: %s",
                                 detail.user_feedback == IncidentFeedback::noticed_problem
                                     ? "problem noticed"
                                     : "no problem noticed");
@@ -506,34 +509,34 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     }
 
     ImGui::Spacing();
-    if (!ImGui::CollapsingHeader("Inspect timelines, factors, and raw evidence")) {
+    if (!accessible::CollapsingHeader("Inspect timelines, factors, and raw evidence")) {
         return;
     }
     ImGui::SeparatorText("Potential contributors");
     const auto& analysis = detail.analysis;
     if (analysis.state == IncidentAnalysisViewState::disabled) {
-        ImGui::TextDisabled("Analysis disabled; recording and viewing are unchanged.");
+        accessible::TextDisabled("Analysis disabled; recording and viewing are unchanged.");
     } else if (analysis.state == IncidentAnalysisViewState::error) {
-        ImGui::TextColored(ImVec4{1.0F, 0.45F, 0.35F, 1.0F}, "%s", analysis.status.c_str());
+        accessible::TextColored(ImVec4{1.0F, 0.45F, 0.35F, 1.0F}, "%s", analysis.status.c_str());
     } else {
-        ImGui::TextWrapped("%s", analysis.status.c_str());
+        accessible::TextWrapped("%s", analysis.status.c_str());
         ImGui::SeparatorText("Observed resource pressure");
         if (analysis.pressure.available) {
-            ImGui::Text("%s via %s - %.1f%% practical pressure score",
+            accessible::Text("%s via %s - %.1f%% practical pressure score",
                         analysis.pressure.resource.c_str(), analysis.pressure.metric.c_str(),
                         analysis.pressure.score * 100.0);
-            ImGui::TextWrapped("%s", analysis.pressure.evidence.c_str());
-            ImGui::TextDisabled("This pressure was measured near the marker. It may "
+            accessible::TextWrapped("%s", analysis.pressure.evidence.c_str());
+            accessible::TextDisabled("This pressure was measured near the marker. It may "
                                 "be unrelated to the reported symptom.");
         } else {
-            ImGui::TextDisabled("No resource metric cleared its practical-effect "
+            accessible::TextDisabled("No resource metric cleared its practical-effect "
                                 "floor. Raw statistical evidence remains below.");
         }
         ImGui::SeparatorText("Symptom explanation");
         if (analysis.diagnosis.pipeline_version == 0U) {
-            ImGui::TextDisabled("This analyzer does not emit the versioned explanation model.");
+            accessible::TextDisabled("This analyzer does not emit the versioned explanation model.");
         } else if (!analysis.diagnosis.available) {
-            ImGui::TextDisabled(analysis.diagnosis.suppressed_by_feedback
+            accessible::TextDisabled(analysis.diagnosis.suppressed_by_feedback
                                     ? "Unknown: bounded local feedback suppressed this "
                                       "automatic-trigger assertion. Raw evidence remains "
                                       "inspectable "
@@ -541,26 +544,26 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                                     : "Unknown: observed pressure did not align with an "
                                       "independent "
                                       "symptom signal. Evidence remains inspectable below.");
-            ImGui::TextDisabled(
+            accessible::TextDisabled(
                 "Pipeline v%u / evidence v%u / configuration %016llx | %s",
                 analysis.diagnosis.pipeline_version, analysis.diagnosis.evidence_model_version,
                 static_cast<unsigned long long>(analysis.diagnosis.configuration_fingerprint),
                 analysis.diagnosis.inference.c_str());
         } else {
-            ImGui::Text("%s - %s (%.1f%% calibrated)", analysis.diagnosis.incident_type.c_str(),
+            accessible::Text("%s - %s (%.1f%% calibrated)", analysis.diagnosis.incident_type.c_str(),
                         analysis.diagnosis.confidence.c_str(),
                         analysis.diagnosis.calibrated_confidence * 100.0);
-            ImGui::TextWrapped("Explanation basis: %s", analysis.diagnosis.basis.c_str());
-            ImGui::TextWrapped("This is a probabilistic local symptom explanation, "
+            accessible::TextWrapped("Explanation basis: %s", analysis.diagnosis.basis.c_str());
+            accessible::TextWrapped("This is a probabilistic local symptom explanation, "
                                "not proof of cause. Every factor below "
                                "references recorded evidence; correlated factors are "
                                "explicitly penalized.");
             if (!analysis.diagnosis.primary_contributor.empty()) {
-                ImGui::TextWrapped("Highest aligned preceding contributor: %s (correlation "
+                accessible::TextWrapped("Highest aligned preceding contributor: %s (correlation "
                                    "only)",
                                    analysis.diagnosis.primary_contributor.c_str());
             }
-            ImGui::TextDisabled(
+            accessible::TextDisabled(
                 "Evidence coverage %.0f%% | correlated-evidence penalty %.1f%% "
                 "| "
                 "pipeline v%u / evidence v%u / configuration %016llx | %s",
@@ -575,11 +578,11 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         }
         if (analysis.feedback.applicable) {
             ImGui::SeparatorText("Local feedback calibration");
-            ImGui::TextWrapped("%s", analysis.feedback.status.c_str());
+            accessible::TextWrapped("%s", analysis.feedback.status.c_str());
         }
         if (analysis.similar_incidents.applicable) {
             ImGui::SeparatorText("Confirmed similar incidents");
-            ImGui::TextWrapped("%s", analysis.similar_incidents.status.c_str());
+            accessible::TextWrapped("%s", analysis.similar_incidents.status.c_str());
             if (analysis.similar_incidents.ready) {
                 render_disabled_wrapped("Historical context only. It does not change this "
                                         "diagnosis, "
@@ -595,23 +598,23 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         }
         if (analysis.feedback.applicable || analysis.similar_incidents.applicable) {
             ImGui::SeparatorText("Feedback influence controls");
-            ImGui::TextDisabled("Profile revision %llu%s",
+            accessible::TextDisabled("Profile revision %llu%s",
                                 static_cast<unsigned long long>(analysis.feedback.profile_revision),
                                 analysis.feedback.reset_after_utc_milliseconds > 0
                                     ? " | reset baseline active"
                                     : "");
-            ImGui::Checkbox("Confirm reset of learned feedback influence",
+            accessible::Checkbox("Confirm reset of learned feedback influence",
                             &product.feedback_reset_confirmed);
             const bool feedback_reset_disabled = !product.feedback_reset_confirmed;
             if (feedback_reset_disabled) ImGui::BeginDisabled();
-            if (ImGui::Button("Reset feedback influence")) {
+            if (accessible::Button("Reset feedback influence")) {
                 command.action = DashboardAction::reset_feedback_profile;
                 product.feedback_reset_confirmed = false;
             }
             if (feedback_reset_disabled) ImGui::EndDisabled();
             if (analysis.feedback.rollback_available) {
                 ImGui::SameLine();
-                if (ImGui::Button("Undo last reset")) {
+                if (accessible::Button("Undo last reset")) {
                     command.action = DashboardAction::rollback_feedback_profile_reset;
                     product.feedback_reset_confirmed = false;
                 }
@@ -621,7 +624,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                                     "Similar-incident context uses only "
                                     "bounded prior confirmations from "
                                     "automatic recurrence groups.");
-            ImGui::TextWrapped("Resetting stops older feedback from "
+            accessible::TextWrapped("Resetting stops older feedback from "
                                "influencing future diagnoses or "
                                "historical context. "
                                "It preserves every incident, annotation, and "
@@ -629,13 +632,13 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         }
         ImGui::SeparatorText("Probabilistic workload context");
         if (!analysis.context.enabled) {
-            ImGui::TextDisabled("Context recognition is disabled; anomaly "
+            accessible::TextDisabled("Context recognition is disabled; anomaly "
                                 "scores are unadjusted.");
         } else {
-            ImGui::Text("%s (%.0f%% probability, %.0f%% uncertainty)",
+            accessible::Text("%s (%.0f%% probability, %.0f%% uncertainty)",
                         analysis.context.primary.c_str(), analysis.context.confidence * 100.0,
                         analysis.context.uncertainty * 100.0);
-            ImGui::TextWrapped("Context is an uncertain local heuristic, not a "
+            accessible::TextWrapped("Context is an uncertain local heuristic, not a "
                                "record of user intent. "
                                "It can only softly reduce workload-expected anomaly "
                                "ranks; raw evidence remains visible.");
@@ -648,9 +651,9 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 for (const auto& probability : analysis.context.probabilities) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(probability.name.c_str());
+                    accessible::TextUnformatted(probability.name.c_str());
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.1f%%", probability.probability * 100.0);
+                    accessible::Text("%.1f%%", probability.probability * 100.0);
                 }
                 ImGui::EndTable();
             }
@@ -658,7 +661,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 ImGui::BulletText("%s", evidence.c_str());
             }
         }
-        ImGui::TextWrapped("Contributor ranks combine correlation evidence; they "
+        accessible::TextWrapped("Contributor ranks combine correlation evidence; they "
                            "do not prove causation. "
                            "Marker-spanning activity is ambiguous; post-marker "
                            "activity is shown as a possible "
@@ -670,7 +673,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                                 "Positive learning requires that the attributed "
                                 "activity genuinely preceded its marker.");
         if (analysis.contributors.empty()) {
-            ImGui::TextDisabled("No process has sufficient anomaly evidence for "
+            accessible::TextDisabled("No process has sufficient anomaly evidence for "
                                 "contributor ranking.");
         } else if (ImGui::BeginTable("Contributor ranking", 5,
                                      ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
@@ -686,13 +689,13 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 ImGui::PushID(static_cast<int>(index));
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%s (%.0f%%)", row.name.c_str(), row.score * 100.0);
+                accessible::Text("%s (%.0f%%)", row.name.c_str(), row.score * 100.0);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextWrapped("%s", row.assessment.c_str());
+                accessible::TextWrapped("%s", row.assessment.c_str());
                 ImGui::TableSetColumnIndex(2);
-                ImGui::TextWrapped("%s", row.timing.c_str());
+                accessible::TextWrapped("%s", row.timing.c_str());
                 ImGui::TableSetColumnIndex(3);
-                ImGui::TextWrapped("%s", row.evidence.c_str());
+                accessible::TextWrapped("%s", row.evidence.c_str());
                 if (row.feedback_multiplier != 1.0) {
                     char calibration[128]{};
                     std::snprintf(calibration, sizeof(calibration),
@@ -707,7 +710,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 auto attribution = static_cast<int>(row.attribution);
                 ImGui::BeginDisabled(row.executable_key.empty());
                 ImGui::SetNextItemWidth(-1.0F);
-                if (ImGui::Combo("##ContributorAttribution", &attribution, attribution_names,
+                if (accessible::Combo("##ContributorAttribution", &attribution, attribution_names,
                                  static_cast<int>(std::size(attribution_names)))) {
                     command.action = DashboardAction::save_contributor_feedback;
                     command.incident_id = detail.id;
@@ -725,13 +728,13 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         }
 
         ImGui::SeparatorText("Statistical and personalized anomaly ranking");
-        ImGui::TextDisabled("Baseline %.1f to %.1f s | evaluation %.1f to %.1f s | missing "
+        accessible::TextDisabled("Baseline %.1f to %.1f s | evaluation %.1f to %.1f s | missing "
                             "values "
                             "%zu",
                             analysis.baseline_start_seconds, analysis.baseline_end_seconds,
                             analysis.evaluation_start_seconds, analysis.evaluation_end_seconds,
                             analysis.missing_values);
-        ImGui::TextDisabled("Scores describe unusual behavior, not proven "
+        accessible::TextDisabled("Scores describe unusual behavior, not proven "
                             "causation. Confidence reflects baseline coverage.");
         const auto render_ranking = [](const char* table_id,
                                        const std::vector<IncidentAnomalyRow>& rows,
@@ -749,20 +752,20 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 for (const auto& row : rows) {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(row.name.c_str());
+                    accessible::TextUnformatted(row.name.c_str());
                     ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.1f%%", row.score * 100.0);
+                    accessible::Text("%.1f%%", row.score * 100.0);
                     ImGui::TableSetColumnIndex(2);
-                    ImGui::TextUnformatted(row.confidence.c_str());
+                    accessible::TextUnformatted(row.confidence.c_str());
                     ImGui::TableSetColumnIndex(3);
-                    ImGui::TextWrapped("%s", row.evidence.c_str());
+                    accessible::TextWrapped("%s", row.evidence.c_str());
                 }
                 ImGui::EndTable();
             }
         };
         render_ranking("Resource anomaly ranking", analysis.resources, 130.0F);
         if (!analysis.processes.empty()) {
-            ImGui::TextDisabled("Top process candidates (personalized when history "
+            accessible::TextDisabled("Top process candidates (personalized when history "
                                 "is ready; bounded to %zu)",
                                 incident_analysis_process_capacity);
             render_ranking("Process anomaly ranking", analysis.processes, 190.0F);
@@ -782,23 +785,23 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         product.timeline_max = x_max;
         clear_timeline_cursor(product);
     }
-    if (ImGui::Button("Reset timeline zoom")) {
+    if (accessible::Button("Reset timeline zoom")) {
         product.timeline_min = x_min;
         product.timeline_max = x_max;
     }
     if (product.timeline_cursor_visible) {
         ImGui::SameLine();
-        if (ImGui::Button("Clear synchronized cursor")) {
+        if (accessible::Button("Clear synchronized cursor")) {
             clear_timeline_cursor(product);
         }
     }
     ImGui::SameLine();
-    ImGui::TextDisabled("Pan, wheel-zoom, or hover any timeline; zoom and cursor "
+    accessible::TextDisabled("Pan, wheel-zoom, or hover any timeline; zoom and cursor "
                         "stay synchronized.");
     if (product.timeline_cursor_visible) {
-        ImGui::Text("Synchronized cursor: %+.2f s from incident", product.timeline_cursor_seconds);
+        accessible::Text("Synchronized cursor: %+.2f s from incident", product.timeline_cursor_seconds);
     } else {
-        ImGui::TextDisabled("Hover a timeline to inspect the same moment across every plot.");
+        accessible::TextDisabled("Hover a timeline to inspect the same moment across every plot.");
     }
     if (ImPlot::BeginPlot("System utilization", ImVec2{-1.0F, 210.0F})) {
         ImPlot::SetupAxes("Seconds from event", "Percent");
@@ -827,7 +830,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Network receive", detail.network_receive_mib_per_second);
     render_missing_summary("Network transmit", detail.network_transmit_mib_per_second);
 
-    ImGui::TextWrapped("Physical-disk quality is measured below the process I/O layer. A "
+    accessible::TextWrapped("Physical-disk quality is measured below the process I/O layer. A "
                        "process doing I/O may correlate with a stall, but its byte count does "
                        "not prove it caused device latency or queueing.");
     if (ImPlot::BeginPlot("Physical storage quality", ImVec2{-1.0F, 210.0F})) {
@@ -846,7 +849,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Physical-disk service concurrency",
                            detail.disk_service_concurrency);
 
-    ImGui::TextWrapped("Network quality is passive, host-wide evidence. Connectivity state, "
+    accessible::TextWrapped("Network quality is passive, host-wide evidence. Connectivity state, "
                        "interface transitions, TCP retransmissions, failed opens, and resets "
                        "do "
                        "not identify an application, remote endpoint, physical packet loss, "
@@ -870,7 +873,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Connectivity", detail.network_connectivity_level);
     render_missing_summary("TCP retransmission", detail.network_tcp_retransmit_percent);
 
-    ImGui::TextWrapped("GPU utilization is the busiest physical engine, not a sum across "
+    accessible::TextWrapped("GPU utilization is the busiest physical engine, not a sum across "
                        "engines. A foreground GPU drop may describe a victim waiting for "
                        "work; "
                        "foreground identity and timing are correlations, never causal proof.");
@@ -887,7 +890,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("GPU engine", detail.gpu_percent);
     render_missing_summary("GPU memory", detail.gpu_dedicated_memory_mib);
 
-    ImGui::TextWrapped("Where the platform exposes them, DPC and interrupt time can show "
+    accessible::TextWrapped("Where the platform exposes them, DPC and interrupt time can show "
                        "pressure on time-sensitive audio or rendering threads, but aggregate "
                        "activity cannot identify a driver. CPU thermal evidence is "
                        "platform-specific context; a limit or pressure state is not a "
@@ -908,7 +911,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("DPC/ISR", detail.dpc_percent);
     render_missing_summary("CPU thermal limit", detail.cpu_thermal_limit_percent);
 
-    ImGui::TextWrapped("Pressure is exact interval stall time where the platform "
+    accessible::TextWrapped("Pressure is exact interval stall time where the platform "
                        "exposes cumulative counters; it is not utilization or "
                        "proof of a cause. Thermal pressure is a separate coarse "
                        "platform state and is never relabeled as PSI. Memory pressure is a "
@@ -932,7 +935,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Thermal pressure state", detail.thermal_pressure_state);
     render_missing_summary("Memory pressure state", detail.memory_pressure_state);
 
-    ImGui::TextWrapped("Virtual-memory activity is a gauge plus interval rates from kernel VM "
+    accessible::TextWrapped("Virtual-memory activity is a gauge plus interval rates from kernel VM "
                        "counters. It is useful paging/compression context, but it is not a "
                        "PSI-style stall fraction. Scheduler delay measures BlackBox's own "
                        "utility-timer wake-up delay and is likewise context, not system-wide "
@@ -954,7 +957,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     render_missing_summary("Scheduler wake delay", detail.scheduler_delay_milliseconds);
 
     ImGui::SeparatorText("Foreground and system-event evidence");
-    ImGui::TextDisabled("The recorder never stores window titles, Event Log messages/payloads, "
+    accessible::TextDisabled("The recorder never stores window titles, Event Log messages/payloads, "
                         "device/audio IDs, or storage addresses.");
     if (!detail.foreground_applications.empty() &&
         ImGui::BeginTable("Foreground transitions", 3,
@@ -966,20 +969,20 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         for (const auto& row : detail.foreground_applications) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%+.2f s", row.seconds_from_event);
+            accessible::Text("%+.2f s", row.seconds_from_event);
             ImGui::TableSetColumnIndex(1);
             if (row.has_process_identity) {
-                ImGui::Text("%s (PID %u)", row.name.c_str(), row.identity.pid);
+                accessible::Text("%s (PID %u)", row.name.c_str(), row.identity.pid);
             } else {
-                ImGui::TextUnformatted(row.name.c_str());
+                accessible::TextUnformatted(row.name.c_str());
             }
             ImGui::TableSetColumnIndex(2);
-            row.gpu_available ? ImGui::Text("%.1f%%", row.gpu_percent) : ImGui::TextDisabled("N/A");
+            row.gpu_available ? accessible::Text("%.1f%%", row.gpu_percent) : accessible::TextDisabled("N/A");
         }
         ImGui::EndTable();
     }
     if (detail.system_events.empty()) {
-        ImGui::TextDisabled("No enabled system-event source delivered an event "
+        accessible::TextDisabled("No enabled system-event source delivered an event "
                             "in this window.");
     } else if (ImGui::BeginTable("System event evidence", 4,
                                  ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg |
@@ -993,20 +996,20 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
         for (const auto& row : detail.system_events) {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%+.2f s", row.seconds_from_event);
+            accessible::Text("%+.2f s", row.seconds_from_event);
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(row.source.c_str());
+            accessible::TextUnformatted(row.source.c_str());
             ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(row.event.c_str());
+            accessible::TextUnformatted(row.event.c_str());
             ImGui::TableSetColumnIndex(3);
-            ImGui::Text("%s / %u", row.level.c_str(), row.native_event_id);
+            accessible::Text("%s / %u", row.level.c_str(), row.native_event_id);
         }
         ImGui::EndTable();
     }
 
     ImGui::SeparatorText("Incident processes");
     auto process_view_changed =
-        ImGui::InputTextWithHint("##incident-process-filter", "Filter name, path, or PID",
+        accessible::InputTextWithHint("##incident-process-filter", "Filter name, path, or PID",
                                  state.process_filter.data(), state.process_filter.size());
     ImGui::SameLine();
     constexpr const char* process_sort_names[]{"Name",        "PID",       "Peak CPU",
@@ -1014,19 +1017,19 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
     auto process_sort_index = static_cast<int>(state.process_sort);
     ImGui::SetNextItemWidth(130.0F);
     process_view_changed =
-        ImGui::Combo("##incident-process-sort", &process_sort_index, process_sort_names,
+        accessible::Combo("##incident-process-sort", &process_sort_index, process_sort_names,
                      static_cast<int>(std::size(process_sort_names))) ||
         process_view_changed;
     state.process_sort = static_cast<IncidentProcessSort>(process_sort_index);
     ImGui::SameLine();
     process_view_changed =
-        ImGui::Checkbox("Ascending", &state.process_sort_ascending) || process_view_changed;
+        accessible::Checkbox("Ascending", &state.process_sort_ascending) || process_view_changed;
     if (process_view_changed || state.visible_process_indices.empty()) {
         state.visible_process_indices =
             filter_and_sort_processes(detail.processes, state.process_filter.data(),
                                       state.process_sort, state.process_sort_ascending);
     }
-    ImGui::TextDisabled("Showing %zu of %zu identities (bounded to %zu)",
+    accessible::TextDisabled("Showing %zu of %zu identities (bounded to %zu)",
                         state.visible_process_indices.size(), detail.processes.size(),
                         incident_process_visible_capacity);
     if (ImGui::BeginTable("Incident process table", 7,
@@ -1051,7 +1054,7 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                             "-" + std::to_string(process.identity.creation_token);
             const auto selected =
                 detail.selected_process && *detail.selected_process == process.identity;
-            if (ImGui::Selectable(id.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
+            if (accessible::Selectable(id.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
                 command.action = DashboardAction::select_incident_process;
                 command.incident_id = detail.id;
                 command.process_identity = process.identity;
@@ -1060,24 +1063,24 @@ void render_incident_viewer_impl(IncidentViewerState& state, DashboardCommand& c
                 ImGui::SetTooltip("%s", process.executable_path.c_str());
             }
             ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%u", process.identity.pid);
+            accessible::Text("%u", process.identity.pid);
             ImGui::TableSetColumnIndex(2);
-            ImGui::Text("%zu", process.sample_count);
+            accessible::Text("%zu", process.sample_count);
             ImGui::TableSetColumnIndex(3);
-            process.cpu_available ? ImGui::Text("%.1f%%", process.peak_cpu_percent)
-                                  : ImGui::TextDisabled("N/A");
+            process.cpu_available ? accessible::Text("%.1f%%", process.peak_cpu_percent)
+                                  : accessible::TextDisabled("N/A");
             ImGui::TableSetColumnIndex(4);
             process.working_set_available
                 ? render_compact_decimal(process.peak_working_set_mib, "%.1f")
-                : ImGui::TextDisabled("N/A");
+                : accessible::TextDisabled("N/A");
             ImGui::TableSetColumnIndex(5);
             process.disk_read_available
                 ? render_compact_decimal(process.peak_disk_read_mib_per_second, "%.2f")
-                : ImGui::TextDisabled("N/A");
+                : accessible::TextDisabled("N/A");
             ImGui::TableSetColumnIndex(6);
             process.disk_write_available
                 ? render_compact_decimal(process.peak_disk_write_mib_per_second, "%.2f")
-                : ImGui::TextDisabled("N/A");
+                : accessible::TextDisabled("N/A");
         }
         ImGui::EndTable();
     }

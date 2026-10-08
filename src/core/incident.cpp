@@ -53,14 +53,29 @@ void IncidentCaptureCoordinator::stop_accepting() noexcept {
     }
 }
 
+void IncidentCaptureCoordinator::set_backpressure(const bool blocked) noexcept {
+    const std::scoped_lock lock{mutex_};
+    backpressure_ = blocked;
+}
+
+void IncidentCaptureCoordinator::set_requests_enabled(const bool enabled) noexcept {
+    const std::scoped_lock lock{mutex_};
+    requests_enabled_ = enabled;
+}
+
 IncidentCaptureRequestResult IncidentCaptureCoordinator::request(
     const MonotonicTimePoint event_time,
     const std::chrono::nanoseconds pre_window,
     const std::chrono::nanoseconds post_window,
     const IncidentCaptureTrigger trigger) noexcept {
     const std::scoped_lock lock{mutex_};
-    if (!accepting_) {
+    if (!accepting_ || !requests_enabled_) {
         return IncidentCaptureRequestResult::stopped;
+    }
+    if (backpressure_) {
+        ++queue_rejections_;
+        last_request_rejected_ = true;
+        return IncidentCaptureRequestResult::queue_full;
     }
 
     const auto requested_start = event_time - pre_window;
@@ -187,7 +202,7 @@ IncidentCaptureStatus IncidentCaptureCoordinator::status() const noexcept {
     const std::scoped_lock lock{mutex_};
     IncidentCaptureStatus result{};
     result.accepting = accepting_;
-    result.can_request = accepting_ &&
+    result.can_request = accepting_ && requests_enabled_ && !backpressure_ &&
                          (pending_.has_value() || reserved_slots_locked() < queue_capacity_);
     result.has_pending_window = pending_.has_value();
     if (pending_.has_value()) {
@@ -208,7 +223,7 @@ IncidentCaptureStatus IncidentCaptureCoordinator::status() const noexcept {
         result.phase = IncidentCapturePhase::constructing_snapshot;
     } else if (pending_.has_value()) {
         result.phase = IncidentCapturePhase::collecting_post_window;
-    } else if (last_request_rejected_) {
+    } else if (last_request_rejected_ || backpressure_) {
         result.phase = IncidentCapturePhase::queue_full;
     } else if (!queue_.empty()) {
         result.phase = IncidentCapturePhase::queued;

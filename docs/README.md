@@ -1,51 +1,39 @@
 # BlackBox documentation
 
-- [Current hardening candidate](CURRENT_CANDIDATE.md): implementation, validation and external gates.
+Start with the [user guide](USER_GUIDE.md) to use the app, or
+[current candidate](CURRENT_CANDIDATE.md) to see what is implemented, tested and still open.
+The engineering version is defined in `CMakeLists.txt`; test counts and CI status belong only
+in the candidate page, with the revision and date that produced them.
 
-BlackBox keeps detailed engineering contracts because telemetry, privacy, diagnostic claims, and
-release evidence must remain reviewable. This page is the entry point; most readers should not need
-to browse every file.
+## Use and recover
 
-## Use the application
+- [User guide](USER_GUIDE.md): first run, capture, review, export, support bundles and recovery.
+- [Configuration](CONFIGURATION.md): defaults, valid settings, paths and privacy controls.
+- [Privacy](PRIVACY_THREAT_MODEL.md): local data, disclosure risks and trust boundaries.
 
-- [User guide](USER_GUIDE.md): first run, capture, incident review, keyboard controls, tray behavior,
-  recovery, and privacy expectations.
-- [Configuration](CONFIGURATION.md): validated recorder and product settings.
-- [Supportability](SUPPORTABILITY.md): diagnostics, support bundles, and crash evidence.
-- [Recovery runbooks](RECOVERY_RUNBOOKS.md): safe archive and settings recovery.
+## Build and understand
 
-## Understand the product
+- [Build, CI and packaging](BUILD_AND_RELEASE.md): prerequisites, presets, quality gates and fixtures.
+- [Architecture](../ARCHITECTURE.md): dependency rules, data flow, threads and lifetime invariants.
+- [Telemetry](TELEMETRY.md): normalized metrics, event evidence and pressure semantics.
+- [Storage](STORAGE.md): capture, schema, durability, viewer, datasets and logging.
+- [Analysis](ANALYSIS.md): statistical explanations, personalization, contributors, recurrence and context.
+- [Platform parity](PLATFORM_PARITY.md): capabilities and explicit OS limitations.
+- [Performance](PERFORMANCE.md): budgets, measurement procedures and historical reference values.
 
-- [Telemetry](TELEMETRY.md): what each platform can and cannot measure.
-- [Analysis](ANALYSIS.md): observation, inference, confidence, and abstention semantics.
-- [Privacy threat model](PRIVACY_THREAT_MODEL.md): local-data boundaries and disclosure risks.
-- [Platform parity](PLATFORM_PARITY.md): Windows, Linux, and macOS outcome map.
-- [Performance](PERFORMANCE.md): measured overhead and resource budgets.
+## Qualify and release
 
-## Build and contribute
+- [Testing](TESTING.md): UI, physical clients and wall-clock campaigns.
+- [Evaluation](EVALUATION.md): consent, annotation, held-out quality gates and offline ML.
+- [Release readiness](RELEASE_READINESS.md): acceptance ledger and exact V1 policy.
+- [Release evidence](RELEASE_EVIDENCE.md): composition of independent, same-revision evidence chains.
+- [Roadmap](../ROADMAP.md): completed outcomes and open product gates.
 
-- [Architecture](../ARCHITECTURE.md): authoritative dependency and lifetime invariants.
-- [Build and release](BUILD_AND_RELEASE.md): supported build graphs and package creation.
-- [Quality gates](QUALITY_GATES.md): tests, analysis, fuzzing, coverage, dependencies, and CI.
-- [Storage](STORAGE.md), [incident capture](INCIDENTS.md), and [viewer](VIEWER.md): persistence and
-  interaction contracts.
-- [Logging](LOGGING.md) and [fixtures](FIXTURES.md): bounded diagnostics and test data.
+## Keeping this documentation accurate
 
-Detailed analysis references are grouped by concern: [intelligent analysis](INTELLIGENT_ANALYSIS.md),
-[personalization](PERSONALIZATION.md), [contributor ranking](CONTRIBUTOR_RANKING.md),
-[recurrence](RECURRING_INCIDENTS.md), [context](CONTEXT_RECOGNITION.md), and
-[classification data](CLASSIFICATION_DATASET.md).
-
-## Qualify a release
-
-- [Release readiness](RELEASE_READINESS.md): current evidence status and exact V1 policy.
-- [UI qualification](UI_QUALIFICATION.md) and [client qualification](CLIENT_QUALIFICATION.md):
-  deterministic checks plus the required physical-client review.
-- [Wall-clock soaks](WALL_CLOCK_SOAKS.md): overnight and operator-assisted 72-hour campaigns.
-- [Dogfood protocol](DOGFOOD_PROTOCOL.md) and [diagnostic evaluation](DIAGNOSTIC_EVALUATION.md):
-  consented corpus collection and held-out quality gates.
-- [V1 release evidence](V1_RELEASE_EVIDENCE.md): same-revision composition of all independent gates.
-
-The remaining files are focused signal, platform, packaging, or evidence specifications linked from
-the documents above. Dated pre-release audit and campaign snapshots are intentionally not carried as
-living documentation; Git history is the project archive.
+Update the owning guide when behavior changes, and link to it instead of duplicating its contract.
+Record validation with an exact revision, configuration and scope; a historical pass is not a pass
+for edited source. Keep manual qualification separate from automated fixtures. Old implementation
+diaries and removed guides remain in Git history. Run `python scripts/check-docs.py` after edits;
+CI checks local links and heading anchors as well as the release-claims contract. External URLs
+are not fetched by that check.

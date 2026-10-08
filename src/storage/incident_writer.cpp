@@ -86,18 +86,20 @@ IncidentWriterDiagnostics IncidentWriter::diagnostics() const {
     }
     {
         const std::scoped_lock lock{recovery_mutex_};
-        result.recoverable_incident_available = recoverable_incident_ != nullptr;
-        result.recoverable_capture_sequence = recoverable_incident_ == nullptr
-            ? 0U : recoverable_incident_->header().window.sequence;
+        result.recoverable_incident_available = recovery_size_ != 0U;
+        result.recoverable_incident_count = recovery_size_;
+        result.recoverable_capture_sequence = recovery_size_ == 0U
+            ? 0U : recoverable_incidents_.front()->header().window.sequence;
     }
     return result;
 }
 
 std::expected<std::int64_t, StorageError> IncidentWriter::retry_recoverable() noexcept {
+    const std::scoped_lock retry_lock{retry_mutex_};
     std::shared_ptr<const core::IncidentSnapshot> incident;
     {
         const std::scoped_lock lock{recovery_mutex_};
-        incident = recoverable_incident_;
+        if (recovery_size_ != 0U) incident = recoverable_incidents_.front();
     }
     if (incident == nullptr) {
         return std::unexpected{StorageError{StorageErrorCode::invalid_data, 0,
@@ -113,7 +115,13 @@ std::expected<std::int64_t, StorageError> IncidentWriter::retry_recoverable() no
     }
     {
         const std::scoped_lock lock{recovery_mutex_};
-        if (recoverable_incident_ == incident) recoverable_incident_.reset();
+        if (recovery_size_ != 0U && recoverable_incidents_.front() == incident)
+            {
+            for (std::size_t index = 1U; index < recovery_size_; ++index)
+                recoverable_incidents_[index - 1U] = std::move(recoverable_incidents_[index]);
+            recoverable_incidents_[--recovery_size_].reset();
+        }
+        source_.set_backpressure(recovery_size_ != 0U);
     }
     {
         const std::scoped_lock lock{diagnostics_mutex_};
@@ -132,12 +140,14 @@ std::expected<std::int64_t, StorageError> IncidentWriter::retry_recoverable() no
 std::shared_ptr<const core::IncidentSnapshot>
 IncidentWriter::recoverable_incident() const noexcept {
     const std::scoped_lock lock{recovery_mutex_};
-    return recoverable_incident_;
+    return recovery_size_ == 0U ? nullptr : recoverable_incidents_.front();
 }
 
 void IncidentWriter::discard_recoverable() noexcept {
     const std::scoped_lock lock{recovery_mutex_};
-    recoverable_incident_.reset();
+    for (auto& incident : recoverable_incidents_) incident.reset();
+    recovery_size_ = 0U;
+    source_.set_backpressure(false);
 }
 
 void IncidentWriter::run(const std::stop_token stop_token) noexcept {
@@ -226,8 +236,9 @@ void IncidentWriter::process(
         }
         if (!retry) {
             const std::scoped_lock recovery_lock{recovery_mutex_};
-            if (recoverable_incident_ == nullptr) {
-                recoverable_incident_ = std::move(incident);
+            source_.set_backpressure(true);
+            if (recovery_size_ < recovery_capacity) {
+                recoverable_incidents_[recovery_size_++] = std::move(incident);
             } else {
                 const std::scoped_lock diagnostics_lock{diagnostics_mutex_};
                 ++diagnostics_.failed_incidents_not_retained;

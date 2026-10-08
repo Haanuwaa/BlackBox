@@ -46,6 +46,9 @@ struct ProductPreferences {
 enum class PathField : std::uint8_t { archive, backup, restore, safety_backup, dataset, failed_export, support_bundle, summary };
 
 struct ProductUiState : ProductPreferences {
+    bool exit_confirmation_open{};
+    bool exit_waiting{};
+    std::string exit_status{};
     bool settings_dirty{};
     bool file_dialog_pending{};
     bool summary_include_annotations{};
@@ -111,6 +114,10 @@ enum class DashboardAction : std::uint8_t {
     create_support_bundle,
     browse_path,
     export_summary,
+    cancel_exit,
+    save_and_exit,
+    discard_and_exit,
+    cancel_maintenance,
 };
 
 struct DashboardCommand {
@@ -426,6 +433,9 @@ struct DashboardState {
     std::uint32_t window_pixel_height{};
     bool archive_healthy{};
     bool archive_recoverable_incident{};
+    bool archive_maintenance_cancellable{};
+    std::uint64_t archive_completed_pages{}, archive_total_pages{};
+    std::size_t archive_recoverable_count{};
     std::uint64_t archive_recoverable_sequence{};
     std::uint64_t archive_database_size_bytes{};
     std::uint64_t archive_maximum_bytes{};

@@ -44,10 +44,10 @@ reject_literal("docs/TELEMETRY.md"
     "Post-V0.1 research"
     "pre-V0.14 GPU status")
 
-require_literal("docs/DOGFOOD_PROTOCOL.md"
+require_literal("docs/EVALUATION.md"
     "multi-machine evidence collection and one-shot held-out result are not"
     "incomplete real diagnostic evidence disclosure")
-require_literal("docs/QUALITY_GATES.md"
+require_literal("docs/BUILD_AND_RELEASE.md"
     "release_claims_documentation_contract"
     "release-claims gate documentation")
 require_literal("ROADMAP.md"
@@ -62,64 +62,64 @@ require_literal("ROADMAP.md"
 require_literal("docs/PRIVACY_THREAT_MODEL.md"
     "The current package is unsigned and not yet clean-client qualified"
     "unsigned package disclosure")
-require_literal("docs/V1_RELEASE_EVIDENCE.md"
+require_literal("docs/RELEASE_EVIDENCE.md"
     "Neither chain can substitute for the other."
     "independent V1 evidence-chain composition")
-require_literal("docs/DOGFOOD_PROTOCOL.md"
+require_literal("docs/EVALUATION.md"
     "interruption, application crash, application hang"
     "complete nine-class diagnostic acquisition matrix")
-require_literal("docs/CLIENT_QUALIFICATION.md"
+require_literal("docs/TESTING.md"
     "BlackBox-1.0.0-windows-x64.zip"
     "exact final client-qualification package")
-require_literal("docs/V017_RELEASE_EVIDENCE.md"
+require_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-1.0.0-windows-x64.zip"
     "exact final V0.17-composition package")
-require_literal("docs/V1_RELEASE_EVIDENCE.md"
+require_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-1.0.0-windows-x64.zip"
     "exact final V1-composition package")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.15.0-windows-x64.zip"
     "prerelease package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.15.0-windows-x64.zip"
     "prerelease package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.17.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.17.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.18.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.18.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.22.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.22.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.23.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.23.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.24.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.24.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-reject_literal("docs/V017_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.27.0-windows-x64.zip"
     "current engineering package in final V0.17 evidence instructions")
-reject_literal("docs/V1_RELEASE_EVIDENCE.md"
+reject_literal("docs/RELEASE_EVIDENCE.md"
     "BlackBox-0.27.0-windows-x64.zip"
     "current engineering package in final V1 evidence instructions")
-require_literal("docs/V1_RELEASE_EVIDENCE.md"
+require_literal("docs/RELEASE_EVIDENCE.md"
     "rejects reuse of one directory"
     "V1 evidence role-reuse rejection")
 require_literal("ROADMAP.md"

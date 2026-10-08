@@ -304,6 +304,7 @@ if(BLACKBOX_ENABLE_STORAGE_DEPENDENCIES)
             app/incident_viewer_service_tests.cpp
             ui/incident_view_model_tests.cpp
             ui/incident_viewer_smoke_tests.cpp
+            ui/accessible_widgets_tests.cpp
             ui/product_ui_model_tests.cpp
         )
         target_link_libraries(blackbox_tests PRIVATE
@@ -595,6 +596,12 @@ if(BLACKBOX_BASH_EXECUTABLE)
 endif()
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
+    add_test(NAME documentation_links_contract
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/check-docs.py")
+    add_test(NAME documentation_checker_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/docs_check_tests.py")
+    set_tests_properties(documentation_links_contract documentation_checker_contract
+        PROPERTIES LABELS "docs;script" TIMEOUT 30)
     add_test(NAME native_package_smoke_script_contracts
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/native_package_smoke_tests.py")

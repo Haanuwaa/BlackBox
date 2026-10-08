@@ -17,6 +17,31 @@ namespace telemetry = blackbox::telemetry;
 namespace mock = blackbox::telemetry::mock;
 using namespace std::chrono_literals;
 
+TEST_CASE("capture window changes preserve history while privacy changes start a new epoch",
+          "[collector][settings][lifecycle]") {
+    core::SystemMonotonicClock clock;
+    mock::MockTelemetryProvider provider{clock};
+    auto values = telemetry::RecorderConfiguration{1ms, 100ms, 10ms};
+    auto validated = telemetry::validate_recorder_configuration(values);
+    REQUIRE(validated);
+    telemetry::TelemetryCollector collector{provider, clock, *validated};
+    collector.start();
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while (collector.diagnostics().collection_count < 10U && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(1ms);
+    collector.stop();
+    const auto before = collector.diagnostics();
+    REQUIRE(before.ring.size >= 10U);
+    values.incident_post_window = 10ms;
+    collector.reconfigure(*telemetry::validate_recorder_configuration(values), true);
+    CHECK(collector.diagnostics().ring == before.ring);
+    CHECK(collector.diagnostics().collection_count == before.collection_count);
+    values.collect_process_paths = false;
+    collector.reconfigure(*telemetry::validate_recorder_configuration(values), true);
+    CHECK(collector.diagnostics().ring.size == 0U);
+    CHECK(collector.diagnostics().ring.epoch > before.ring.epoch);
+}
+
 namespace {
 
 template <typename Predicate>

@@ -225,9 +225,22 @@ void TelemetryCollector::stop() noexcept {
 }
 
 void TelemetryCollector::reconfigure(
-    const ValidatedRecorderConfiguration configuration) {
+    const ValidatedRecorderConfiguration configuration, const bool preserve_history) {
     const bool restart = running();
     stop();
+
+    if (preserve_history &&
+        configuration.values.sample_interval == configuration_.values.sample_interval &&
+        configuration.values.history_duration == configuration_.values.history_duration &&
+        configuration.values.collect_process_paths == configuration_.values.collect_process_paths) {
+        configuration_ = configuration;
+        {
+            const std::scoped_lock lock{diagnostics_mutex_};
+            diagnostics_.configuration = configuration.values;
+        }
+        if (restart) start();
+        return;
+    }
 
     configuration_ = configuration;
     recorder_.reconfigure(configuration.capacity);

@@ -1,4 +1,12 @@
-# BlackBox user guide
+# Using BlackBox
+
+[Documentation index](README.md) · [Current candidate](CURRENT_CANDIDATE.md)
+
+- [BlackBox user guide](#blackbox-user-guide)
+- [Supportability and crash evidence](#supportability-and-crash-evidence)
+- [Recovery runbooks](#recovery-runbooks)
+
+## BlackBox user guide
 
 BlackBox records a bounded telemetry history in RAM. It writes an incident to SQLite
 only after a manual or automatic capture; ordinary recording does not stream telemetry to disk.
@@ -30,7 +38,7 @@ login through macOS ServiceManagement, deliver permission-gated local notificati
 system's increased-contrast/reduced-motion preferences. Its passive Input Monitoring-gated global
 shortcut is implemented; signing/notarization and physical-client qualification remain open.
 
-## Start and capture
+### Start and capture
 
 1. Start `blackbox.exe` as an ordinary desktop user. Administrator rights are not required.
    First-run onboarding follows three steps: keep a short bounded history in RAM, capture after a
@@ -43,7 +51,7 @@ shortcut is implemented; signing/notarization and physical-client qualification 
    notes are editable and survive restart. Choose Unknown, System freeze, Game stutter,
    Application slowdown/hang, Network, or Audio and save to classify the incident.
 
-## Background and tray controls
+### Background and tray controls
 
 BlackBox keeps recording when its main window is minimized or closed. Closing the window hides it
 to the notification area only when the tray icon is available; if Windows cannot create the tray
@@ -67,7 +75,7 @@ can be disabled durably from the tray menu or Settings. The tray tooltip/icon di
 recording, capture, pause, storage retry, and attention-required states. Rapid notification bursts
 coalesce to the newest lifecycle state instead of stacking stale or empty balloons.
 
-## Product pages
+### Product pages
 
 - **Live** leads with recorder readiness, the configured shortcut, one **Capture what just happened**
   action, local saved-incident count, and tray/background guidance. Current processor, memory,
@@ -88,7 +96,7 @@ coalesce to the newest lifecycle state instead of stacking stale or empty balloo
 - **Diagnostics** shows provider, ring, timing, writer, accessibility, DPI, unavailable-state,
   crash-evidence, and local support-bundle detail.
 
-## Keyboard workflows
+### Keyboard workflows
 
 Press **F1** from the main window for the complete shortcut guide. Use **Tab** and **Shift+Tab** to
 move focus, **Enter** or **Space** to activate the focused control, **Ctrl+1** through **Ctrl+6** to
@@ -96,7 +104,7 @@ switch pages, **Ctrl+Enter** to capture what just happened, and **Ctrl+R** to re
 Press **Escape** to close the shortcut guide. The configured global shortcut works when the window is
 hidden; in-window shortcuts apply only while BlackBox has keyboard focus.
 
-## Automatic capture
+### Automatic capture
 
 BlackBox watches normalized CPU, memory, disk, and network samples for sustained severe events.
 The balanced default requires three qualifying observations for utilization/throughput. A severe
@@ -137,7 +145,7 @@ want older answers to stop influencing future diagnoses or confirmed-similar his
 annotation, classification, and sample. **Undo last reset** restores the immediately previous
 cutoff; a second rollback is unavailable. Full privacy purge also clears the feedback profile.
 
-## Statistical ranking
+### Statistical ranking
 
 Selecting an incident in V0.2 runs analysis on the viewer worker. The ranking compares the event
 window with an earlier incident-local baseline and shows a 0-100% anomaly score, confidence, and
@@ -154,7 +162,7 @@ baseline, or a profile cold start. Opening an incident learns one bounded observ
 analyzed executable; reopening it does not count it again. Eight earlier observations within 30
 days are needed before personalization replaces a metric score. A rename/path move starts a new
 profile, an in-place upgrade shares the path profile, and an inaccessible path falls back to a
-separate name-based profile. See `PERSONALIZATION.md` before interpreting these identities as
+separate name-based profile. See `ANALYSIS.md` before interpreting these identities as
 cryptographic binary identity—they are not hashes or signatures.
 
 V0.6 adds a **Potential contributors** table. “Likely contributor (correlation only)” means the
@@ -164,7 +172,7 @@ incomplete preceding correlation. **Ambiguous correlate across marker** began be
 has more anomalous samples after it. **Possible victim/reaction** began only after the marker and is
 not a causal rank. Expand the evidence rather than treating any label as proof: the row exposes all
 five score factors, pre/post sample counts, coverage, missing metrics, onset, and duration. See
-`CONTRIBUTOR_RANKING.md` for
+`ANALYSIS.md` for
 the formula and limitations.
 
 If opt-in lifecycle evidence exists, contributor timing distinguishes **anomalous activity began**
@@ -182,7 +190,7 @@ cannot teach positive uplift unless that source row genuinely preceded its own m
 role is retained with the direct-V1 vote. Use **Unsure** to remove the stored attribution.
 Reset/undo controls apply to this history as well without deleting it.
 
-## Recurring incidents
+### Recurring incidents
 
 The **Recurring incident discovery** section groups similar system-resource shapes across captures.
 Select **Refresh recurring groups** to scan the newest bounded archive window. Each group shows its
@@ -198,14 +206,14 @@ user-created groups are always excluded from learning.
 To correct a misleading grouping, select an incident and enter a **Recurring group override**.
 Incidents with exactly matching non-empty text appear in the same clearly marked user group even if
 their telemetry differs. **Return to automatic grouping** clears the decision. Overrides organize
-your archive; they are not diagnostic proof. See `RECURRING_INCIDENTS.md` for feature scaling,
+your archive; they are not diagnostic proof. See `ANALYSIS.md` for feature scaling,
 thresholds, bounds, and limitations.
 
 Overlapping triggers merge into the active capture. At most two immutable incidents can be queued;
 the UI reports a full queue instead of allowing unbounded memory use. Use **Exit BlackBox** from the
 tray for a full shutdown; ordinary window close keeps the recorder active when the tray is usable.
 
-## Statuses and known gaps
+### Statuses and known gaps
 
 - **Warming up** is expected for cumulative rates on their first observation and after resume or a
   provider failure. The next valid delta restores the rate.
@@ -228,7 +236,7 @@ tray for a full shutdown; ordinary window close keeps the recorder active when t
 The archive defaults to `%LOCALAPPDATA%\BlackBox\incidents.sqlite3`. Its default logical size cap is
 1 GiB. Use **Create verified backup** in Settings for a consistent sidecar-free online backup.
 
-## Recorder and product settings
+### Recorder and product settings
 
 The Recorder settings view offers Conservative (1 s / 5 min), Balanced (500 ms / 5 min), and
 Detailed (250 ms / 2 min) profiles. Applying one restarts collection and clears only the rolling
@@ -266,12 +274,12 @@ remain unchanged until an explicit purge. Hotkey/detector/capture/privacy/notifi
 immediately. Archive path and capacity are persisted for the next launch and do not silently move
 existing data.
 
-## Guided archive recovery
+### Guided archive recovery
 
 Settings reports archive path, schema, count, size, capacity, writer health, and any recoverable
-failed capture. All actions run on a maintenance worker; collection does not wait for them.
+failed capture. All actions run on a maintenance worker. Backup leaves collection running; purge/restore temporarily pause recording as explicit archive boundaries.
 
-- **Retry failed incident** retries the one bounded failed-capture slot. Export it to a new standalone
+- **Retry oldest failed incident** retries the oldest of up to three retained accepted captures. Export it to a new standalone
   SQLite file first when you want an additional recovery copy.
 - **Create verified backup** uses SQLite online backup and refuses to overwrite a file.
 - **Validate source and restore** checks integrity, BlackBox identity, and schema. It requires a new
@@ -280,7 +288,7 @@ failed capture. All actions run on a maintenance worker; collection does not wai
 - **Apply retention** and **Purge** remain disabled until their adjacent confirmation is checked.
   They are never scheduled or invoked automatically.
 
-## Retention and local privacy purge
+### Retention and local privacy purge
 
 The Settings page can keep a confirmed number of newest incidents or purge all local evidence while
 BlackBox remains open. The standalone tool remains available for scripted/offline age maintenance;
@@ -304,7 +312,7 @@ process profiles, supply the deliberate confirmation token:
 These operations are transactional, use SQLite secure deletion, truncate the WAL, and compact the
 archive. They cannot be undone without a backup. BlackBox never applies retention automatically.
 
-## Privacy-preserving offline dataset
+### Privacy-preserving offline dataset
 
 After BlackBox exits, export an archive to a new directory:
 
@@ -317,11 +325,11 @@ The tool refuses to overwrite an existing directory. The dataset contains classi
 classification history, incident-relative telemetry, privacy-normalized system events, explicit
 units/status semantics, and pseudonymous keys. It excludes archive/executable paths, process names,
 PIDs, creation tokens, foreground identity, native event messages/identifier payloads, and free-form
-labels/notes. Review `manifest.json` and `docs/CLASSIFICATION_DATASET.md` before
+labels/notes. Review `manifest.json` and `docs/STORAGE.md` before
 sharing it. To apply edited category/feedback rows back to matching incidents without changing
 telemetry, labels, or notes, use `import-classifications` in place of `export`.
 
-## Diagnostics
+### Diagnostics
 
 Diagnostics exposes collection average/P50/P95/P99/maximum, scheduling jitter, late/deadline/dropped
 counts, resume gaps, provider recovery, ring utilization, process access limitations, incident
@@ -344,5 +352,221 @@ background worker. The default bundle contains only allowlisted counters and fea
 it excludes incidents, samples, processes, paths, settings, hotkeys, usernames, and annotations.
 BlackBox never uploads it. Including the newest raw minidump requires both the inclusion checkbox and
 the adjacent consent. Minidumps can contain stack memory and module paths. See
-[SUPPORTABILITY.md](SUPPORTABILITY.md), [PRIVACY_THREAT_MODEL.md](PRIVACY_THREAT_MODEL.md), and
-[RECOVERY_RUNBOOKS.md](RECOVERY_RUNBOOKS.md).
+[USER_GUIDE.md](USER_GUIDE.md), [PRIVACY_THREAT_MODEL.md](PRIVACY_THREAT_MODEL.md), and
+[USER_GUIDE.md](USER_GUIDE.md).
+
+## Supportability and crash evidence
+
+BlackBox provides a local, bounded support path without adding an uploader, network client, or
+dependency to the recorder. Support tooling is downstream of collection and cannot be called by a
+telemetry provider or the rolling recorder.
+
+### Crash diagnostics
+
+On Windows, the application creates the local crash directory before normal initialization and
+pre-opens one uniquely named `.dmp.partial` file for the current process. The top-level exception
+filter copies only the exception pointer and crashing thread ID into preallocated state, signals a
+dedicated dump thread, and waits at most 15 seconds. The dedicated thread writes `MiniDumpNormal`
+evidence through the already-open handle, filters that writer thread from DbgHelp's thread walk,
+flushes it, and renames it to `.dmp`; this avoids asking the damaged thread and stack to run DbgHelp
+or asking DbgHelp to inspect its own writer. A failed dump write resets the same bounded staging file
+and retries at most five times with 100-millisecond delays. Neither path allocates nor opens another
+file after the crash. Final publication tolerates only bounded transient access/sharing/lock
+contention for at most 4.75 seconds. Permanent write or publication failure leaves the `.partial`
+artifact visibly incomplete rather than presenting it as completed evidence. A clean shutdown stops
+the worker, closes the handle, and removes the unused partial file. Existing completed dumps are
+never deleted automatically.
+
+The handler is deliberately small: it does not open SQLite, allocate an incident, render UI, acquire
+application locks, upload data, or attempt recovery. Windows implementation details remain under
+`platform/windows`; the application sees only `ICrashDiagnostics` and a bounded snapshot containing
+availability, armed state, completed-dump count, and the newest local dump.
+
+The default directory is `crashes` beside `product-settings.ini` (normally
+`%LOCALAPPDATA%\BlackBox\crashes`). A completed minidump can contain thread stacks, module names,
+module paths, and fragments of process memory. Treat every `.dmp` as potentially personal data.
+
+On Linux and macOS, the same composition boundary pre-opens one mode-0600 `.crash.partial` record and
+installs bounded handlers for fatal POSIX signals. The handler appends exactly one canonical 40-byte
+event to its prewritten direct-v1 header using async-signal-safe calls, flushes, closes, and renames the
+64-byte record. It stores only signal/code, process ID, UTC seconds/nanoseconds, and a fault address;
+it does not allocate, walk a stack, resolve a module, call SQLite/UI, or open another file. The signal
+is then re-raised with its default disposition so native crash reporting remains possible. A real
+child-process probe validates publication on both hosted platforms. This small signal record is useful
+crash evidence, not a Windows minidump or a substitute for physical crash-reporter qualification.
+
+### Local support bundle
+
+The Diagnostics page creates a new directory selected by the user. Bundle creation runs on a
+dedicated one-request worker so filesystem work does not block collection or rendering. The direct
+format-v1 bundle is assembled in a sibling `<destination>.partial` directory, every expected regular
+file is checked as nonempty and bounded, and the directory is atomically renamed into place. An
+existing final or partial destination is refused; neither is overwritten or silently deleted.
+
+A default bundle contains exactly:
+
+- `manifest.ini`: format, creation time, exact file count, inclusion flag, and content fingerprints;
+- `diagnostics.ini`: bounded recorder, capture, event, writer, archive-health, and privacy-switch
+  counters; and
+- `README.txt`: the sharing/privacy contract.
+
+It excludes incident rows, telemetry samples, process lists, executable names or paths,
+annotations, feedback, settings values, the hotkey, usernames, archive/configuration locations, and
+all other absolute paths. BlackBox has no automatic upload path.
+
+The newest raw crash-evidence file is included only when all of these are true:
+
+1. completed crash evidence exists;
+2. the user enables **Include latest raw crash evidence**;
+3. the adjacent raw-evidence consent is checked; and
+4. the source is an absolute, non-link, nonempty regular file no larger than 64 MiB.
+
+The source filename and source path are not written into the bundle. The copied file is always named
+`crash-evidence.bin`. The manifest uses the neutral direct-v1
+`includes_crash_evidence` and `crash_evidence_fingerprint` fields. Consent creates a local copy only;
+sharing remains a separate user action.
+
+### Failure and retention semantics
+
+- Failed support publication leaves only the visibly suffixed `.partial` directory for inspection.
+  It cannot masquerade as a completed bundle.
+- Completed bundles and completed crash evidence have no automatic retention or upload policy.
+- A crash during support-bundle creation does not affect the archive or collector. The partial bundle
+  can be removed explicitly after inspection.
+- Support bundles use one direct v1 contract. There is no pre-release migration or legacy reader.
+- Crash evidence is diagnostic context, not incident truth and not proof of causation.
+
+Operational recovery steps are in [USER_GUIDE.md](USER_GUIDE.md), and the security and
+privacy boundaries are in [PRIVACY_THREAT_MODEL.md](PRIVACY_THREAT_MODEL.md).
+
+## Recovery runbooks
+
+Live now warns at 80% of configured archive capacity and offers recovery when a capture cannot
+be saved. The recovery slot is memory-only and is lost on exit unless exported or retried.
+
+Purge stops capture input, joins writer/viewer work, discards pending captures and queued writes,
+clears recovery and rolling history, removes archive data/profiles, and invalidates viewer caches
+before recording resumes. Prior exports, backups, settings, logs and crash evidence remain outside
+the incident purge. Restore drains queued writes first and refuses to proceed while a failed
+incident remains unresolved. Recover it, or export it and explicitly purge before restoring.
+
+Ordinary backups and pre-restore safety copies are reopened read-only and checked for SQLite
+integrity and canonical schema before exclusive publication. Occupied destinations/staging files
+are refused. POSIX publication requires same-filesystem hard-link support; unsupported filesystems
+produce an error rather than an unverified success.
+
+These procedures preserve evidence first. Stop BlackBox before manually copying or moving its active
+files. Never rename an incompatible archive into the active location, edit SQLite/WAL files, or
+delete a `.partial` artifact until its role is understood.
+
+### A capture could not be saved
+
+1. Keep BlackBox running; collection continues independently of storage.
+2. Open **Settings** and check the writer status and the bounded recoverable-capture message.
+3. If another safety copy is needed, export the failed incident to a new standalone SQLite file.
+4. Correct the underlying issue (free space, permissions, read-only media, or another process holding
+   the archive), then choose **Retry oldest failed incident**.
+5. If retry fails again, retain the exported standalone copy and create a support bundle. New captures remain blocked until every retained item is recovered; rolling recording continues.
+
+### Archive locked, read-only, or full
+
+1. Pause new reproduction work, but do not purge or replace anything.
+2. Exit other tools that may hold the SQLite archive, its `-wal`, or `-shm` files.
+3. Check that the archive directory is writable and has space beyond the configured logical limit.
+4. Use **Refresh archive health**. If healthy, retry the recoverable incident.
+5. If capacity is the intended limit, create a verified backup first, then use explicit retention to
+   keep a confirmed number of newest incidents. BlackBox never deletes incidents automatically.
+
+### Suspected corrupt archive
+
+1. Exit BlackBox so the writer and viewer release the archive.
+2. Copy the archive, `-wal`, and `-shm` files together to a safe location without modifying them.
+3. Restart BlackBox and use health status only; do not allow any tool to “repair” the sole copy.
+4. Restore only from a known verified BlackBox v1 backup. The UI validates identity, integrity, and
+   the complete canonical table/index layout through a read-only source connection, and requires a
+   new pre-restore safety-backup path.
+5. Non-v1 or unversioned nonempty archives are rejected unchanged. This prerelease has no migrations
+   or legacy readers. Preserve the rejected file, then explicitly select a new empty v1 archive path.
+
+### Invalid settings or startup failure
+
+1. Record the exact visible error and create a support bundle if the Diagnostics page is reachable.
+2. Exit BlackBox and copy `product-settings.ini` and `recorder-settings.ini` privately; they are not
+   included in a default support bundle.
+3. An invalid file is not partially applied. Move it aside explicitly and restart to create/use direct
+   v1 defaults. Do not rewrite its version field or attempt a migration.
+4. If the app reports an existing instance, activate the tray instance before assuming startup failed.
+5. If startup repeatedly fails, preserve completed `.dmp` files and the original settings/archive for
+   investigation; do not send them without reviewing their sensitivity.
+
+### BlackBox crashed
+
+1. Restart BlackBox and open **Diagnostics**. Confirm whether completed local crash evidence exists.
+2. Create a support bundle without the dump first; it contains safe bounded counters only.
+3. Include the latest dump only if the recipient needs it and the explicit memory/path disclosure is
+   acceptable. The bundle remains local until the user separately shares it.
+4. Preserve the original `.dmp`; bundle creation copies rather than moves it. Completed dumps are not
+   automatically deleted.
+5. A `.dmp.partial` indicates publication did not complete. Do not rename it blindly. Preserve it for
+   engineering inspection; only a completed `.dmp` is offered by the UI.
+
+### Support bundle failed
+
+1. Use a new absolute destination whose parent directory already exists.
+2. Confirm neither the final directory nor `<destination>.partial` already exists.
+3. Check free space and permissions. If raw-dump inclusion was selected, verify that the source remains
+   a completed regular dump no larger than 64 MiB.
+4. Preserve a partial directory if diagnosing a write failure. After inspection, remove or move that
+   exact directory explicitly and retry with a new destination.
+5. Never treat `.partial` as a completed bundle; a complete direct-v1 bundle has exactly the files
+   declared in `manifest.ini`.
+
+### Restore and backup verification
+
+1. Create backups through **Create verified backup** to a new file; overwrite is refused.
+2. Store the backup away from the active archive and record the application version that created it.
+3. Before restore, choose a different new path for the pre-restore safety backup.
+4. Let BlackBox validate the source. It checks integrity, application identity, required control
+   state, and every canonical table/index definition without writing the source. A restore must
+   preserve the exact direct schema-v1 archive and is not a schema conversion.
+5. After restore, refresh health, verify incident count, open representative incidents, and confirm the
+   writer can save a new controlled capture before deleting any safety copy.
+
+### What to retain for support
+
+- Privacy-safe support bundle (preferred first artifact).
+- Exact BlackBox version and whether the build is an unsigned developer build.
+- Reproduction time, action, and visible error written separately by the user.
+- Verified backup or failed-incident export, shared only when incident evidence is necessary.
+- Raw minidump, settings, or archive only after explicit sensitivity review.
+
+BlackBox has no automatic support upload, remote control, updater, or evidence transmission channel.
+
+## Saving, leaving and recovering work
+
+Changing notification, shortcut or next-launch archive preferences preserves live recording.
+Changes that interrupt recording are refused while a capture window is still being collected.
+Changing only the capture window preserves existing history. Cadence, history capacity and
+executable-path privacy changes intentionally begin a new recorder epoch.
+
+Normal Exit checks drafts, accepted captures, pending writes, maintenance and exports. **Save
+and exit** saves drafts and waits for accepted work; **Keep working** cancels exit. A failure
+keeps the app available for recovery. **Exit without saving** explicitly permits discarding
+RAM-only work. OS session termination and forced process termination cannot offer the same
+interactive guarantee. Closing to the tray continues recording.
+
+If writes fail after their retry budget, rolling recording continues, but new captures are
+blocked. Up to three already accepted captures remain in memory: the in-flight write plus
+the two bounded coordinator slots. Settings shows the retained count. **Retry oldest failed
+incident** recovers one at a time; export preserves the oldest capture separately. Recovery
+is complete only when the retained count reaches zero. Purge explicitly discards this state.
+
+Backup progress reports copied pages and verification. Cancel requests stop cooperative
+copy/verification work and cancels queued maintenance jobs. Accepted jobs otherwise drain
+when exiting. A backup is published only after integrity and schema verification succeeds;
+cancelled or failed partial copies are not presented as verified backups. Restore creates a
+verified safety copy before replacing the active archive. Filesystem stalls can still delay
+an operation beyond its cooperative timeout.
+
+Installed CJK fallback fonts are loaded on demand when visible text needs missing glyphs;
+BlackBox does not download or bundle system fonts. Glyph coverage depends on installed fonts.

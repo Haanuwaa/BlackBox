@@ -18,6 +18,7 @@ ArchiveMaintenanceService::~ArchiveMaintenanceService() { stop(); }
 void ArchiveMaintenanceService::start() {
     const std::scoped_lock lock{mutex_};
     if (worker_.joinable()) return;
+    accepting_jobs_ = true;
     worker_ = std::jthread{[this](const std::stop_token token) { run(token); }};
 }
 
@@ -25,6 +26,7 @@ void ArchiveMaintenanceService::stop() noexcept {
     std::jthread worker;
     {
         const std::scoped_lock lock{mutex_};
+        accepting_jobs_ = false;
         if (!worker_.joinable()) return;
         worker_.request_stop();
         available_.notify_all();
@@ -34,6 +36,22 @@ void ArchiveMaintenanceService::stop() noexcept {
 }
 
 void ArchiveMaintenanceService::refresh() { enqueue({JobType::refresh}); }
+void ArchiveMaintenanceService::cancel_pending() noexcept {
+    const std::scoped_lock lock{mutex_};
+    if (snapshot_->cancellable) operation_cancellation_.request_stop();
+    for (const auto& job : jobs_)
+        if (job.type == JobType::purge || job.type == JobType::restore) boundaries_pending_.fetch_sub(1);
+    cancelled_jobs_ += jobs_.size();
+    jobs_.clear();
+    try {
+        auto state = std::make_shared<ArchiveMaintenanceSnapshot>(*snapshot_);
+        state->queued_jobs = 0U;
+        state->cancelled_jobs = cancelled_jobs_;
+        state->busy = active_job_;
+        state->generation = ++generation_;
+        snapshot_ = std::move(state);
+    } catch (...) { /* Cancellation itself is already recorded. */ }
+}
 void ArchiveMaintenanceService::retry_failed() { enqueue({JobType::retry}); }
 void ArchiveMaintenanceService::backup(std::filesystem::path path) {
     Job job{JobType::backup};
@@ -79,6 +97,13 @@ std::shared_ptr<const ArchiveMaintenanceSnapshot> ArchiveMaintenanceService::sna
 
 void ArchiveMaintenanceService::enqueue(Job job) {
     const std::scoped_lock lock{mutex_};
+    if (!accepting_jobs_) {
+        auto state = std::make_shared<ArchiveMaintenanceSnapshot>(*snapshot_);
+        state->status = "Action not accepted: archive maintenance is stopping";
+        state->generation = ++generation_;
+        snapshot_ = std::move(state);
+        return;
+    }
     // Maintenance is user initiated and bounded. A newer health refresh supersedes
     // an older pending refresh; destructive jobs are never silently discarded.
     if (job.type == JobType::refresh) {
@@ -95,20 +120,34 @@ void ArchiveMaintenanceService::enqueue(Job job) {
     jobs_.push_back(std::move(job));
     if (jobs_.back().type == JobType::purge || jobs_.back().type == JobType::restore)
         boundaries_pending_.fetch_add(1);
+    auto state = std::make_shared<ArchiveMaintenanceSnapshot>(*snapshot_);
+    state->queued_jobs = jobs_.size();
+    state->busy = true;
+    state->generation = ++generation_;
+    snapshot_ = std::move(state);
     available_.notify_one();
 }
 
 void ArchiveMaintenanceService::run(const std::stop_token token) noexcept {
-    while (!token.stop_requested()) {
+    for (;;) {
         Job job{};
         {
             std::unique_lock lock{mutex_};
             static_cast<void>(available_.wait(lock, token, [this] { return !jobs_.empty(); }));
-            if (jobs_.empty()) continue;
+            if (jobs_.empty()) {
+                if (token.stop_requested()) break;
+                continue;
+            }
             job = std::move(jobs_.front());
             jobs_.pop_front();
+            active_job_ = true;
+            operation_cancellation_ = std::stop_source{};
             auto state = std::make_shared<ArchiveMaintenanceSnapshot>(*snapshot_);
             state->busy = true;
+            state->queued_jobs = jobs_.size();
+            state->cancellable = job.type == JobType::backup || job.type == JobType::restore ||
+                                 job.type == JobType::export_failed;
+            state->completed_pages = state->total_pages = 0U;
             state->status = "Archive maintenance in progress";
             state->generation = ++generation_;
             snapshot_ = std::move(state);
@@ -172,6 +211,21 @@ void ArchiveMaintenanceService::execute(const Job& job) {
 void ArchiveMaintenanceService::execute_job(const Job& job) {
     std::string status;
     bool succeeded = true;
+    storage::ArchiveOperationOptions options{};
+    {
+        const std::scoped_lock lock{mutex_};
+        options.cancellation = operation_cancellation_.get_token();
+    }
+    options.progress = [this](const std::string_view stage, const std::uint64_t completed,
+                              const std::uint64_t total) {
+        const std::scoped_lock lock{mutex_};
+        auto state = std::make_shared<ArchiveMaintenanceSnapshot>(*snapshot_);
+        state->status = stage;
+        state->completed_pages = completed;
+        state->total_pages = total;
+        state->generation = ++generation_;
+        snapshot_ = std::move(state);
+    };
     switch (job.type) {
     case JobType::refresh:
         status = "Archive health refreshed";
@@ -185,14 +239,14 @@ void ArchiveMaintenanceService::execute_job(const Job& job) {
         break;
     }
     case JobType::backup: {
-        const auto result = archive_.backup_to(job.first);
+        const auto result = archive_.backup_to(job.first, options);
         succeeded = result.has_value();
         status = succeeded ? "Verified backup created at " + core::path_to_utf8(job.first)
                            : "Backup failed: " + result.error().message;
         break;
     }
     case JobType::restore: {
-        const auto result = archive_.restore_from(job.first, job.second);
+        const auto result = archive_.restore_from(job.first, job.second, options);
         succeeded = result.has_value();
         status = succeeded ? "Archive restored; pre-restore safety backup: " +
                                  core::path_to_utf8(job.second)
@@ -233,7 +287,7 @@ void ArchiveMaintenanceService::execute_job(const Job& job) {
                                    : std::expected<std::int64_t, storage::StorageError>{
                                          std::unexpected{opened.error()}};
         const auto exported =
-            stored ? destination.backup_to(job.first)
+            stored ? destination.backup_to(job.first, options)
                    : std::expected<void, storage::StorageError>{std::unexpected{stored.error()}};
         destination.close();
         succeeded = exported.has_value();
@@ -253,7 +307,7 @@ void ArchiveMaintenanceService::execute_job(const Job& job) {
     publish_health(std::move(status), succeeded);
 }
 
-void ArchiveMaintenanceService::publish_health(std::string status, const bool) {
+void ArchiveMaintenanceService::publish_health(std::string status, const bool succeeded) {
     auto state = std::make_shared<ArchiveMaintenanceSnapshot>();
     state->archive_path = core::path_to_utf8(archive_.configuration().path);
     state->maximum_bytes = archive_.configuration().maximum_bytes;
@@ -271,6 +325,15 @@ void ArchiveMaintenanceService::publish_health(std::string status, const bool) {
     state->status = std::move(status);
     state->busy = false;
     const std::scoped_lock lock{mutex_};
+    active_job_ = false;
+    if (succeeded) ++completed_jobs_;
+    else if (operation_cancellation_.stop_requested()) ++cancelled_jobs_;
+    else ++failed_jobs_;
+    state->completed_jobs = completed_jobs_;
+    state->failed_jobs = failed_jobs_;
+    state->cancelled_jobs = cancelled_jobs_;
+    state->queued_jobs = jobs_.size();
+    state->busy = !jobs_.empty();
     state->generation = ++generation_;
     state->content_epoch = content_epoch_;
     snapshot_ = std::move(state);

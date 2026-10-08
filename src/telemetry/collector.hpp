@@ -173,10 +173,11 @@ public:
 
     void start();
     void stop() noexcept;
-    void reconfigure(ValidatedRecorderConfiguration configuration);
+    void reconfigure(ValidatedRecorderConfiguration configuration, bool preserve_history = false);
     void set_automatic_detection_enabled(bool enabled) noexcept;
     void set_foreground_application_enabled(bool enabled) noexcept;
     void set_process_lifecycle_enabled(bool enabled) noexcept;
+    void set_capture_requests_enabled(bool enabled) noexcept { incident_capture_.set_requests_enabled(enabled); }
 
     [[nodiscard]] bool running() const noexcept;
     [[nodiscard]] core::RecorderSnapshot<SystemSample> snapshot(

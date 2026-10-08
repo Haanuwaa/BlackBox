@@ -2,9 +2,17 @@
 
 #include <algorithm>
 #include <vector>
+#include <unordered_set>
 
 namespace blackbox::telemetry {
 namespace {
+struct ProcessIdentityHash {
+    std::size_t operator()(const core::IncidentProcessIdentity& identity) const noexcept {
+        const auto token = std::hash<std::uint64_t>{}(identity.creation_token);
+        return token ^ (std::hash<std::uint32_t>{}(identity.pid) +
+                        static_cast<std::size_t>(0x9e3779b9U) + (token << 6U) + (token >> 2U));
+    }
+};
 
 [[nodiscard]] constexpr core::RecordedValueStatus
 recorded_status(const MetricStatus status) noexcept {
@@ -211,7 +219,7 @@ build_incident_snapshot(const core::IncidentCaptureWindow& window,
     }
 
     std::vector<core::IncidentProcessSample> process_samples;
-    std::vector<core::IncidentProcessIdentity> referenced_identities;
+    std::unordered_set<core::IncidentProcessIdentity, ProcessIdentityHash> referenced_identities;
     std::size_t selected_process_samples = 0U;
     for (const auto& frame : process_history.samples()) {
         if (frame.observed_at >= window.requested_start &&
@@ -220,7 +228,9 @@ build_incident_snapshot(const core::IncidentCaptureWindow& window,
         }
     }
     process_samples.reserve(selected_process_samples);
-    referenced_identities.reserve(selected_process_samples);
+    // Most rows repeat the same process identities across the capture window.
+    // Retain each reference once instead of sorting a second vector per row.
+    referenced_identities.reserve(std::min(metadata.size(), selected_process_samples));
     for (const auto& frame : process_history.samples()) {
         if (frame.observed_at < window.requested_start ||
             frame.observed_at > completion_observed_at) {
@@ -228,7 +238,7 @@ build_incident_snapshot(const core::IncidentCaptureWindow& window,
         }
         for (const auto& sample : frame.processes) {
             auto recorded = recorded_process_sample(frame.observed_at, sample);
-            referenced_identities.push_back(recorded.identity);
+            referenced_identities.insert(recorded.identity);
             process_samples.push_back(std::move(recorded));
         }
     }
@@ -241,24 +251,18 @@ build_incident_snapshot(const core::IncidentCaptureWindow& window,
                 event.observed_at <= completion_observed_at) {
                 system_events.push_back(event);
                 if (event.has_process_identity) {
-                    referenced_identities.push_back(
+                    referenced_identities.insert(
                         {event.process_pid, event.process_creation_token});
                 }
             }
         }
     }
 
-    std::sort(referenced_identities.begin(), referenced_identities.end());
-    referenced_identities.erase(
-        std::unique(referenced_identities.begin(), referenced_identities.end()),
-        referenced_identities.end());
-
     std::vector<core::IncidentProcessInfo> process_metadata;
     process_metadata.reserve(std::min(metadata.size(), referenced_identities.size()));
     for (const auto& info : metadata) {
         const auto identity = recorded_identity(info.identity);
-        if (std::binary_search(referenced_identities.begin(), referenced_identities.end(),
-                               identity)) {
+        if (referenced_identities.contains(identity)) {
             process_metadata.push_back(recorded_process_info(info));
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/incident.hpp"
+#include "storage/archive_operation.hpp"
 
 #include <chrono>
 #include <array>
@@ -461,12 +462,14 @@ public:
     [[nodiscard]] std::expected<std::int32_t, StorageError> schema_version() const noexcept;
     [[nodiscard]] std::expected<std::uint64_t, StorageError> database_size_bytes() const noexcept;
     [[nodiscard]] std::expected<void, StorageError>
-    backup_to(const std::filesystem::path& destination) const noexcept;
+    backup_to(const std::filesystem::path& destination,
+              const ArchiveOperationOptions& options = {}) const noexcept;
     // Restore is explicit and first creates a verified safety backup. Both paths
     // must not exist as the current archive; existing destination files are refused.
     [[nodiscard]] std::expected<void, StorageError>
     restore_from(const std::filesystem::path& source,
-                 const std::filesystem::path& safety_backup) noexcept;
+                 const std::filesystem::path& safety_backup,
+                 const ArchiveOperationOptions& options = {}) noexcept;
     // Maintenance is caller-initiated and serialized with archive reads/writes. Normal
     // recording never invokes it and never deletes incidents automatically.
     [[nodiscard]] std::expected<ArchiveMaintenanceResult, StorageError>

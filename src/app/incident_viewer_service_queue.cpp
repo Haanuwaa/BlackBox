@@ -220,6 +220,7 @@ void IncidentViewerService::run(const std::stop_token stop_token) noexcept {
                 mutation_jobs_.pop_front();
                 queue_diagnostics_.queued_mutations = mutation_jobs_.size();
                 mutation = true;
+                queue_diagnostics_.mutation_in_progress = true;
             } else if (stop_token.stop_requested()) {
                 break;
             } else if (!read_jobs_.empty()) {
@@ -273,6 +274,7 @@ void IncidentViewerService::run(const std::stop_token stop_token) noexcept {
         }
         const std::scoped_lock lock{mutex_};
         if (mutation) {
+            queue_diagnostics_.mutation_in_progress = false;
             if (mutation_succeeded) {
                 ++queue_diagnostics_.completed_mutations;
             } else {

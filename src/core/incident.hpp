@@ -222,6 +222,8 @@ public:
     [[nodiscard]] virtual std::shared_ptr<const IncidentSnapshot>
     wait_pop(std::stop_token stop_token) noexcept = 0;
     [[nodiscard]] virtual std::shared_ptr<const IncidentSnapshot> try_pop() noexcept = 0;
+    // Downstream backpressure rejects new captures without cancelling accepted work.
+    virtual void set_backpressure(bool) noexcept {}
 };
 
 enum class IncidentCaptureRequestResult : std::uint8_t {
@@ -278,6 +280,8 @@ public:
 
     void start_accepting() noexcept;
     void stop_accepting() noexcept;
+    void set_backpressure(bool blocked) noexcept override;
+    void set_requests_enabled(bool enabled) noexcept;
 
     [[nodiscard]] IncidentCaptureRequestResult
     request(MonotonicTimePoint event_time, std::chrono::nanoseconds pre_window,
@@ -302,6 +306,8 @@ private:
     std::optional<IncidentCaptureWindow> pending_{};
     bool snapshot_in_progress_{};
     bool accepting_{};
+    bool backpressure_{};
+    bool requests_enabled_{true};
     bool last_request_rejected_{};
     std::uint64_t next_sequence_{1U};
     std::uint64_t captures_started_{};

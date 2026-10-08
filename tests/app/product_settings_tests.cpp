@@ -1,4 +1,5 @@
 #include "app/product_settings.hpp"
+#include "app/settings_change_plan.hpp"
 #include "app/recorder_settings.hpp"
 #include "core/environment_path.hpp"
 #include "core/filesystem_text.hpp"
@@ -15,6 +16,21 @@
 namespace app = blackbox::app;
 namespace platform = blackbox::platform;
 using namespace std::chrono_literals;
+
+TEST_CASE("ordinary product preferences do not interrupt capture", "[app][settings][lifecycle]") {
+    const auto before = app::default_product_settings();
+    auto after = before;
+    const blackbox::telemetry::RecorderConfiguration recorder{};
+    after.notifications_enabled = !before.notifications_enabled;
+    after.incident_hotkey.key = platform::HotkeyKey::f11;
+    after.archive_maximum_bytes *= 2U;
+    CHECK_FALSE(app::settings_change_plan(before, after, recorder, recorder).interrupts_capture());
+    after.record_foreground_application = !before.record_foreground_application;
+    CHECK(app::settings_change_plan(before, after, recorder, recorder).interrupts_capture());
+    auto changed = recorder;
+    changed.collect_process_paths = !recorder.collect_process_paths;
+    CHECK(app::settings_change_plan(before, before, recorder, changed).recorder);
+}
 
 #if defined(_WIN32)
 TEST_CASE("Windows settings overrides preserve native Unicode environment paths",

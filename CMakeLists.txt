@@ -35,6 +35,16 @@ option(BLACKBOX_ENABLE_THREAD_SANITIZER "Instrument BlackBox targets with Thread
 option(BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS "Run MSVC native code analysis while compiling" OFF)
 option(BLACKBOX_ENABLE_COVERAGE "Instrument BlackBox targets for compiler-native coverage" OFF)
 option(BLACKBOX_BUILD_FUZZERS "Build bounded libFuzzer entry points" OFF)
+# Bound compiler-level parallelism separately from MSBuild project parallelism.
+# Ninja already schedules individual translation units; /analyze has its own graph.
+set(BLACKBOX_MSVC_COMPILE_JOBS "2" CACHE STRING "MSVC compilation processes per project (1-32)")
+if(NOT BLACKBOX_MSVC_COMPILE_JOBS MATCHES "^[1-9][0-9]*$" OR BLACKBOX_MSVC_COMPILE_JOBS GREATER 32)
+    message(FATAL_ERROR "BLACKBOX_MSVC_COMPILE_JOBS must be an integer from 1 to 32")
+endif()
+if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio" AND NOT BLACKBOX_ENABLE_MSVC_CODE_ANALYSIS)
+    add_compile_options(/MP${BLACKBOX_MSVC_COMPILE_JOBS})
+endif()
+
 set(BLACKBOX_LINUX_PACKAGE_GENERATORS "TGZ" CACHE STRING
     "Semicolon-separated Linux engineering package generators (TGZ, DEB, RPM)")
 set(BLACKBOX_SOURCE_REVISION "auto" CACHE STRING

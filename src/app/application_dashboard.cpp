@@ -293,6 +293,10 @@ void Application::refresh_dashboard_if_due() {
         const auto writer = incident_writer_->diagnostics();
         if (writer.retrying) {
             storage_status_text_ = "Retrying incident persistence: " + writer.last_error_message;
+        } else if (writer.recoverable_incident_available) {
+            storage_status_text_ = "Recovery required: new captures are blocked until retained incidents are recovered or purged";
+        } else if (writer.failed_incidents_not_retained != 0U) {
+            storage_status_text_ = "Capture loss recorded; review diagnostics";
         } else if (writer.state == storage::WriterState::degraded) {
             storage_status_text_ = "Degraded: " + writer.last_error_message;
         } else if (writer.state == storage::WriterState::running) {
@@ -306,6 +310,7 @@ void Application::refresh_dashboard_if_due() {
         dashboard_state_.storage_retry_attempts = writer.retry_attempts;
         dashboard_state_.storage_retry_exhausted = writer.retry_exhausted;
         dashboard_state_.storage_write_successes = writer.succeeded;
+        dashboard_state_.archive_recoverable_count = writer.recoverable_incident_count;
         if (dashboard_state_.storage_write_failures != writer.failed &&
             archive_maintenance_service_ != nullptr) archive_maintenance_service_->refresh();
         dashboard_state_.storage_write_failures = writer.failed;
@@ -348,6 +353,9 @@ void Application::refresh_dashboard_if_due() {
         }
         dashboard_state_.archive_maintenance_busy = maintenance->busy ||
             archive_maintenance_service_->boundary_pending();
+        dashboard_state_.archive_maintenance_cancellable = maintenance->cancellable;
+        dashboard_state_.archive_completed_pages = maintenance->completed_pages;
+        dashboard_state_.archive_total_pages = maintenance->total_pages;
         dashboard_state_.archive_healthy = maintenance->healthy;
         dashboard_state_.archive_recoverable_incident = maintenance->recoverable_incident;
         dashboard_state_.archive_recoverable_sequence = maintenance->recoverable_capture_sequence;

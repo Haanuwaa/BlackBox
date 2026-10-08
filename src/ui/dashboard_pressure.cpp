@@ -1,3 +1,4 @@
+#include "ui/accessible_widgets.hpp"
 #include "ui/dashboard_pressure.hpp"
 
 #include <imgui.h>
@@ -24,12 +25,12 @@ namespace {
 void value_row(const char* label, const MetricDisplayStatus status, const double value) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted(label);
+    accessible::TextUnformatted(label);
     ImGui::TableSetColumnIndex(1);
     if (status == MetricDisplayStatus::available) {
-        ImGui::Text("%.2f%%", value * 100.0);
+        accessible::Text("%.2f%%", value * 100.0);
     } else {
-        ImGui::TextDisabled("%s", status_text(status));
+        accessible::TextDisabled("%s", status_text(status));
     }
 }
 
@@ -37,12 +38,12 @@ void measurement_row(const char* label, const MetricDisplayStatus status, const 
                      const double value) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted(label);
+    accessible::TextUnformatted(label);
     ImGui::TableSetColumnIndex(1);
     if (status == MetricDisplayStatus::available)
-        ImGui::Text(format, value);
+        accessible::Text(format, value);
     else
-        ImGui::TextDisabled("%s", status_text(status));
+        accessible::TextDisabled("%s", status_text(status));
 }
 
 [[nodiscard]] constexpr const char* thermal_text(const std::uint8_t state) noexcept {
@@ -86,22 +87,22 @@ void render_pressure_rows(const DashboardState& state) {
 
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted("Thermal pressure state");
+    accessible::TextUnformatted("Thermal pressure state");
     ImGui::TableSetColumnIndex(1);
     if (state.thermal_pressure_status == MetricDisplayStatus::available) {
-        ImGui::TextUnformatted(thermal_text(state.thermal_pressure_state));
+        accessible::TextUnformatted(thermal_text(state.thermal_pressure_state));
     } else {
-        ImGui::TextDisabled("%s", status_text(state.thermal_pressure_status));
+        accessible::TextDisabled("%s", status_text(state.thermal_pressure_status));
     }
 
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted("Memory pressure state");
+    accessible::TextUnformatted("Memory pressure state");
     ImGui::TableSetColumnIndex(1);
     if (state.memory_pressure_status == MetricDisplayStatus::available) {
-        ImGui::TextUnformatted(memory_pressure_text(state.memory_pressure_state));
+        accessible::TextUnformatted(memory_pressure_text(state.memory_pressure_state));
     } else {
-        ImGui::TextDisabled("%s", status_text(state.memory_pressure_status));
+        accessible::TextDisabled("%s", status_text(state.memory_pressure_status));
     }
 
     measurement_row("Compressed memory", state.memory_activity_status, "%.1f MiB",
@@ -121,13 +122,13 @@ void render_pressure_rows(const DashboardState& state) {
 
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextUnformatted("CPU topology");
+    accessible::TextUnformatted("CPU topology");
     ImGui::TableSetColumnIndex(1);
     if (state.cpu_topology_status == MetricDisplayStatus::available) {
-        ImGui::Text("%u physical | %u logical | %u active", state.physical_processor_count,
+        accessible::Text("%u physical | %u logical | %u active", state.physical_processor_count,
                     state.logical_processor_count, state.active_processor_count);
     } else {
-        ImGui::TextDisabled("%s", status_text(state.cpu_topology_status));
+        accessible::TextDisabled("%s", status_text(state.cpu_topology_status));
     }
 }
 

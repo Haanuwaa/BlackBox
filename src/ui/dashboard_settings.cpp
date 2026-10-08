@@ -1,3 +1,4 @@
+#include "ui/accessible_widgets.hpp"
 #include "ui/dashboard_settings.hpp"
 
 #include <imgui.h>
@@ -27,12 +28,12 @@ void render_path_input(const char* label,
                        const PathField field, const ProductUiState& product,
                        DashboardCommand& command) {
     ImGui::PushID(label);
-    ImGui::TextUnformatted(label);
+    accessible::TextUnformatted(label);
     ImGui::SetNextItemWidth(std::max(100.0F, ImGui::GetContentRegionAvail().x - 100.0F));
-    ImGui::InputText("##path", path.data(), path.size());
+    accessible::InputText("##path", path.data(), path.size());
     ImGui::SameLine();
     ImGui::BeginDisabled(product.file_dialog_pending);
-    if (ImGui::Button("Browse...")) {
+    if (accessible::Button("Browse...")) {
         command.action = DashboardAction::browse_path;
         command.path_field = field;
     }
@@ -40,10 +41,8 @@ void render_path_input(const char* label,
     ImGui::PopID();
 }
 
-void render_product_settings(const DashboardState& state, ProductUiState& product,
-                             DashboardCommand& command) {
-    ImGui::TextWrapped("%s", product.settings_dirty ? "Unsaved changes: apply and save to keep your settings." : "Settings match your saved preferences.");
-    if (ImGui::Button("Validate, apply, and save settings")) {
+DashboardCommand product_settings_command(const ProductPreferences& product) {
+    DashboardCommand command{};
         command.action = DashboardAction::apply_product_settings;
         command.hotkey_key = product.hotkey_key;
         command.hotkey_control = product.hotkey_control;
@@ -68,11 +67,19 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
         command.incident_post_window_seconds = product.incident_post_window_seconds;
         command.archive_maximum_mib = product.archive_maximum_mib;
         command.archive_path = product.archive_path.data();
+    return command;
+}
+
+void render_product_settings(const DashboardState& state, ProductUiState& product,
+                             DashboardCommand& command) {
+    accessible::TextWrapped("%s", product.settings_dirty ? "Unsaved changes: apply and save to keep your settings." : "Settings match your saved preferences.");
+    if (accessible::Button("Validate, apply, and save settings")) {
+        command = product_settings_command(product);
     }
-    ImGui::TextDisabled("%s", state.recorder_settings_status.data());
-    if (!product.file_dialog_status.empty()) ImGui::TextWrapped("%s", product.file_dialog_status.c_str());
+    accessible::TextDisabled("%s", state.recorder_settings_status.data());
+    if (!product.file_dialog_status.empty()) accessible::TextWrapped("%s", product.file_dialog_status.c_str());
     ImGui::SeparatorText("Capture and privacy");
-    ImGui::TextWrapped("Choose how BlackBox captures a problem and which optional context may be "
+    accessible::TextWrapped("Choose how BlackBox captures a problem and which optional context may be "
                        "saved with future incidents. Existing incidents never change here.");
 
     ImGui::SeparatorText("Capture shortcut and time window");
@@ -80,54 +87,54 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
                                  "F7", "F8", "F9", "F10", "F11", "F12"};
     auto key_index = static_cast<int>(std::clamp<std::uint32_t>(product.hotkey_key, 1U, 12U) - 1U);
     ImGui::SetNextItemWidth(100.0F);
-    if (ImGui::Combo("Incident hotkey", &key_index, keys, 12)) {
+    if (accessible::Combo("Incident hotkey", &key_index, keys, 12)) {
         product.hotkey_key = static_cast<std::uint32_t>(key_index + 1);
     }
-    ImGui::Checkbox("Ctrl", &product.hotkey_control);
+    accessible::Checkbox("Ctrl", &product.hotkey_control);
     ImGui::SameLine();
-    ImGui::Checkbox("Shift", &product.hotkey_shift);
+    accessible::Checkbox("Shift", &product.hotkey_shift);
     ImGui::SameLine();
-    ImGui::Checkbox("Alt", &product.hotkey_alt);
+    accessible::Checkbox("Alt", &product.hotkey_alt);
     ImGui::SameLine();
-    ImGui::Checkbox(state.system_modifier_label.c_str(), &product.hotkey_system_modifier);
+    accessible::Checkbox(state.system_modifier_label.c_str(), &product.hotkey_system_modifier);
 
-    ImGui::InputScalar("Seconds before incident", ImGuiDataType_U64,
+    accessible::InputScalar("Seconds before incident", ImGuiDataType_U64,
                        &product.incident_pre_window_seconds);
-    ImGui::InputScalar("Seconds after incident", ImGuiDataType_U64,
+    accessible::InputScalar("Seconds after incident", ImGuiDataType_U64,
                        &product.incident_post_window_seconds);
 
     ImGui::SeparatorText("Automatic capture");
-    ImGui::TextDisabled("BlackBox can preserve unusual resource activity even when you do not "
+    accessible::TextDisabled("BlackBox can preserve unusual resource activity even when you do not "
                         "press the shortcut.");
-    ImGui::Checkbox("Automatic incident detection", &product.automatic_detection);
+    accessible::Checkbox("Automatic incident detection", &product.automatic_detection);
     constexpr const char* sensitivity[]{"Conservative", "Balanced", "Sensitive"};
-    ImGui::Combo("Detector sensitivity", &product.detector_sensitivity, sensitivity, 3);
-    ImGui::Checkbox("CPU", &product.detect_cpu);
+    accessible::Combo("Detector sensitivity", &product.detector_sensitivity, sensitivity, 3);
+    accessible::Checkbox("CPU", &product.detect_cpu);
     ImGui::SameLine();
-    ImGui::Checkbox("Memory", &product.detect_memory);
+    accessible::Checkbox("Memory", &product.detect_memory);
     ImGui::SameLine();
-    ImGui::Checkbox("Disk", &product.detect_disk);
+    accessible::Checkbox("Disk", &product.detect_disk);
     ImGui::SameLine();
-    ImGui::Checkbox("Network", &product.detect_network);
-    ImGui::InputScalar("Detector cooldown (seconds)", ImGuiDataType_U64,
+    accessible::Checkbox("Network", &product.detect_network);
+    accessible::InputScalar("Detector cooldown (seconds)", ImGuiDataType_U64,
                        &product.detector_cooldown_seconds);
     ImGui::SeparatorText("Notifications and optional context");
-    ImGui::Checkbox("Show quiet desktop notifications", &product.notifications);
-    ImGui::Checkbox("Record executable paths in future samples", &product.collect_process_paths);
+    accessible::Checkbox("Show quiet desktop notifications", &product.notifications);
+    accessible::Checkbox("Record executable paths in future samples", &product.collect_process_paths);
     if (!state.foreground_identity_supported) ImGui::BeginDisabled();
-    ImGui::Checkbox("Record foreground application identity",
+    accessible::Checkbox("Record foreground application identity",
                     &product.record_foreground_application);
     if (!state.foreground_identity_supported) ImGui::EndDisabled();
-    ImGui::TextDisabled("%s", state.foreground_identity_support.c_str());
-    ImGui::Checkbox("Record process start and exit identity", &product.record_process_lifecycle);
-    ImGui::Checkbox("Record power and device transition events",
+    accessible::TextDisabled("%s", state.foreground_identity_support.c_str());
+    accessible::Checkbox("Record process start and exit identity", &product.record_process_lifecycle);
+    accessible::Checkbox("Record power and device transition events",
                     &product.record_power_and_device_events);
-    ImGui::Checkbox("Record audio endpoint transition events", &product.record_audio_device_events);
-    ImGui::Checkbox("Record selected privacy-bounded system events",
+    accessible::Checkbox("Record audio endpoint transition events", &product.record_audio_device_events);
+    accessible::Checkbox("Record selected privacy-bounded system events",
                     &product.record_system_event_evidence);
-    if (ImGui::CollapsingHeader("What these privacy options retain")) {
+    if (accessible::CollapsingHeader("What these privacy options retain")) {
         ImGui::PushTextWrapPos(0.0F);
-        ImGui::TextDisabled("Process lifecycle evidence stores a durable PID/creation identity in "
+        accessible::TextDisabled("Process lifecycle evidence stores a durable PID/creation identity in "
                             "the local archive when explicitly enabled; exported evaluation "
                             "datasets redact it. Other event evidence stores only source, event "
                             "ID, level, and action. Window titles, Event Log messages, "
@@ -135,11 +142,11 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
                             "retained.");
         ImGui::PopTextWrapPos();
     }
-    if (ImGui::CollapsingHeader("Advanced archive location")) {
-        ImGui::TextDisabled("Location and capacity changes take effect after restart and never "
+    if (accessible::CollapsingHeader("Advanced archive location")) {
+        accessible::TextDisabled("Location and capacity changes take effect after restart and never "
                             "move existing incidents automatically.");
         render_path_input("Archive path", product.archive_path, PathField::archive, product, command);
-        ImGui::InputScalar("Archive capacity (MiB)", ImGuiDataType_U64,
+        accessible::InputScalar("Archive capacity (MiB)", ImGuiDataType_U64,
                            &product.archive_maximum_mib);
     }
 
@@ -147,37 +154,45 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
     const auto used_mib =
         static_cast<double>(state.archive_database_size_bytes) / (1024.0 * 1024.0);
     const auto maximum_mib = static_cast<double>(state.archive_maximum_bytes) / (1024.0 * 1024.0);
-    ImGui::Text("%s | schema %d | %llu incidents | %.1f / %.1f MiB",
+    accessible::Text("%s | schema %d | %llu incidents | %.1f / %.1f MiB",
                 state.archive_healthy ? "Healthy" : "Needs attention", state.archive_schema_version,
                 static_cast<unsigned long long>(state.stored_incident_count), used_mib,
                 maximum_mib);
-    ImGui::TextWrapped("Archive: %s", state.archive_path.data());
-    ImGui::TextWrapped("%s", state.archive_maintenance_status.data());
+    accessible::TextWrapped("Archive: %s", state.archive_path.data());
+    accessible::LiveTextWrapped("%s", state.archive_maintenance_status.data());
+    if (state.archive_maintenance_busy) {
+        if (state.archive_total_pages != 0U)
+            ImGui::ProgressBar(static_cast<float>(state.archive_completed_pages) /
+                               static_cast<float>(state.archive_total_pages));
+        if (state.archive_maintenance_cancellable && accessible::Button("Cancel archive operation"))
+            command.action = DashboardAction::cancel_maintenance;
+    }
     if (state.archive_maintenance_busy) ImGui::BeginDisabled();
-    if (ImGui::Button("Refresh archive health")) {
+    if (accessible::Button("Refresh archive health")) {
         command.action = DashboardAction::refresh_archive_health;
     }
     if (state.archive_recoverable_incident) {
         ImGui::SameLine();
-        if (ImGui::Button("Retry failed incident")) {
+        if (accessible::Button("Retry oldest failed incident")) {
             command.action = DashboardAction::retry_failed_incident;
         }
-        ImGui::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
-                           "Capture %llu is preserved in the bounded recovery slot.",
+        accessible::TextColored(ImVec4{1.0F, 0.75F, 0.25F, 1.0F},
+                           "Capture %llu is the oldest retained recovery item.",
                            static_cast<unsigned long long>(state.archive_recoverable_sequence));
+        accessible::TextWrapped("%zu retained capture(s). New captures are blocked until recovery is complete; rolling recording continues.", state.archive_recoverable_count);
     }
 
     render_path_input("New backup file", product.backup_path, PathField::backup, product, command);
-    if (ImGui::Button("Create verified backup")) {
+    if (accessible::Button("Create verified backup")) {
         command.action = DashboardAction::backup_archive;
         command.backup_path = product.backup_path.data();
     }
     render_path_input("Restore source", product.restore_path, PathField::restore, product, command);
     render_path_input("New pre-restore safety backup", product.safety_backup_path, PathField::safety_backup, product, command);
-    ImGui::Checkbox("I understand restore replaces the active archive", &product.restore_confirmed);
+    accessible::Checkbox("I understand restore replaces the active archive", &product.restore_confirmed);
     const auto restore_disabled = !product.restore_confirmed;
     if (restore_disabled) ImGui::BeginDisabled();
-    if (ImGui::Button("Validate source and restore")) {
+    if (accessible::Button("Validate source and restore")) {
         command.action = DashboardAction::restore_archive;
         command.restore_path = product.restore_path.data();
         command.safety_backup_path = product.safety_backup_path.data();
@@ -186,23 +201,23 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
     if (restore_disabled) ImGui::EndDisabled();
 
     render_path_input("Dataset export directory", product.export_path, PathField::dataset, product, command);
-    if (ImGui::Button("Export inspectable evidence dataset")) {
+    if (accessible::Button("Export inspectable evidence dataset")) {
         command.action = DashboardAction::export_dataset;
         command.export_path = product.export_path.data();
     }
     if (state.archive_recoverable_incident) {
         render_path_input("Failed incident export file", product.failed_export_path, PathField::failed_export, product, command);
-        if (ImGui::Button("Export failed incident before retry")) {
+        if (accessible::Button("Export failed incident before retry")) {
             command.action = DashboardAction::export_failed_incident;
             command.failed_export_path = product.failed_export_path.data();
         }
     }
 
-    ImGui::InputScalar("Keep newest incidents", ImGuiDataType_U64, &product.retention_incidents);
-    ImGui::Checkbox("Confirm explicit retention deletion", &product.retention_confirmed);
+    accessible::InputScalar("Keep newest incidents", ImGuiDataType_U64, &product.retention_incidents);
+    accessible::Checkbox("Confirm explicit retention deletion", &product.retention_confirmed);
     const auto retention_disabled = !product.retention_confirmed;
     if (retention_disabled) ImGui::BeginDisabled();
-    if (ImGui::Button("Apply retention now")) {
+    if (accessible::Button("Apply retention now")) {
         command.action = DashboardAction::retain_incidents;
         command.retention_incidents = static_cast<std::size_t>(product.retention_incidents);
         product.retention_confirmed = false;
@@ -210,13 +225,13 @@ void render_product_settings(const DashboardState& state, ProductUiState& produc
     if (retention_disabled) ImGui::EndDisabled();
 
     ImGui::SeparatorText("Permanent local-data removal");
-    ImGui::TextWrapped("Purge deletes the active archive contents, learned profiles, recent in-memory "
+    accessible::TextWrapped("Purge deletes the active archive contents, learned profiles, recent in-memory "
                        "history, and the failed-incident recovery slot. Exported files and backups remain.");
-    ImGui::Checkbox("Confirm permanent privacy purge of incidents and profiles",
+    accessible::Checkbox("Confirm permanent privacy purge of incidents and profiles",
                     &product.purge_confirmed);
     const auto purge_disabled = !product.purge_confirmed;
     if (purge_disabled) ImGui::BeginDisabled();
-    if (ImGui::Button("Purge all local incident evidence")) {
+    if (accessible::Button("Purge all local incident evidence")) {
         command.action = DashboardAction::purge_archive;
         product.purge_confirmed = false;
     }

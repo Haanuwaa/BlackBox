@@ -22,6 +22,7 @@ class IIncidentAnalyzer;
 namespace blackbox::app {
 
 struct IncidentViewerQueueDiagnostics {
+    bool mutation_in_progress{};
     std::size_t queued_reads{};
     std::size_t queued_mutations{};
     std::uint64_t coalesced_reads{};

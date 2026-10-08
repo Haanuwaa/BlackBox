@@ -1,6 +1,8 @@
 #pragma once
+#include <future>
 
 #include "app/file_dialog_service.hpp"
+#include "app/exit_readiness.hpp"
 
 #include "app/product_settings.hpp"
 #include "app/recorder_settings.hpp"
@@ -11,6 +13,7 @@
 #include "platform/background_shell.hpp"
 #include "platform/crash_diagnostics.hpp"
 #include "platform/global_hotkey.hpp"
+#include "core/accessibility_tree.hpp"
 #include "telemetry/collector.hpp"
 #include "telemetry/event_collector.hpp"
 #include "telemetry/provider.hpp"
@@ -35,6 +38,10 @@
 
 struct SDL_Renderer;
 struct SDL_Window;
+
+#if defined(_WIN32)
+namespace blackbox::platform::windows { class WindowsUiAutomation; }
+#endif
 
 #if defined(__linux__)
 namespace blackbox::platform::linux {
@@ -81,6 +88,11 @@ private:
     void refresh_display_metrics(bool force_style_refresh = false);
     void refresh_background_shell_if_due();
     void process_background_commands(bool& running);
+    [[nodiscard]] ExitReadiness exit_readiness() const;
+    void request_exit(bool& running, bool forced = false);
+    void save_before_exit();
+    void advance_exit(bool& running);
+    void cancel_exit();
     void show_window() noexcept;
     void hide_window() noexcept;
     void request_incident_capture() noexcept;
@@ -130,6 +142,10 @@ private:
     ui::ProductUiState product_ui_state_{};
     ui::ProductPreferences saved_product_preferences_{};
     FileDialogService file_dialog_service_{};
+    std::shared_ptr<core::AccessibilityTree> accessibility_tree_{std::make_shared<core::AccessibilityTree>()};
+#if defined(_WIN32)
+    std::unique_ptr<platform::windows::WindowsUiAutomation> windows_ui_automation_{};
+#endif
     core::MonotonicTimePoint next_dashboard_refresh_at_{};
     core::MonotonicTimePoint next_accessibility_refresh_at_{};
     std::uint64_t dashboard_projection_collection_count_{std::numeric_limits<std::uint64_t>::max()};
@@ -182,6 +198,12 @@ private:
     bool diagnostic_overlap_requested_{};
     core::MonotonicTimePoint next_diagnostic_progress_at_{};
     bool shutdown_started_{};
+    bool exit_when_ready_{};
+    bool exit_drafts_submitted_{};
+    bool exit_cancel_requested_{};
+    bool exit_writer_drained_{};
+    std::future<void> exit_drain_{};
+    core::MonotonicTimePoint next_diagnostic_recovery_at_{};
 };
 
 } // namespace blackbox::app

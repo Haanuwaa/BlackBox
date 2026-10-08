@@ -238,6 +238,43 @@ TEST_CASE("writer rejects unbounded or inverted retry configurations",
                     std::invalid_argument);
 }
 
+TEST_CASE("storage outage preserves all accepted slots and blocks new captures until recovery",
+          "[storage][writer][recovery][backpressure]") {
+    class BlockedArchive final : public storage::IIncidentArchive {
+    public:
+        std::atomic<bool> entered{}, release{}, healthy{};
+        std::expected<std::int64_t, storage::StorageError>
+        store(const core::IncidentSnapshot&) noexcept override {
+            entered = true;
+            while (!release.load()) std::this_thread::sleep_for(1ms);
+            if (healthy) return 42;
+            return std::unexpected{storage::StorageError{storage::StorageErrorCode::full, 0, "full"}};
+        }
+    } archive;
+    core::IncidentCaptureCoordinator source{2U};
+    source.start_accepting();
+    storage::IncidentWriter writer{source, archive, immediate_retries};
+    writer.start();
+    enqueue(source);
+    const bool entered = wait_until([&] { return archive.entered.load(); });
+    if (!entered) archive.release = true;
+    REQUIRE(entered);
+    enqueue(source);
+    enqueue(source);
+    archive.release = true;
+    REQUIRE(wait_until([&] { return writer.diagnostics().recoverable_incident_count == 3U; }));
+    CHECK(writer.diagnostics().failed_incidents_not_retained == 0U);
+    CHECK_FALSE(source.status().can_request);
+    CHECK(source.request({}, 0ns, 0ns) == core::IncidentCaptureRequestResult::queue_full);
+    archive.healthy = true;
+    REQUIRE(writer.retry_recoverable());
+    CHECK_FALSE(source.status().can_request);
+    REQUIRE(writer.retry_recoverable());
+    REQUIRE(writer.retry_recoverable());
+    CHECK(source.status().can_request);
+    writer.stop();
+}
+
 TEST_CASE("repeated captures remain bounded and all accepted work drains",
           "[storage][writer][capture][soak]") {
     core::IncidentCaptureCoordinator source{2U};

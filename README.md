@@ -10,7 +10,7 @@ The long-term product will help diagnose freezes, game and audio stutter, disk s
 
 ## Current status
 
-Version **0.27.0** is the pre-1.0 macOS evidence and app-performance engineering line. The product has one bounded
+Version **0.27.0** is the current pre-1.0 engineering line. The product has one bounded
 native recorder, direct-V1 archive, optional local statistical analysis, and an evidence-first
 desktop workflow across its Windows product target and Linux/macOS engineering previews. The default
 UI now leads with recorder readiness, capture, current activity, saved incidents, and plain-language
@@ -44,7 +44,7 @@ independently labelled held-out corpus proves material value over the optional s
 - Extremely lightweight: low CPU and memory, effectively zero recording-time disk writes, no wasteful hidden UI.
 - Native: C++23, no Electron, browser UI, Node.js, or shipped Python runtime.
 - Cross-platform core: operating-system APIs stay behind platform interfaces.
-- Windows first: prove the recorder before implementing additional backends.
+- Windows first: qualify Windows before claiming support for additional platforms.
 - Recorder before intelligence: telemetry collection cannot depend on analysis or ML.
 - Measure before optimizing: simple concurrency first; profile before adding complexity.
 

@@ -222,6 +222,60 @@ TEST_CASE("purge cancels pending capture history and restarts recording in a new
     CHECK_FALSE(writer.recoverable_incident());
 }
 
+TEST_CASE("file backup releases writer lock and cancellation never publishes a partial file",
+          "[app][archive][backup][cancellation]") {
+    TemporaryDirectory temporary;
+    storage::SqliteIncidentArchive archive{{temporary.path / "active.sqlite3"}};
+    REQUIRE(archive.open());
+    REQUIRE(archive.store(*storage::test::representative_incident()));
+    storage::ArchiveOperationOptions options;
+    std::atomic<bool> stored{};
+    options.progress = [&](std::string_view stage, std::uint64_t, std::uint64_t) {
+        if (stage == "Copying archive" && !stored.exchange(true))
+            CHECK(archive.store(*storage::test::representative_incident()));
+    };
+    const auto backup = temporary.path / "snapshot.sqlite3";
+    REQUIRE(archive.backup_to(backup, options));
+    REQUIRE(stored);
+    CHECK(*archive.incident_count() == 2U);
+    storage::SqliteIncidentArchive copy{{backup}};
+    REQUIRE(copy.open());
+    CHECK(*copy.incident_count() == 1U);
+    copy.close();
+    std::stop_source cancellation;
+    options.cancellation = cancellation.get_token();
+    options.progress = [&](std::string_view, std::uint64_t, std::uint64_t) { cancellation.request_stop(); };
+    const auto cancelled = temporary.path / "cancelled.sqlite3";
+    CHECK_FALSE(archive.backup_to(cancelled, options));
+    CHECK_FALSE(std::filesystem::exists(cancelled));
+    CHECK_FALSE(std::filesystem::exists(temporary.path / "cancelled.sqlite3.partial"));
+    CHECK_FALSE(archive.restore_from(backup, temporary.path / "safety.sqlite3", options));
+    CHECK(*archive.incident_count() == 2U);
+}
+
+TEST_CASE("maintenance drains accepted purge and backup before stopping",
+          "[app][archive][shutdown]") {
+    TemporaryDirectory temporary;
+    storage::SqliteIncidentArchive archive{{temporary.path / "active.sqlite3"}};
+    REQUIRE(archive.open());
+    REQUIRE(archive.store(*storage::test::representative_incident()));
+    core::IncidentCaptureCoordinator source{2U};
+    storage::IncidentWriter writer{source, archive};
+    app::ArchiveMaintenanceService service{archive, writer};
+    service.start();
+    service.backup(temporary.path / "before.sqlite3");
+    service.purge_all();
+    service.stop();
+    CHECK(std::filesystem::exists(temporary.path / "before.sqlite3"));
+    CHECK(*archive.incident_count() == 0U);
+    CHECK_FALSE(service.boundary_pending());
+    CHECK(service.snapshot()->completed_jobs == 2U);
+    CHECK(service.snapshot()->queued_jobs == 0U);
+    service.backup(temporary.path / "rejected.sqlite3");
+    CHECK_FALSE(std::filesystem::exists(temporary.path / "rejected.sqlite3"));
+    CHECK(service.snapshot()->status.starts_with("Action not accepted"));
+}
+
 TEST_CASE("archive maintenance executes guided jobs away from the caller",
           "[app][archive][maintenance][worker][recovery]") {
     TemporaryDirectory temporary;

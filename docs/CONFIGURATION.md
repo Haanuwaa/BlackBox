@@ -106,7 +106,7 @@ executable identity, and requires eight observations before replacing an inciden
 score. SQLite retains at most 2,048 executable identities and accepts at most 512 keys per incident
 query/update. Reopening an incident is idempotent. These settings affect only post-capture viewer
 analysis and never the recorder cadence, history, or normal-telemetry write policy. See
-`PERSONALIZATION.md` for the identity and aging contract.
+`ANALYSIS.md` for the identity and aging contract.
 
 ## V0.4 automatic detection profile
 
@@ -140,8 +140,8 @@ Normal recording never invokes retention or deletion. The Settings page publishe
 path, schema, incident count, logical size, and configured capacity. User-initiated jobs run on a
 dedicated application maintenance worker serialized with archive access:
 
-- **Retry failed incident** retries the single bounded recovery slot retained after terminal writer
-  failure. The same immutable snapshot can first be exported as a standalone SQLite archive.
+- **Retry oldest failed incident** retries the oldest bounded recovery item retained after terminal writer
+  failure; up to three already accepted captures can be retained. The same immutable snapshot can first be exported as a standalone SQLite archive.
 - **Backup** uses SQLite online backup and refuses an existing destination.
 - **Restore** verifies SQLite integrity, BlackBox application identity, and the current schema before
   replacement; it first creates a new pre-restore safety backup.

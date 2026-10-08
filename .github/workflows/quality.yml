@@ -37,6 +37,7 @@ jobs:
         run: |
           ./scripts/verify-dependency-policy.ps1
           ./scripts/verify-quality-gates.ps1
+          python scripts/check-docs.py
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: cmake -P scripts/bootstrap-vcpkg.cmake

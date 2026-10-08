@@ -14,6 +14,7 @@ enum class BackgroundShellCommand : std::uint8_t {
     toggle_launch_at_login,
     toggle_notifications,
     exit_application,
+    session_ending,
 };
 
 enum class BackgroundShellStatus : std::uint8_t {

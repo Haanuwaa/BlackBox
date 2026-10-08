@@ -47,24 +47,8 @@ Windows 2025 runner kernels. The release checklist still requires an extracted-p
 on clean Windows 10 22H2 and current Windows 11 x64 hosts before publishing an official build; CI
 server kernels supplement rather than replace those client tests.
 
-The V0.23 engineering implementation at `8a35fc5dd7b00788086b0cb789af4d6129a56db1` passed the
-exact-revision Windows, Linux, macOS, and quality/security hosted workflows. This closes internal
-audit qualification, not the physical-client, long-run, signing, corpus, or V1 release gates below.
-
-The V0.24 UI-efficiency and repository-hardening implementation at
-`85044988da5817fa4e759b6c57d014731ce7a528` passed the complete 370-test local Release graph and
-exact-revision Windows, Linux, macOS, and quality/security hosted workflows. This closes the short
-visible-rendering characterization and hosted engineering gates, not the controlled 30-minute
-repetitions or any physical-client, long-run, signing, corpus, or V1 release gate below.
-
-The V0.27 macOS resource-context and app-performance implementation at
-`a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete 381-test local Release graph and
-exact-revision [Windows](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207216),
-[Linux](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207099),
-[macOS](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207113), and
-[quality/security](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207108) hosted workflows.
-This proves the engineering build, native compile/package paths, and automated contracts; it does
-not close the controlled 30-minute, physical-client, 72-hour, signing, corpus, or V1 release gates.
+Revision-specific automated results are maintained in [Current candidate](CURRENT_CANDIDATE.md).
+Hosted engineering checks do not close the physical-client, long-run, signing or diagnostic-quality gates below.
 
 Linux and macOS are not supported products in V1.0. Linux readiness is an engineering claim: the
 headless core/telemetry graph has no Win32 dependency; the Linux provider implements bounded
@@ -98,10 +82,10 @@ An official V1.0 candidate must satisfy all of the following on the same source 
 - The accelerated seven-day recorder/detector soak remains bounded, produces no smooth-fixture
   automatic captures, and retention/reopen/recovery tests pass.
 - The same assembled Release revision passes the real overnight and 72-hour campaigns in
-  `WALL_CLOCK_SOAKS.md`; the latter includes independently observed sleep/resume, operator-attested
+  `TESTING.md`; the latter includes independently observed sleep/resume, operator-attested
   lock/device churn, and isolated archive write-fault/recovery evidence.
 - The Release UI test produces and hashes the exact 30-case direct-v1 raster bundle defined in
-  `UI_QUALIFICATION.md`; every image receives manual visual review, and the separate clean-client
+  `TESTING.md`; every image receives manual visual review, and the separate clean-client
   keyboard/accessibility, 100/125/150/200%-DPI, mixed-scale multi-monitor, low-end, battery, and
   power-mode matrix passes on the packaged candidate.
 - Real child-process crash probes produce a bounded valid Windows minidump or Linux/macOS POSIX signal
@@ -136,17 +120,17 @@ Certificate private keys must live in a protected signing service or hardware-ba
 must never enter the repository or package.
 
 The exact ZIP must then complete the direct-v1 host profiles and aggregate verification in
-`CLIENT_QUALIFICATION.md`. A developer-machine smoke or one interactive host cannot satisfy the
+`TESTING.md`. A developer-machine smoke or one interactive host cannot satisfy the
 clean-client/physical matrix, and an unsigned matrix rehearsal cannot satisfy the official signed
 candidate gate.
 
-Finally run the same-revision, fail-closed V0.17 composition in `V017_RELEASE_EVIDENCE.md`. It
+Finally run the same-revision, fail-closed V0.17 composition in `RELEASE_EVIDENCE.md`. It
 re-verifies the timestamped package, overnight and 72-hour campaigns, provenance-bound UI raster and
 explicit visual review, deterministically regenerated physical client matrix and source bundles, and
 both hosted workflow attestations. The resulting hash ledger proves V0.17 evidence composition only;
 V1 still requires the independently collected V0.15.1 corpus to meet its one-shot diagnostic gate.
 
-After both chains pass, run the final fail-closed composition in `V1_RELEASE_EVIDENCE.md`. It
+After both chains pass, run the final fail-closed composition in `RELEASE_EVIDENCE.md`. It
 re-verifies every V0.17 source, requires the exact signed packaged dogfood evaluator, recomputes the
 canonical held-out report, and matches its calibration/report fingerprints to the complete passing
 one-shot attempt. Only its independently rechecked `v1_release_evidence_satisfied=1` ledger can close

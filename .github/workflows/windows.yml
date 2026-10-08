@@ -32,8 +32,20 @@ jobs:
             os: windows-2025
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore native dependency cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ matrix.os || 'ubuntu-24.04' }}-${{ github.job }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/*.cmake', 'scripts/bootstrap-vcpkg.cmake') }}
+          restore-keys: |
+            native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ matrix.os || 'ubuntu-24.04' }}-${{ github.job }}-
+      - name: Prepare native dependency cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: cmake -P scripts/bootstrap-vcpkg.cmake
@@ -48,6 +60,14 @@ jobs:
         run: >-
           ctest --preset ${{ matrix.preset }} --timeout 120
           --output-junit "$env:GITHUB_WORKSPACE/out/windows-test-results.xml"
+      - name: Native UI Automation and normal exit smoke
+        if: matrix.configuration == 'Release' && matrix.os == 'windows-2022'
+        timeout-minutes: 2
+        shell: powershell
+        run: >-
+          ./tests/scripts/windows_ui_automation_smoke.ps1
+          -ApplicationPath "$env:GITHUB_WORKSPACE/out/build/${{ matrix.preset }}/src/Release/blackbox.exe"
+          -OutputDirectory "$env:GITHUB_WORKSPACE/out/windows-ui-automation"
       - name: Package
         if: matrix.configuration == 'Release' && matrix.os == 'windows-2022'
         shell: pwsh
@@ -74,6 +94,8 @@ jobs:
             out/build/${{ matrix.preset }}/CMakeFiles/CMakeConfigureLog.yaml
             out/build/${{ matrix.preset }}/Testing/Temporary/*.log
             out/windows-test-results.xml
+            out/windows-ui-automation/*.log
+            out/windows-ui-automation/controls.txt
           if-no-files-found: warn
           retention-days: 14
 
@@ -82,8 +104,20 @@ jobs:
     timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore native dependency cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/*.cmake', 'scripts/bootstrap-vcpkg.cmake') }}
+          restore-keys: |
+            native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ runner.os }}-${{ github.job }}-
+      - name: Prepare native dependency cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: cmake -P scripts/bootstrap-vcpkg.cmake
@@ -99,13 +133,27 @@ jobs:
         shell: pwsh
         run: |
           cmake --build out/build/windows-headless --config Release
-          ctest --test-dir out/build/windows-headless -C Release --output-on-failure
+          ctest --test-dir out/build/windows-headless -C Release --output-on-failure --timeout 120 --output-junit out/windows-headless-tests.xml
+
+      - name: Retain boundary diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-boundary-windows-headless-${{ github.sha }}
+          path: |
+            out/build/windows-headless/CMakeFiles/CMakeConfigureLog.yaml
+            out/build/windows-headless/Testing/Temporary/*.log
+            out/windows-headless-tests.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   linux-boundary:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       VCPKG_ROOT: ${{ github.workspace }}-vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}-vcpkg-binary-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # vcpkg detects SDL video backends when its first configure runs, so these
@@ -120,6 +168,16 @@ jobs:
             libxfixes-dev libxi-dev libxss-dev libxtst-dev \
             libxcursor-dev libxinerama-dev libxkbcommon-dev \
             pkg-config libdbus-1-dev
+      - name: Restore native dependency cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ runner.os }}-${{ github.job }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json', 'cmake/triplets/*.cmake', 'scripts/bootstrap-vcpkg.cmake') }}
+          restore-keys: |
+            native-vcpkg-${{ runner.os }}-${{ runner.arch }}-${{ runner.os }}-${{ github.job }}-
+      - name: Prepare native dependency cache
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
       - name: Bootstrap pinned vcpkg registry
         shell: bash
         run: cmake -P scripts/bootstrap-vcpkg.cmake
@@ -136,7 +194,7 @@ jobs:
         shell: bash
         run: |
           cmake --build out/build/linux-headless --parallel
-          ctest --test-dir out/build/linux-headless --output-on-failure
+          ctest --test-dir out/build/linux-headless --output-on-failure --timeout 120 --output-junit out/linux-headless-tests.xml
       - name: Measure native Linux provider overhead
         shell: bash
         run: |
@@ -208,6 +266,18 @@ jobs:
             out/build/linux-desktop/linux-desktop-smoke.ini
             out/build/linux-package-smoke.ini
           if-no-files-found: error
+
+      - name: Retain boundary diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlackBox-boundary-linux-headless-${{ github.sha }}
+          path: |
+            out/build/linux-headless/CMakeFiles/CMakeConfigureLog.yaml
+            out/build/linux-headless/Testing/Temporary/*.log
+            out/linux-headless-tests.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   hosted-evidence:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'

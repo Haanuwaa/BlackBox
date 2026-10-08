@@ -2,6 +2,10 @@
 
 #include "core/logger.hpp"
 #include "core/version.hpp"
+#include "ui/dashboard_settings.hpp"
+#if defined(_WIN32)
+#include "platform/windows/windows_ui_automation.hpp"
+#endif
 
 #if defined(__linux__)
 #include "platform/linux/linux_accessibility.hpp"
@@ -21,11 +25,145 @@
 
 namespace blackbox::app {
 
+ExitReadiness Application::exit_readiness() const {
+    ExitReadiness result{};
+    result.settings_draft = static_cast<const ui::ProductPreferences&>(product_ui_state_) != saved_product_preferences_;
+    result.incident_draft = ui::incident_editor_dirty(incident_viewer_state_);
+    if (collector_) {
+        const auto capture = collector_->incident_capture_status();
+        result.capture_pending = capture.has_pending_window ||
+            capture.phase == core::IncidentCapturePhase::constructing_snapshot;
+        result.writes_pending = capture.queue_size != 0U;
+    }
+#if BLACKBOX_STORAGE_ENABLED
+    if (incident_writer_) {
+        const auto writer = incident_writer_->diagnostics();
+        result.writes_pending = result.writes_pending || writer.writing || writer.retrying;
+        result.recovery_pending = writer.recoverable_incident_available;
+    }
+    if (incident_viewer_service_) {
+        const auto viewer = incident_viewer_service_->queue_diagnostics();
+        result.writes_pending = result.writes_pending || viewer.mutation_in_progress || viewer.queued_mutations != 0U;
+    }
+    if (archive_maintenance_service_)
+        result.maintenance_pending = archive_maintenance_service_->snapshot()->busy ||
+                                     archive_maintenance_service_->boundary_pending();
+#endif
+    result.export_pending = support_bundle_service_.snapshot()->busy || file_dialog_service_.pending();
+    return result;
+}
+
+void Application::request_exit(bool& running, const bool forced) {
+    if (forced) {
+        running = false;
+        return;
+    }
+    // Close admission before examining work, so a hotkey cannot race the decision.
+    if (collector_) collector_->set_capture_requests_enabled(false);
+    const auto work = exit_readiness();
+    if (work.ready()) {
+        exit_when_ready_ = true;
+        exit_drafts_submitted_ = true;
+        product_ui_state_.exit_waiting = true;
+    }
+    product_ui_state_.exit_confirmation_open = true;
+    product_ui_state_.exit_status =
+        "There is unfinished work. Save drafts and wait, or explicitly discard unsaved work.";
+    show_window();
+}
+
+void Application::save_before_exit() {
+    const auto work = exit_readiness();
+    if (work.recovery_pending) {
+        product_ui_state_.exit_status = "Keep working and recover or export the failed captures in Settings first.";
+        return;
+    }
+    exit_when_ready_ = true;
+    product_ui_state_.exit_waiting = true;
+    product_ui_state_.exit_status = "Finishing accepted work. New captures are paused. Keep working to cancel exit.";
+    if (work.capture_pending || work.maintenance_pending || work.writes_pending) return;
+    exit_drafts_submitted_ = true;
+    if (work.settings_draft)
+        apply_product_settings(ui::detail::product_settings_command(product_ui_state_));
+#if BLACKBOX_STORAGE_ENABLED
+    if (work.incident_draft && incident_viewer_service_ && !work.maintenance_pending) {
+        const auto& editor = incident_viewer_state_;
+        const auto content = incident_viewer_service_->snapshot();
+        if (content->detail && content->detail->id == editor.editor_incident_id) {
+            static_cast<void>(incident_viewer_service_->update_annotation(
+                editor.editor_incident_id, editor.label_editor.data(), editor.note_editor.data(),
+                static_cast<storage::IncidentUserFeedback>(content->detail->user_feedback),
+                static_cast<storage::IncidentCategory>(editor.category_editor)));
+            static_cast<void>(incident_viewer_service_->update_recurring_group_override(
+                editor.editor_incident_id, editor.recurring_group_override_editor.data()));
+        }
+    }
+#endif
+    exit_when_ready_ = true;
+    product_ui_state_.exit_waiting = true;
+    product_ui_state_.exit_status = "Finishing accepted work. New captures are paused. Keep working to cancel exit.";
+}
+
+void Application::cancel_exit() {
+    exit_when_ready_ = false;
+    exit_cancel_requested_ = true;
+    product_ui_state_.exit_waiting = false;
+    // An in-flight drain owns the writer until its completion; admission stays
+    // closed until the UI thread has restarted that worker.
+    if (exit_drain_.valid()) return;
+#if BLACKBOX_STORAGE_ENABLED
+    if (exit_writer_drained_ && incident_writer_) incident_writer_->start();
+#endif
+    exit_writer_drained_ = false;
+    exit_drafts_submitted_ = false;
+    exit_cancel_requested_ = false;
+    product_ui_state_.exit_confirmation_open = false;
+    if (collector_) collector_->set_capture_requests_enabled(true);
+}
+
+void Application::advance_exit(bool& running) {
+    if (exit_drain_.valid()) {
+        if (exit_drain_.wait_for(std::chrono::seconds{0}) != std::future_status::ready) return;
+        exit_drain_.get();
+        exit_writer_drained_ = true;
+    }
+    if (exit_cancel_requested_) { cancel_exit(); return; }
+    if (!exit_when_ready_) return;
+    ui::synchronize_incident_editor(incident_viewer_state_);
+    auto work = exit_readiness();
+    if (!exit_drafts_submitted_ && !work.capture_pending && !work.writes_pending && !work.maintenance_pending) {
+        save_before_exit();
+        work = exit_readiness();
+    }
+    if (work.capture_pending || work.writes_pending || work.maintenance_pending || work.export_pending) return;
+#if BLACKBOX_STORAGE_ENABLED
+    if (!exit_writer_drained_ && incident_writer_) {
+        exit_drain_ = std::async(std::launch::async, [this] {
+            incident_writer_->stop(storage::WriterStopPolicy::drain);
+        });
+        return;
+    }
+#endif
+    // Recheck only after the writer has joined: queue removal can precede its
+    // writing diagnostic, and the final accepted write can still fail.
+    work = exit_readiness();
+    if (work.ready()) { running = false; return; }
+    exit_when_ready_ = false;
+    product_ui_state_.exit_waiting = false;
+    product_ui_state_.exit_status = work.recovery_pending
+        ? "A write failed. Keep working to recover or export the incident."
+        : "Changes remain unsaved. Review Settings or incident details, then retry.";
+}
+
 void Application::shutdown() noexcept {
     if (shutdown_started_) {
         return;
     }
     shutdown_started_ = true;
+    if (exit_drain_.valid()) exit_drain_.wait();
+#if defined(_WIN32)
+    windows_ui_automation_.reset();
+#endif
     support_bundle_service_.stop();
 #if defined(__APPLE__)
     if (macos_app_performance_monitor_ != nullptr) {

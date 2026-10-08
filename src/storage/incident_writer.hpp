@@ -56,6 +56,7 @@ struct IncidentWriterDiagnostics {
     std::uint64_t consecutive_failures{};
     std::uint64_t cancelled{};
     bool recoverable_incident_available{};
+    std::size_t recoverable_incident_count{};
     std::uint64_t recoverable_capture_sequence{};
     std::uint64_t failed_incidents_not_retained{};
     std::uint64_t last_failed_capture_sequence{};
@@ -111,7 +112,11 @@ private:
     std::size_t duration_size_{};
     std::size_t duration_next_{};
     mutable std::mutex recovery_mutex_{};
-    std::shared_ptr<const core::IncidentSnapshot> recoverable_incident_{};
+    // One in-flight write plus the product's two reserved capture slots.
+    static constexpr std::size_t recovery_capacity = 3U;
+    std::array<std::shared_ptr<const core::IncidentSnapshot>, recovery_capacity> recoverable_incidents_{};
+    std::size_t recovery_size_{};
+    std::mutex retry_mutex_{};
 };
 
 } // namespace blackbox::storage

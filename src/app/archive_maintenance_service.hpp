@@ -35,6 +35,12 @@ struct ArchiveMaintenanceSnapshot {
     std::string status{"Waiting for archive health check"};
     std::uint64_t generation{};
     std::uint64_t content_epoch{};
+    std::size_t queued_jobs{};
+    std::uint64_t completed_jobs{};
+    std::uint64_t failed_jobs{};
+    std::uint64_t cancelled_jobs{};
+    bool cancellable{};
+    std::uint64_t completed_pages{}, total_pages{};
 };
 
 class ArchiveMaintenanceService final {
@@ -44,6 +50,7 @@ public:
     ~ArchiveMaintenanceService();
     void start();
     void stop() noexcept;
+    void cancel_pending() noexcept;
     void refresh();
     void retry_failed();
     void backup(std::filesystem::path destination);
@@ -87,6 +94,12 @@ private:
     std::condition_variable_any available_{};
     std::deque<Job> jobs_{};
     std::jthread worker_{};
+    bool active_job_{};
+    bool accepting_jobs_{};
+    std::uint64_t completed_jobs_{};
+    std::uint64_t failed_jobs_{};
+    std::uint64_t cancelled_jobs_{};
+    std::stop_source operation_cancellation_{};
     std::shared_ptr<const ArchiveMaintenanceSnapshot> snapshot_{
         std::make_shared<const ArchiveMaintenanceSnapshot>()};
     std::uint64_t generation_{};

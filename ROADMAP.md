@@ -21,10 +21,7 @@ path. Earlier development data must be recollected or expressed in the current f
 ## Current status
 
 - Engineering version: `0.27.0`; the first public release is reserved for exactly `1.0.0`.
-- Current completed Windows test graph: 381 Release tests.
-- V0.27 implementation revision `a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete
-  381-test Windows Release graph and exact-revision Windows, Linux, macOS, and quality/security
-  hosted matrices.
+- Revision-specific test and CI results live only in [Current candidate](docs/CURRENT_CANDIDATE.md).
 - Windows is the most qualified implementation. Linux and macOS have broad engineering parity but
   remain engineering targets until physical desktop, package, lifecycle, accessibility, signing,
   and support qualification is complete.
@@ -109,7 +106,7 @@ bounded APIs without claiming unavailable whole-system GPU, queue-depth, frequen
   app-scoped MetricKit CPU/GPU/hang ingestion with explicit scope and delivery-state wording.
 - [x] Carry periodic evidence through normalization, immutable incidents, direct schema V1, dataset
   and truth-review exports, live/incident UI, provider validation, and focused tests.
-- [x] Build the Windows desktop target and pass the complete 381-test Windows Release graph.
+- [x] Build and validate the Windows desktop target; historical results remain in Git history.
 
 ## Release qualification gates
 
@@ -167,10 +164,9 @@ These are evidence-execution tasks, not missing schema or architecture work.
 
 ## Exact next milestone
 
-V0.27 macOS resource-context and app-performance evidence is complete. Exact revision
-`a99e6776b7850f40b6020ede0671f5957fd1f7f4` passed the complete 381-test Windows Release graph and
-the Windows, Linux, macOS, and quality/security hosted matrices. Freeze the documentation successor,
-rebuild and test that exact revision, run a short fault-recovery smoke, and then run the fresh
-operator-assisted 72-hour Windows campaign. The controlled 30-minute runtime repetitions and
-resource-dependent physical, signing, and corpus gates remain open and must not be replaced by local
-simulation.
+Complete and validate the current software-hardening candidate described in
+[Current candidate](docs/CURRENT_CANDIDATE.md), then freeze a clean revision for
+qualification. Manual campaigns and corpus gathering are currently deferred. When resumed,
+use that frozen revision for controlled runtime repetitions, the operator-assisted
+72-hour Windows campaign and the physical client/signing/corpus gates. Automated fixtures
+cannot substitute for those evidence chains.

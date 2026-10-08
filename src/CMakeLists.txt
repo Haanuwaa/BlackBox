@@ -289,6 +289,7 @@ if(WIN32)
     add_library(blackbox_platform_windows STATIC
         platform/windows/windows_background_shell.cpp
         platform/windows/windows_accessibility.cpp
+        platform/windows/windows_ui_automation.cpp
         platform/windows/windows_crash_diagnostics.cpp
         platform/windows/windows_global_hotkey_manager.cpp
     )
@@ -298,7 +299,7 @@ if(WIN32)
     target_compile_definitions(blackbox_platform_windows PRIVATE _WIN32_WINNT=0x0601)
     target_link_libraries(blackbox_platform_windows PUBLIC BlackBox::Platform)
     target_link_libraries(blackbox_platform_windows PRIVATE
-        user32 shell32 advapi32 dbghelp wtsapi32)
+        user32 shell32 advapi32 dbghelp wtsapi32 comctl32 uiautomationcore oleaut32)
     blackbox_set_project_warnings(blackbox_platform_windows)
 
     add_library(blackbox_telemetry_windows STATIC
@@ -436,6 +437,7 @@ blackbox_set_project_warnings(blackbox_app_support)
 if(BLACKBOX_BUILD_APP)
     add_library(blackbox_ui STATIC
         ui/dashboard.cpp
+        ui/accessible_widgets.cpp
         ui/dashboard_incidents.cpp
         ui/dashboard_pressure.cpp
         ui/dashboard_settings.cpp

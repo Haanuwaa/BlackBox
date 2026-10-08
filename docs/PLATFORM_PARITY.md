@@ -9,35 +9,12 @@ Windows is the only intended V1.0 product target. Linux and macOS rows below des
 coverage until their physical, packaging, reliability, privacy, and support gates are independently
 qualified.
 
-## September 2026 status
+## Validation status
 
-The latest hosted spot-check on 5 September found passing Apple Silicon and Intel jobs in
-[macOS run 33950607057](https://github.com/Haanuwaa/BlackBox/actions/runs/33950607057).
-[Linux run 33950607028](https://github.com/Haanuwaa/BlackBox/actions/runs/33950607028) passed
-Ubuntu, Debian and Fedora native builds/packages, distribution comparison, and Weston, KWin
-and Sway runtime checks, but **failed the Mutter runtime check**. Its retained job log only
-reported exit code 1; the previous workflow skipped uploading compositor diagnostics on failure.
-The cause is unresolved, and that run is not a passing complete Linux matrix.
-
-Those runs use dependency-update branch head `30ee02a66282143f1be755b8a1cca4fd69cefd40`,
-whose only change from `ff69cc8` is the quality workflow's cache action. The Linux PR job
-executed merge revision `239ee63e4227043e58b59f53bbdfd42f2a751e1e`. They do not validate the
-uncommitted hardening candidate. The historical successful matrix below remains bound to its
-older revision.
-
-Current changes strengthen per-architecture macOS deployment verification, add a bounded
-launch from the extracted Mac package, retain native failure logs and test results, and report
-Wayland failures by stage. See [build instructions](BUILD_AND_RELEASE.md) and the
-[current candidate](CURRENT_CANDIDATE.md) for validation limits. No physical Mac is available
-in the current test setup. Oldest-runtime, sleep/resume, permission, accessibility and signing
-gates remain open.
-
-The current uncommitted candidate subsequently passed a local Ubuntu 24.04 native build,
-365 tests, extracted X11 launch, DEB install/launch/removal and an ordinary-user headless
-Mutter smoke. The exact earlier hosted Ubuntu artifact also passed the local Mutter
-reproduction. This does not explain the hosted failure or qualify physical GNOME behavior;
-the next hosted run must retain the new diagnostics. See the current candidate for evidence
-paths and the limited container workload.
+Use [Current candidate](CURRENT_CANDIDATE.md) for revision-specific validation.
+Hosted builds and package smokes cover both macOS architectures and Linux desktop
+adapters, but do not establish physical permission, sleep/resume or accessibility
+qualification. No physical Mac is available in the current test setup.
 
 ## Implemented capabilities
 
@@ -63,33 +40,9 @@ paths and the limited container workload.
 | DPI and display membership | Per-monitor SDL/PerMonitorV2 | SDL Wayland display-scale/pixel-size/membership events; canonical font/style rebuild | SDL native high-density display-scale/pixel-size/membership events |
 | Crash evidence | Bounded native minidump | Fixed POSIX signal record | Fixed POSIX signal record |
 | Engineering package | Portable ZIP | TGZ, DEB, and RPM with hosted install/launch/uninstall lifecycle | Native `.app` in unsigned TGZ, DMG, and PKG; optional Developer ID/notary hooks |
-| Hosted native compiler/provider/package checks | V0.27 Windows matrix passed on `a99e677` | V0.27 Ubuntu, Debian, Fedora, package lifecycle, Weston/Mutter/KWin/Sway, PSI, TSan, fuzz, and coverage passed on `a99e677` | V0.27 Apple Silicon and Intel telemetry/package matrix passed on `a99e677` |
+| Hosted native compiler/provider/package checks | Windows matrix | Ubuntu/Debian/Fedora and compositor matrices | Apple Silicon and Intel matrix |
 | Physical desktop and long-running qualification | Incomplete release gate | Not started | Not started |
 | Production support claim | Intended V1.0 target, not yet released | None | None |
-
-The V0.27 row is bound to exact revision `a99e6776b7850f40b6020ede0671f5957fd1f7f4`:
-[Windows run 33589207216](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207216),
-[Linux run 33589207099](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207099),
-[macOS run 33589207113](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207113), and
-[quality/security run 33589207108](https://github.com/Haanuwaa/BlackBox/actions/runs/33589207108).
-The previous V0.24 evidence remains bound to exact revision
-`85044988da5817fa4e759b6c57d014731ce7a528`:
-[Windows run 33576815333](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815333),
-[Linux run 33576815324](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815324),
-[macOS run 33576815260](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815260), and
-[quality/security run 33576815239](https://github.com/Haanuwaa/BlackBox/actions/runs/33576815239).
-The previous V0.23 evidence remains bound to exact revision
-`8a35fc5dd7b00788086b0cb789af4d6129a56db1`:
-[Windows run 33474907149](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907149),
-[Linux run 33474907204](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907204),
-[macOS run 33474907299](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907299), and
-[quality/security run 33474907227](https://github.com/Haanuwaa/BlackBox/actions/runs/33474907227).
-The previous V0.22 evidence remains bound to revision
-`2d7ac36b49a76011309b10b74ba9ca70bba39333`:
-[Windows run 33465385573](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385573),
-[Linux run 33465385795](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385795),
-[macOS run 33465385552](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385552), and
-[quality/security run 33465385553](https://github.com/Haanuwaa/BlackBox/actions/runs/33465385553).
 
 ## Ordered parity work
 
@@ -110,7 +63,7 @@ The previous V0.22 evidence remains bound to revision
    hotplug-capable hosts. AMD and NVIDIA provide whole-system device gauges; DRM `fdinfo` supplies
    only readable foreground-client activity and is never relabeled as complete host utilization.
    Keep macOS passive whole-system GPU utilization unsupported. Linux PSI is now implemented against
-   `PRESSURE_CONTRACT.md`; physically validate its reset, permission, suspend/resume, and overhead
+   `TELEMETRY.md`; physically validate its reset, permission, suspend/resume, and overhead
    behavior. macOS cumulative-stall pressure remains unsupported; neither its coarse thermal nor
    memory-pressure state is a PSI substitute. PSI is not Windows DPC/ISR activity.
 5. Retain and physically qualify portal permission/denial/restart behavior, the implemented

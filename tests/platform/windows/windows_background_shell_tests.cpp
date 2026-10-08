@@ -202,7 +202,7 @@ TEST_CASE("Windows session shutdown requests application exit on the shell threa
     windows::WindowsBackgroundShell shell{options_for(L"end-session")};
     std::atomic<bool> exit_requested{};
     REQUIRE(shell.start([&exit_requested](const platform::BackgroundShellCommand command) {
-                if (command == platform::BackgroundShellCommand::exit_application) {
+                if (command == platform::BackgroundShellCommand::session_ending) {
                     exit_requested.store(true);
                 }
             }) == platform::BackgroundShellStartResult::started);

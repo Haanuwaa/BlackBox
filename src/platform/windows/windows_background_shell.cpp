@@ -385,7 +385,7 @@ struct WindowsBackgroundShell::NativeState {
             return TRUE;
         case WM_ENDSESSION:
             if (wparam != FALSE) {
-                dispatch(BackgroundShellCommand::exit_application);
+                dispatch(BackgroundShellCommand::session_ending);
             }
             return 0;
         case WM_CLOSE:

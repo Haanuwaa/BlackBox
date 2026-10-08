@@ -11,6 +11,8 @@ void render_path_input(const char* label,
                        PathField field, const ProductUiState& product,
                        DashboardCommand& command);
 
+[[nodiscard]] DashboardCommand product_settings_command(const ProductPreferences& product);
+
 void render_product_settings(const DashboardState &state,
                              ProductUiState &product,
                              DashboardCommand &command);
