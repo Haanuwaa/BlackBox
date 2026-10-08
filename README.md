@@ -1,5 +1,7 @@
 # BlackBox
 
+![BlackBox Computer Flight Recorder](packaging/branding/blackbox-logo.svg)
+
 See the [current hardening candidate](docs/CURRENT_CANDIDATE.md) for validation and remaining gates.
 BlackBox reserves all rights under [LICENSE.txt](LICENSE.txt); dependency terms are described in
 [Third-party notices](THIRD_PARTY_NOTICES.md).

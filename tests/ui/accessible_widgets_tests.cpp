@@ -1,11 +1,23 @@
 #include "ui/accessible_widgets.hpp"
 #include "ui/product_font.hpp"
+#include "core/brand_icon_data.hpp"
+#include <SDL3/SDL.h>
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 #include <filesystem>
 
 namespace core = blackbox::core;
 namespace accessible = blackbox::ui::accessible;
+
+TEST_CASE("embedded brand icon decodes without external assets", "[ui][branding]") {
+    auto* stream = SDL_IOFromConstMem(core::brand_icon_png.data(), core::brand_icon_png.size());
+    REQUIRE(stream != nullptr);
+    auto* surface = SDL_LoadPNG_IO(stream, true);
+    REQUIRE(surface != nullptr);
+    CHECK(surface->w == 64);
+    CHECK(surface->h == 64);
+    SDL_DestroySurface(surface);
+}
 
 TEST_CASE("accessibility actions obey widget identity and disabled boundaries", "[ui][accessibility]") {
     struct Context {

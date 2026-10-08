@@ -37,6 +37,11 @@ function(blackbox_add_windows_version_resource target_name file_description)
         @ONLY
     )
     target_sources(${target_name} PRIVATE "${resource_file}")
+    if(target_name STREQUAL "blackbox")
+        configure_file("${PROJECT_SOURCE_DIR}/packaging/branding/blackbox_icons.rc.in"
+            "${resource_directory}/blackbox_icons.rc" @ONLY)
+        target_sources(${target_name} PRIVATE "${resource_directory}/blackbox_icons.rc")
+    endif()
 endfunction()
 
 set(BLACKBOX_RUNTIME_INSTALL_DESTINATION ".")
@@ -574,6 +579,8 @@ if(BLACKBOX_BUILD_APP)
     # Preserve source-relative links and avoid overwriting the root README.
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/
         DESTINATION "${blackbox_documentation_root}/docs")
+    install(FILES ${PROJECT_SOURCE_DIR}/packaging/branding/blackbox-logo.svg
+        DESTINATION "${blackbox_documentation_root}/packaging/branding")
     file(GLOB blackbox_dependency_notices
         "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/*/copyright")
     if(NOT blackbox_dependency_notices)
@@ -593,6 +600,11 @@ if(BLACKBOX_BUILD_APP)
     endforeach()
     if(APPLE)
         add_custom_command(TARGET blackbox POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/docs/packaging/branding"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${PROJECT_SOURCE_DIR}/packaging/branding/blackbox-logo.svg"
+                "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/docs/packaging/branding"
             COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/docs"
                 "$<TARGET_BUNDLE_DIR:blackbox>/Contents/Resources/docs/docs"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -614,6 +626,9 @@ if(BLACKBOX_BUILD_APP)
         target_link_libraries(blackbox PRIVATE
             BlackBox::TelemetryMacos
             BlackBox::PlatformMacos)
+        target_sources(blackbox PRIVATE "${PROJECT_SOURCE_DIR}/packaging/branding/blackbox.icns")
+        set_source_files_properties("${PROJECT_SOURCE_DIR}/packaging/branding/blackbox.icns"
+            PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
         set_target_properties(blackbox PROPERTIES
             MACOSX_BUNDLE TRUE
             OUTPUT_NAME "BlackBox"

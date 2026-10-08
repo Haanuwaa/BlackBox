@@ -30,6 +30,11 @@ add_executable(blackbox_tests
     property/strict_v1_input_property_tests.cpp
 )
 target_compile_features(blackbox_tests PRIVATE cxx_std_23)
+if(WIN32)
+    configure_file("${PROJECT_SOURCE_DIR}/packaging/branding/blackbox_icons.rc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/blackbox_icons.rc" @ONLY)
+    target_sources(blackbox_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/blackbox_icons.rc")
+endif()
 target_compile_definitions(blackbox_tests PRIVATE
     BLACKBOX_SOURCE_ROOT="${PROJECT_SOURCE_DIR}"
     BLACKBOX_QUALIFICATION_SOURCE_REVISION="${BLACKBOX_EFFECTIVE_SOURCE_REVISION}"

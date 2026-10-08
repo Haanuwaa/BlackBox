@@ -30,6 +30,8 @@ CMakeLists.txt text eol=lf
 *.jpeg -text
 *.gif -text
 *.ico -text
+*.icns -text
+*.svg text eol=lf
 *.ttf -text
 *.otf -text
 *.zip -text

@@ -6,6 +6,22 @@
 - [Quality and security gates](#quality-and-security-gates)
 - [Representative incident fixtures](#representative-incident-fixtures)
 - [Build throughput and documentation checks](#build-throughput-and-documentation-checks)
+- [Brand assets and local cleanup](#brand-assets-and-local-cleanup)
+
+## Brand assets and local cleanup
+
+The source geometry for the recorder mark lives in `scripts/generate-brand-assets.py`.
+Run it with Python 3 to regenerate the committed SVG logo, PNG preview, Windows ICO
+sizes and status badges, macOS ICNS, Linux desktop icon and embedded SDL image.
+`--check` verifies reproducibility. Normal builds require no image tools or new libraries.
+Windows embeds native resources; the app and non-Windows trays use a compiled-in PNG,
+so they do not depend on the working directory. macOS packages include the ICNS resource.
+
+`_CPack_Packages/`, root `imgui.ini`, extracted package copies and Python `__pycache__`
+directories are reproducible local output and can be removed when unused. Build directories
+can also be regenerated, but removing them forces recompilation. Do not blanket-delete
+`out/`: it also holds archives, qualification/soak evidence and potentially worktrees.
+Inspect contents and references first; retain source evidence and actual user recordings.
 
 ## Build, test, and release
 

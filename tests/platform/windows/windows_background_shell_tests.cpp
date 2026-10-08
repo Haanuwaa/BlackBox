@@ -1,4 +1,5 @@
 #include "platform/windows/windows_background_shell.hpp"
+#include "platform/windows/windows_tray_icon.hpp"
 
 #include <windows.h>
 
@@ -38,6 +39,59 @@ template <typename Predicate>
 }
 
 } // namespace
+
+TEST_CASE("Windows tray resources and version four hover text cover every state",
+          "[platform][windows][background][tray]") {
+    for (const auto status : {platform::BackgroundShellStatus::recording,
+             platform::BackgroundShellStatus::capturing, platform::BackgroundShellStatus::paused,
+             platform::BackgroundShellStatus::retrying_storage, platform::BackgroundShellStatus::error}) {
+        const auto data = windows::tray_icon_data(nullptr, 1U, status);
+        CHECK((data.uFlags & (NIF_TIP | NIF_SHOWTIP)) == (NIF_TIP | NIF_SHOWTIP));
+        CHECK(std::wstring{data.szTip}.starts_with(L"BlackBox - "));
+        CHECK(data.hIcon != nullptr);
+    }
+    for (int resource = 101; resource <= 106; ++resource)
+        CHECK(FindResourceW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(resource),
+                           MAKEINTRESOURCEW(14)) != nullptr); // RT_GROUP_ICON
+}
+
+TEST_CASE("Windows tray right click opens a native menu and dismisses cleanly",
+          "[platform][windows][background][tray]") {
+    const auto options = options_for(L"native-menu");
+    windows::WindowsBackgroundShell shell{options};
+    REQUIRE(shell.start([](platform::BackgroundShellCommand) {}) ==
+            platform::BackgroundShellStartResult::started);
+    const auto owner = FindWindowW(options.window_class_name.c_str(), nullptr);
+    REQUIRE(owner != nullptr);
+    // Exercise the same callback used by Explorer, without installing an icon.
+    REQUIRE(PostMessageW(owner, WM_APP + 0x41U, 0, WM_CONTEXTMENU));
+    HWND popup{};
+    const bool opened = wait_until([&] {
+        HWND candidate{};
+        while ((candidate = FindWindowExW(nullptr, candidate, L"#32768", nullptr)) != nullptr) {
+            DWORD process{};
+            GetWindowThreadProcessId(candidate, &process);
+            if (process == GetCurrentProcessId()) { popup = candidate; return true; }
+        }
+        return false;
+    });
+    if (opened) {
+        const auto menu = reinterpret_cast<HMENU>(SendMessageW(popup, 0x01E1U, 0, 0)); // MN_GETHMENU
+        CHECK(GetMenuItemCount(menu) == 8);
+        wchar_t label[80]{};
+        GetMenuStringW(menu, 0U, label, 80, MF_BYPOSITION);
+        CHECK(std::wstring{label} == L"Hide BlackBox");
+        GetMenuStringW(menu, 1U, label, 80, MF_BYPOSITION);
+        CHECK(std::wstring{label} == L"Capture incident");
+        GetMenuStringW(menu, 7U, label, 80, MF_BYPOSITION);
+        CHECK(std::wstring{label} == L"Exit BlackBox");
+    }
+    // Always unblock TrackPopupMenu before joining the shell worker.
+    PostMessageW(owner, WM_CANCELMODE, 0, 0);
+    shell.stop();
+    CHECK(opened);
+    CHECK_FALSE(shell.diagnostics().running);
+}
 
 TEST_CASE("Windows background shell dispatches bounded lifecycle commands and restarts",
           "[platform][windows][background]") {

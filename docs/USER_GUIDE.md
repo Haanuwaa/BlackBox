@@ -75,6 +75,12 @@ can be disabled durably from the tray menu or Settings. The tray tooltip/icon di
 recording, capture, pause, storage retry, and attention-required states. Rapid notification bursts
 coalesce to the newest lifecycle state instead of stacking stale or empty balloons.
 
+On Windows, hover over the blue recorder icon to see **BlackBox** and its current state.
+If the icon is hidden, open the notification area's overflow arrow. The icon's badge shows
+recording (green), capture (blue), pause (amber pause bars), or storage trouble (an amber/red
+exclamation); the tooltip supplies the full meaning. Keyboard users can focus the notification
+area with **Win+B**, select BlackBox, and press **Shift+F10** for the same menu.
+
 ### Product pages
 
 - **Live** leads with recorder readiness, the configured shortcut, one **Capture what just happened**

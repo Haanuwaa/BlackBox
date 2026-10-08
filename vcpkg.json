@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "blackbox",
   "version-semver": "0.27.0",
-  "builtin-baseline": "d015e31e90838a4c9dfa3eed45979bc70d9357fc",
+  "builtin-baseline": "2750401336fb7c95f6619657a46a7e798661341c",
   "dependencies": [
     "catch2",
     {

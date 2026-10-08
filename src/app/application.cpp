@@ -10,6 +10,7 @@
 #include "ui/product_ui_model.hpp"
 #include "ui/product_font.hpp"
 #include "ui/accessible_widgets.hpp"
+#include "core/brand_icon_data.hpp"
 
 #if defined(_WIN32)
 #include "platform/windows/windows_accessibility.hpp"
@@ -324,6 +325,11 @@ ApplicationInitializationResult Application::initialize() {
         return ApplicationInitializationResult::failed;
     }
 
+    auto* icon_stream = SDL_IOFromConstMem(core::brand_icon_png.data(), core::brand_icon_png.size());
+    if (auto* icon = icon_stream == nullptr ? nullptr : SDL_LoadPNG_IO(icon_stream, true)) {
+        static_cast<void>(SDL_SetWindowIcon(window_, icon));
+        SDL_DestroySurface(icon);
+    }
     renderer_ = SDL_CreateRenderer(window_, nullptr);
     if (renderer_ == nullptr) {
         core::Logger::write(core::LogLevel::error, SDL_GetError());

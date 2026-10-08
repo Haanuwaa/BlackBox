@@ -1,4 +1,6 @@
 #include "platform/windows/windows_background_shell.hpp"
+#include "platform/windows/windows_tray_icon.hpp"
+#include <windowsx.h>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -134,33 +136,6 @@ void copy_bounded(wchar_t (&destination)[Size], const std::wstring_view source) 
     return result == ERROR_SUCCESS;
 }
 
-[[nodiscard]] constexpr const wchar_t* tooltip_for(
-    const BackgroundShellStatus status) noexcept {
-    switch (status) {
-    case BackgroundShellStatus::recording: return L"BlackBox - recording";
-    case BackgroundShellStatus::capturing: return L"BlackBox - capturing incident";
-    case BackgroundShellStatus::paused: return L"BlackBox - recording paused";
-    case BackgroundShellStatus::retrying_storage:
-        return L"BlackBox - retrying incident storage";
-    case BackgroundShellStatus::error: return L"BlackBox - attention required";
-    }
-    return L"BlackBox";
-}
-
-[[nodiscard]] HICON icon_for(const BackgroundShellStatus status) noexcept {
-    const wchar_t* resource = MAKEINTRESOURCEW(32512);
-    switch (status) {
-    case BackgroundShellStatus::recording: resource = MAKEINTRESOURCEW(32512); break;
-    case BackgroundShellStatus::capturing: resource = MAKEINTRESOURCEW(32516); break;
-    case BackgroundShellStatus::paused:
-    case BackgroundShellStatus::retrying_storage:
-        resource = MAKEINTRESOURCEW(32515);
-        break;
-    case BackgroundShellStatus::error: resource = MAKEINTRESOURCEW(32513); break;
-    }
-    return LoadIconW(nullptr, resource);
-}
-
 } // namespace
 
 struct WindowsBackgroundShell::NativeState {
@@ -188,19 +163,13 @@ struct WindowsBackgroundShell::NativeState {
             tray_installed = false;
             return false;
         }
-        NOTIFYICONDATAW data{};
-        data.cbSize = sizeof(data);
-        data.hWnd = window.load();
-        data.uID = tray_icon_id;
-        data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        auto data = tray_icon_data(window.load(), tray_icon_id, status.load());
+        data.uFlags |= NIF_MESSAGE;
         data.uCallbackMessage = tray_callback_message;
-        const auto current_status = status.load();
-        data.hIcon = icon_for(current_status);
-        copy_bounded(data.szTip, std::wstring_view{tooltip_for(current_status)});
         tray_installed = Shell_NotifyIconW(NIM_ADD, &data) != FALSE;
         if (tray_installed) {
             data.uVersion = NOTIFYICON_VERSION_4;
-            static_cast<void>(Shell_NotifyIconW(NIM_SETVERSION, &data));
+            tray_version_four = Shell_NotifyIconW(NIM_SETVERSION, &data) != FALSE;
         }
         {
             const std::scoped_lock lock{diagnostics_mutex};
@@ -227,14 +196,7 @@ struct WindowsBackgroundShell::NativeState {
         if (!tray_installed || window.load() == nullptr) {
             return;
         }
-        NOTIFYICONDATAW data{};
-        data.cbSize = sizeof(data);
-        data.hWnd = window.load();
-        data.uID = tray_icon_id;
-        data.uFlags = NIF_ICON | NIF_TIP;
-        const auto current_status = status.load();
-        data.hIcon = icon_for(current_status);
-        copy_bounded(data.szTip, std::wstring_view{tooltip_for(current_status)});
+        auto data = tray_icon_data(window.load(), tray_icon_id, status.load());
         static_cast<void>(Shell_NotifyIconW(NIM_MODIFY, &data));
     }
 
@@ -248,7 +210,7 @@ struct WindowsBackgroundShell::NativeState {
         }
     }
 
-    void show_menu() noexcept {
+    void show_menu(POINT anchor) noexcept {
         const auto menu = CreatePopupMenu();
         if (menu == nullptr) {
             return;
@@ -274,13 +236,22 @@ struct WindowsBackgroundShell::NativeState {
         static_cast<void>(AppendMenuW(menu, MF_SEPARATOR, 0U, nullptr));
         static_cast<void>(AppendMenuW(menu, MF_STRING, menu_exit, L"Exit BlackBox"));
 
-        POINT cursor{};
-        static_cast<void>(GetCursorPos(&cursor));
+        if (anchor.x == -1 && anchor.y == -1) {
+            NOTIFYICONIDENTIFIER identity{};
+            identity.cbSize = sizeof(identity);
+            identity.hWnd = window.load();
+            identity.uID = tray_icon_id;
+            RECT bounds{};
+            if (SUCCEEDED(Shell_NotifyIconGetRect(&identity, &bounds)))
+                anchor = {bounds.left, bounds.bottom};
+            else static_cast<void>(GetCursorPos(&anchor));
+        }
         static_cast<void>(SetForegroundWindow(window.load()));
         const auto selected = TrackPopupMenu(
             menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY,
-            cursor.x, cursor.y, 0, window.load(), nullptr);
+            anchor.x, anchor.y, 0, window.load(), nullptr);
         DestroyMenu(menu);
+        static_cast<void>(PostMessageW(window.load(), WM_NULL, 0U, 0));
         switch (selected) {
         case menu_show_hide:
             dispatch(visible ? BackgroundShellCommand::hide_window
@@ -351,7 +322,9 @@ struct WindowsBackgroundShell::NativeState {
         case tray_callback_message: {
             const auto event = static_cast<UINT>(LOWORD(lparam));
             if (event == WM_CONTEXTMENU || event == WM_RBUTTONUP) {
-                show_menu();
+                POINT anchor{GET_X_LPARAM(wparam), GET_Y_LPARAM(wparam)};
+                if (!tray_version_four) static_cast<void>(GetCursorPos(&anchor));
+                show_menu(anchor);
             } else if (event == NIN_SELECT || event == NIN_KEYSELECT ||
                        event == WM_LBUTTONUP || event == WM_LBUTTONDBLCLK) {
                 dispatch(BackgroundShellCommand::show_window);
@@ -467,6 +440,7 @@ struct WindowsBackgroundShell::NativeState {
     std::atomic<HWND> window{};
     bool class_registered{};
     bool tray_installed{};
+    bool tray_version_four{};
     bool session_notifications_registered{};
     UINT taskbar_created_message{};
 

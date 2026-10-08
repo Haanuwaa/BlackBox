@@ -1,0 +1,6 @@
+101 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/blackbox.ico"
+102 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/tray-recording.ico"
+103 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/tray-capturing.ico"
+104 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/tray-paused.ico"
+105 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/tray-retrying.ico"
+106 ICON "@PROJECT_SOURCE_DIR@/packaging/branding/tray-error.ico"

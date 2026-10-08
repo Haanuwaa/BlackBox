@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 256" role="img" aria-label="BlackBox Computer Flight Recorder">
+<rect x="8" y="8" width="240" height="240" rx="48" fill="#101923"/>
+<rect x="27" y="27" width="202" height="202" rx="32" fill="#2d9cff"/>
+<rect x="38" y="38" width="180" height="180" rx="22" fill="#101923"/>
+<polyline points="60,144 88,144 108,98 136,180 157,126 172,144 196,144" fill="none" stroke="#f4f8fc" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="184" cy="74" r="11" fill="#2d9cff"/>
+<text x="290" y="139" font-family="Segoe UI, sans-serif" font-size="86" font-weight="600" fill="#2d9cff">BlackBox</text>
+<text x="295" y="184" font-family="Segoe UI, sans-serif" font-size="25" fill="#91a6b9">COMPUTER FLIGHT RECORDER</text>
+</svg>

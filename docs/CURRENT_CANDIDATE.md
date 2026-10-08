@@ -79,6 +79,32 @@ Historical September default-profile measurements are summarized in
 [Performance](PERFORMANCE.md); they precede the October changes. No new 72-hour run has
 been started. Original review reports and fixtures were removed after the September pass.
 
+## Branding and dependency follow-up
+
+The next candidate adds a shared recorder logo, Windows executable/tray resources,
+macOS bundle icon, Linux desktop icon and embedded SDL window/tray image. Windows
+hover text now explicitly opts into version-4 standard tooltips; the existing native
+right-click menu has an automated open/dismiss check and uses the notification's anchor.
+
+The immutable vcpkg baseline is now `2750401336fb7c95f6619657a46a7e798661341c`:
+Catch2 3.16.0, ImGui upstream 1.92.9b (port version 1.92.9), ImPlot 1.0,
+SDL 3.4.18 and SQLite 3.53.4. Artifact upload/download actions use 7.0.2/8.0.2,
+and CodeQL uses 4.38.2, all pinned to full commits. The dependency inventory was regenerated.
+
+Hosted Windows, Linux and macOS workflows passed for `a2a68f6`; quality failed on
+unchecked UI Automation `SafeArrayPutElement` results. That failure path now handles
+the HRESULT and releases its allocation. Those hosted passes precede this follow-up.
+
+Local Windows validation passed **410/410 tests**, production MSVC native static analysis
+with warnings treated as errors, workflow/dependency policies, documentation links, asset
+reproducibility and SBOM generation. The extracted ZIP passed version/inventory/checksum
+verification and native UI Automation navigation, draft saving and active-capture exit.
+Evidence is under `out/branding-*`; binaries identify as `local-uncommitted`. New hosted
+results and physical tray/screen-reader qualification remain separate from these checks.
+Obsolete root CPack staging (0.15.0), duplicate package staging/extraction, root `imgui.ini`
+and temporary consolidation/benchmark files were removed. Qualification evidence and
+active builds were retained.
+
 ## Deferred external gates
 
 | Gate | Remaining evidence |

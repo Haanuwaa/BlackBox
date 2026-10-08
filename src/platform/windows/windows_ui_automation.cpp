@@ -143,9 +143,17 @@ public:
         *result = SafeArrayCreateVector(VT_I4, 0, 2);
         if (!*result) return E_OUTOFMEMORY;
         LONG index = 0, value = UiaAppendRuntimeId;
-        SafeArrayPutElement(*result, &index, &value);
-        index = 1; value = std::bit_cast<LONG>(id_); SafeArrayPutElement(*result, &index, &value);
-        return S_OK;
+        auto status = SafeArrayPutElement(*result, &index, &value);
+        if (SUCCEEDED(status)) {
+            index = 1;
+            value = std::bit_cast<LONG>(id_);
+            status = SafeArrayPutElement(*result, &index, &value);
+        }
+        if (FAILED(status)) {
+            static_cast<void>(SafeArrayDestroy(*result));
+            *result = nullptr;
+        }
+        return status;
     }
     HRESULT STDMETHODCALLTYPE get_BoundingRectangle(UiaRect* result) override {
         if (!result) return E_POINTER; *result = {};

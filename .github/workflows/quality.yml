@@ -38,6 +38,7 @@ jobs:
           ./scripts/verify-dependency-policy.ps1
           ./scripts/verify-quality-gates.ps1
           python scripts/check-docs.py
+          python scripts/generate-brand-assets.py --check
       - name: Bootstrap pinned vcpkg registry
         shell: pwsh
         run: cmake -P scripts/bootstrap-vcpkg.cmake
@@ -54,7 +55,7 @@ jobs:
           -StatusPath out/build/windows-quality-sbom/vcpkg_installed/vcpkg/status
           -OutputPath out/quality/blackbox.cdx.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: BlackBox-CycloneDX-SBOM
           path: out/quality/blackbox.cdx.json
@@ -130,7 +131,7 @@ jobs:
         run: >-
           cmake --preset windows-msvc-release -DBLACKBOX_BUILD_TESTS=OFF
       - name: Initialize CodeQL C++ analysis
-        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           languages: c-cpp
           build-mode: manual
@@ -154,7 +155,7 @@ jobs:
             blackbox_offline_ml_tool `
             blackbox_dogfood_capture
       - name: Analyze
-        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
 
   msvc-static-analysis:
     runs-on: windows-2022
@@ -439,7 +440,7 @@ jobs:
               --fail-under-line 15 --fail-under-branch 10
           done
       - name: Upload coverage report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: BlackBox-coverage
           path: |
@@ -470,7 +471,7 @@ jobs:
           ./scripts/write-hosted-ci-attestation.ps1
           -WorkflowKey quality -OutputDirectory out/hosted-ci/quality
       - name: Upload hosted success attestation
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: BlackBox-hosted-ci-quality-${{ github.sha }}
           path: out/hosted-ci/quality

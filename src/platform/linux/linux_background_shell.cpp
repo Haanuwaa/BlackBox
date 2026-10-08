@@ -1,3 +1,4 @@
+#include "core/brand_icon_data.hpp"
 #include "platform/linux/linux_background_shell.hpp"
 
 #include <SDL3/SDL.h>
@@ -557,7 +558,10 @@ struct LinuxBackgroundShell::NativeState {
         if (!options.install_tray_icon || (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0U) {
             return false;
         }
-        tray = SDL_CreateTray(nullptr, "BlackBox - recording");
+        auto* stream = SDL_IOFromConstMem(core::brand_icon_png.data(), core::brand_icon_png.size());
+        auto* icon = stream == nullptr ? nullptr : SDL_LoadPNG_IO(stream, true);
+        tray = SDL_CreateTray(icon, "BlackBox - recording");
+        if (icon != nullptr) SDL_DestroySurface(icon);
         if (tray == nullptr) return false;
         auto* menu = SDL_CreateTrayMenu(tray);
         if (menu == nullptr) {
